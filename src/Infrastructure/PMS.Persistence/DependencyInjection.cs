@@ -51,12 +51,16 @@ public static class DependencyInjection
 
         // Register interceptors (shared across contexts that need them)
         services.AddScoped<AuditableEntityInterceptor>();
+        services.AddScoped<TenantEntityInterceptor>();
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
         {
             options.AddInterceptors(
+                // Tenant first: a row must be stamped with its owner before anything else
+                // reasons about it.
+                sp.GetRequiredService<TenantEntityInterceptor>(),
                 sp.GetRequiredService<AuditableEntityInterceptor>(),
                 sp.GetRequiredService<DomainEventDispatcherInterceptor>());
 

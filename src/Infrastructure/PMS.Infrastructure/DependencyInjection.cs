@@ -63,6 +63,7 @@ public static class DependencyInjection
         // Register core services explicitly (they use marker interfaces but may need manual registration for clarity)
         services.AddSingleton<IDateTime, DateTimeService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<ITenantContext, TenantContext>();
 
         // Register access logging services
         services.AddScoped<IAccessLoggerService, AccessLoggerService>();
