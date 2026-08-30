@@ -2,6 +2,7 @@ using PMS.Application.Interfaces;
 using PMS.Persistence.Common;
 using PMS.Persistence.Contexts;
 using PMS.Persistence.Interceptors;
+using PMS.Persistence.Services;
 using PMS.Persistence.Repositories;
 using PMS.SharedKernel.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +53,7 @@ public static class DependencyInjection
         // Register interceptors (shared across contexts that need them)
         services.AddScoped<AuditableEntityInterceptor>();
         services.AddScoped<TenantEntityInterceptor>();
+        services.AddScoped<ITenantStatusValidator, TenantStatusValidator>();
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

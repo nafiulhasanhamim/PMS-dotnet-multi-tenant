@@ -116,6 +116,44 @@ in practice most will not have one.
 visitor has landed on, but authorisation still comes from the signed `tenant_id` claim after
 login. A host header is caller-supplied and must never be trusted on its own.
 
+## Suspending a pharmacy — `IsActive`
+
+`IsActive` withdraws a pharmacy's **access**. It deletes nothing, and it does not hide the
+pharmacy's data: suspend for non-payment, take payment, reactivate, and everything is exactly
+as it was.
+
+It is checked in two places, both at the edge of a request:
+
+1. **At login** — no token is issued for an inactive tenant.
+2. **Per request** — `TenantStatusMiddleware`, immediately after `UseAuthentication()`.
+
+The second is not redundant. Without it, suspending a pharmacy would not take effect until
+every token already issued had expired, so a pharmacy suspended this morning would keep
+trading until its sessions ran out.
+
+### Why not in the query filter
+
+Because suspension is about access, not existence. Putting it in the filter would mean
+joining every query to `Tenants` to prove the owner is still active — that join, on every
+read, forever, to enforce something that changes only when an administrator suspends
+someone. It would also make a suspended pharmacy's data invisible to the platform
+administrator trying to help them.
+
+`TenantStatusValidator` returns one of three results:
+
+| Result | Cause | Response |
+|---|---|---|
+| `Ok` | Active, not deleted | request proceeds |
+| `Inactive` | Suspended | 403, "This pharmacy's access has been suspended" |
+| `NotFound` | No such tenant, or soft-deleted | 403, deliberately vague |
+
+A soft-deleted tenant reads as `NotFound` rather than having its own branch, because the
+soft-delete query filter already hides it — there is no second rule to keep in step.
+
+Requests carrying **no** tenant — login, health, swagger, a platform administrator — skip the
+check entirely. There is nothing to validate, and the query filter already shows them no
+tenant data.
+
 ## Writing a tenant-owned entity
 
 ```csharp

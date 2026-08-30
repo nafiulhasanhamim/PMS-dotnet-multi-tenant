@@ -94,6 +94,10 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
+    // Refuse requests from a suspended or deleted pharmacy. After authentication, because
+    // the tenant is read from a claim.
+    app.UseTenantStatusCheck();
+
     // Health checks endpoint
     app.MapHealthChecks("/health", new HealthCheckOptions
     {
