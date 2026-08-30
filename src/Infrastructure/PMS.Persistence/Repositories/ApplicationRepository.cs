@@ -14,13 +14,13 @@ namespace PMS.Persistence.Repositories;
 /// // In your handler:
 /// public class CreateOrderHandler
 /// {
-///     private readonly IRepository&lt;Order, IApplicationDbContext&gt; _orderRepo;
+///     private readonly IRepository&lt;Sale, IApplicationDbContext&gt; _saleRepo;
 ///     private readonly IUnitOfWork&lt;IApplicationDbContext&gt; _unitOfWork;
 ///
 ///     public async Task Handle(CreateOrderCommand command, CancellationToken ct)
 ///     {
-///         var order = new Order(command.CustomerId, command.ShippingAddress);
-///         await _orderRepo.AddAsync(order, ct);
+///         var sale = new Sale(command.SupplierId, command.ShippingAddress);
+///         await _saleRepo.AddAsync(sale, ct);
 ///         await _unitOfWork.SaveChangesAsync(ct);
 ///     }
 /// }

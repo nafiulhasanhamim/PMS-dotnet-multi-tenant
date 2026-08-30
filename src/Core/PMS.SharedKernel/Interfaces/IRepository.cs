@@ -24,12 +24,12 @@ public interface IReadRepository<TEntity, TContext> : IReadRepositoryBase<TEntit
 /// // In Application layer:
 /// public class CreateCustomerHandler
 /// {
-///     private readonly IRepository&lt;Customer, IApplicationDbContext&gt; _customerRepo;
+///     private readonly IRepository&lt;Supplier, IApplicationDbContext&gt; _supplierRepo;
 ///
 ///     public async Task Handle(CreateCustomerCommand command, CancellationToken ct)
 ///     {
-///         var customer = new Customer(command.Name, command.Email);
-///         await _customerRepo.AddAsync(customer, ct);
+///         var supplier = new Supplier(command.Name, command.Email);
+///         await _supplierRepo.AddAsync(supplier, ct);
 ///     }
 /// }
 /// </example>

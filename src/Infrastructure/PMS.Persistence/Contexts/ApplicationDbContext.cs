@@ -18,25 +18,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     {
     }
 
-    /// <summary>
-    /// Gets the Customers DbSet.
-    /// </summary>
-    public DbSet<Customer> Customers => Set<Customer>();
-
-    /// <summary>
-    /// Gets the Products DbSet.
-    /// </summary>
-    public DbSet<Product> Products => Set<Product>();
-
-    /// <summary>
-    /// Gets the Orders DbSet.
-    /// </summary>
-    public DbSet<Order> Orders => Set<Order>();
-
-    /// <summary>
-    /// Gets the OrderItems DbSet.
-    /// </summary>
-    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    // PMS entities go here as they are built, e.g.:
+    //     public DbSet<Medicine> Medicines => Set<Medicine>();
 
     /// <summary>
     /// Gets the AccessLogs DbSet for audit trail.

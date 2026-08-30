@@ -1,7 +1,5 @@
 using System.Reflection;
 using PMS.Application.Interfaces;
-using PMS.Domain.Entities;
-using PMS.Domain.Entities.Reporting;
 using PMS.SharedKernel.Common;
 using PMS.SharedKernel.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -30,53 +28,9 @@ public class ReportingDbContext : DbContext, IReportingDbContext
         ChangeTracker.AutoDetectChangesEnabled = false;
     }
 
-    #region Shared Entities (also in ApplicationDbContext)
-
-    /// <summary>
-    /// Gets the Customers DbSet (read-only).
-    /// </summary>
-    public DbSet<Customer> Customers => Set<Customer>();
-
-    /// <summary>
-    /// Gets the Products DbSet (read-only).
-    /// </summary>
-    public DbSet<Product> Products => Set<Product>();
-
-    /// <summary>
-    /// Gets the Orders DbSet (read-only).
-    /// </summary>
-    public DbSet<Order> Orders => Set<Order>();
-
-    /// <summary>
-    /// Gets the OrderItems DbSet (read-only).
-    /// </summary>
-    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
-
-    #endregion
-
-    #region Reporting-Only Entities (NOT in ApplicationDbContext)
-
-    /// <summary>
-    /// Gets the DailySalesSummary DbSet for daily sales analytics.
-    /// </summary>
-    public DbSet<DailySalesSummary> DailySalesSummaries => Set<DailySalesSummary>();
-
-    /// <summary>
-    /// Gets the MonthlySalesSummary DbSet for monthly trend analysis.
-    /// </summary>
-    public DbSet<MonthlySalesSummary> MonthlySalesSummaries => Set<MonthlySalesSummary>();
-
-    /// <summary>
-    /// Gets the ProductSalesAggregate DbSet for product performance analytics.
-    /// </summary>
-    public DbSet<ProductSalesAggregate> ProductSalesAggregates => Set<ProductSalesAggregate>();
-
-    /// <summary>
-    /// Gets the CustomerLifetimeValue DbSet for customer analytics and segmentation.
-    /// </summary>
-    public DbSet<CustomerLifetimeValue> CustomerLifetimeValues => Set<CustomerLifetimeValue>();
-
-    #endregion
+    // Read-side DbSets go here as the PMS reports module is built, e.g.:
+    //     public DbSet<Sale> Sales => Set<Sale>();                       // shared with ApplicationDbContext
+    //     public DbSet<DailySalesSummary> DailySales => Set<DailySalesSummary>();   // reporting-only
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

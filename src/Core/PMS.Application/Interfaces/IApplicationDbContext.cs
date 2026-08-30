@@ -13,7 +13,7 @@ namespace PMS.Application.Interfaces;
 /// <code>
 /// public class GetCustomersHandler
 /// {
-///     private readonly IRepository&lt;Customer, IApplicationDbContext&gt; _customerRepo;
+///     private readonly IRepository&lt;Supplier, IApplicationDbContext&gt; _supplierRepo;
 ///     private readonly IUnitOfWork&lt;IApplicationDbContext&gt; _unitOfWork;
 /// }
 /// </code>

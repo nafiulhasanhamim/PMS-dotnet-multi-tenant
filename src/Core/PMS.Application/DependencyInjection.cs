@@ -28,7 +28,7 @@ public static class DependencyInjection
             cfg.RegisterServicesFromAssembly(assembly);
         });
 
-        // Register MediatR pipeline behaviors in execution order (outermost to innermost):
+        // Register MediatR pipeline behaviors in execution sale (outermost to innermost):
         // 1. UnhandledExceptionBehavior - Catches all exceptions (outermost)
         // 2. LoggingBehavior - Logs request start/end with timing
         // 3. PerformanceBehavior - Monitors slow requests (>500ms)

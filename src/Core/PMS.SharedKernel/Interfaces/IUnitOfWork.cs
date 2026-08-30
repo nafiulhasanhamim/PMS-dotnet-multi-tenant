@@ -10,7 +10,7 @@ namespace PMS.SharedKernel.Interfaces;
 /// // In Application layer:
 /// public class CreateOrderHandler
 /// {
-///     private readonly IRepository&lt;Order, IApplicationDbContext&gt; _orderRepo;
+///     private readonly IRepository&lt;Sale, IApplicationDbContext&gt; _saleRepo;
 ///     private readonly IRepository&lt;Inventory, IApplicationDbContext&gt; _inventoryRepo;
 ///     private readonly IUnitOfWork&lt;IApplicationDbContext&gt; _unitOfWork;
 ///
@@ -19,7 +19,7 @@ namespace PMS.SharedKernel.Interfaces;
 ///         await _unitOfWork.BeginTransactionAsync(ct);
 ///         try
 ///         {
-///             await _orderRepo.AddAsync(order, ct);
+///             await _saleRepo.AddAsync(sale, ct);
 ///             await _inventoryRepo.UpdateAsync(inventory, ct);
 ///             await _unitOfWork.SaveChangesAsync(ct);
 ///             await _unitOfWork.CommitTransactionAsync(ct);

@@ -16,15 +16,15 @@ namespace PMS.SharedKernel.DependencyInjection;
 /// // Define service interface that inherits from marker
 /// public interface IOrderService : IScopedService
 /// {
-///     Task&lt;Order&gt; CreateOrderAsync(CreateOrderDto dto);
-///     Task&lt;Order?&gt; GetOrderAsync(Guid id);
+///     Task&lt;Sale&gt; CreateOrderAsync(CreateOrderDto dto);
+///     Task&lt;Sale?&gt; GetOrderAsync(Guid id);
 /// }
 ///
 /// // Implementation only implements the service interface
 /// public class OrderService : IOrderService
 /// {
-///     public Task&lt;Order&gt; CreateOrderAsync(CreateOrderDto dto) { ... }
-///     public Task&lt;Order?&gt; GetOrderAsync(Guid id) { ... }
+///     public Task&lt;Sale&gt; CreateOrderAsync(CreateOrderDto dto) { ... }
+///     public Task&lt;Sale?&gt; GetOrderAsync(Guid id) { ... }
 /// }
 /// </code>
 /// </para>

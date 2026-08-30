@@ -153,7 +153,7 @@ public static class DependencyInjection
     {
         // ════════════════════════════════════════════════════════════════════
         // Multi-database pattern (type-safe, recommended for multiple contexts)
-        // Usage: IRepository<Customer, IApplicationDbContext>
+        // Usage: IRepository<Supplier, IApplicationDbContext>
         // ════════════════════════════════════════════════════════════════════
 
         // Generic open repositories (resolved based on TContext type parameter)
@@ -165,7 +165,7 @@ public static class DependencyInjection
 
         // ════════════════════════════════════════════════════════════════════
         // Single-database pattern (convenience interfaces for simple scenarios)
-        // Usage: IRepository<Customer>
+        // Usage: IRepository<Supplier>
         // ════════════════════════════════════════════════════════════════════
 
         // These use ApplicationDbContext by default

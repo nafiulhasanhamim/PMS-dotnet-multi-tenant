@@ -4,13 +4,13 @@ This folder contains SQL scripts for setting up and managing the PMS database.
 
 ## Scripts
 
+The template's sample tables (Customers, Products, Orders) and their seed data
+have been removed. PMS tables are added here as each module is built.
+
 | Script | Description |
 |--------|-------------|
 | `000_RunAll.sql` | Instructions for running all scripts |
 | `001_CreateDatabase.sql` | Creates the database |
-| `002_CreateTables.sql` | Creates transactional tables (Customers, Products, Orders, OrderItems) |
-| `003_SeedData.sql` | Seeds initial test data (customers, products, sample order) |
-| `004_CreateReportingTables.sql` | Creates reporting-only tables for analytics (ReportingDbContext only) |
 | `099_DropAllTables.sql` | Drops all tables (for development reset) |
 
 ## Quick Start
@@ -21,9 +21,6 @@ This folder contains SQL scripts for setting up and managing the PMS database.
 2. Execute scripts in order:
    ```
    001_CreateDatabase.sql
-   002_CreateTables.sql
-   003_SeedData.sql (optional)
-   004_CreateReportingTables.sql (optional - for analytics)
    ```
 
 ### Option 2: Command Line (sqlcmd)
@@ -33,13 +30,10 @@ This folder contains SQL scripts for setting up and managing the PMS database.
 sqlcmd -S YOUR_SERVER -E -i "001_CreateDatabase.sql"
 
 # Create tables
-sqlcmd -S YOUR_SERVER -E -d PMSDb -i "002_CreateTables.sql"
 
 # Seed data (optional)
-sqlcmd -S YOUR_SERVER -E -d PMSDb -i "003_SeedData.sql"
 
 # Create reporting tables (optional)
-sqlcmd -S YOUR_SERVER -E -d PMSDb -i "004_CreateReportingTables.sql"
 ```
 
 Replace `YOUR_SERVER` with your SQL Server instance (e.g., `localhost`, `.\SQLEXPRESS`, `(localdb)\mssqllocaldb`).
@@ -154,4 +148,3 @@ EXEC sp_executesql N'
 '
 ```
 
-Or run `099_DropAllTables.sql` followed by `002_CreateTables.sql` and `004_CreateReportingTables.sql`.

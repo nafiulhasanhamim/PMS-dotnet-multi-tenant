@@ -117,11 +117,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        // Clear all data
-        db.OrderItems.RemoveRange(db.OrderItems.IgnoreQueryFilters());
-        db.Orders.RemoveRange(db.Orders.IgnoreQueryFilters());
-        db.Customers.RemoveRange(db.Customers.IgnoreQueryFilters());
-        db.Products.RemoveRange(db.Products.IgnoreQueryFilters());
+        // Clear all data. Add each PMS DbSet here as it is introduced, newest
+        // dependants first so foreign keys are satisfied, e.g.:
+        //     db.SaleLines.RemoveRange(db.SaleLines.IgnoreQueryFilters());
+        //     db.Sales.RemoveRange(db.Sales.IgnoreQueryFilters());
         db.AccessLogs.RemoveRange(db.AccessLogs);
 
         await db.SaveChangesAsync();

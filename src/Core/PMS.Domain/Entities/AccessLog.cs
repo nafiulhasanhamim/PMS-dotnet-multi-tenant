@@ -29,7 +29,7 @@ public class AccessLog : BaseEntity<Guid>
     public DateTime AccessDateUtc { get; private set; }
 
     /// <summary>
-    /// The type of entity being accessed (e.g., "Customer", "Order").
+    /// The type of entity being accessed (e.g., "Supplier", "Sale").
     /// </summary>
     public string EntityName { get; private set; } = null!;
 

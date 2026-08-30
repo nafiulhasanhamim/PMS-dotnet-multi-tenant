@@ -13,7 +13,7 @@ public sealed class AccessLogAttribute : Attribute
     public string ActionName { get; }
 
     /// <summary>
-    /// The entity name being accessed (e.g., "Customer", "Order").
+    /// The entity name being accessed (e.g., "Supplier", "Sale").
     /// </summary>
     public string EntityName { get; }
 

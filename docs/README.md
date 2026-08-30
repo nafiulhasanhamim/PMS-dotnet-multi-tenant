@@ -1,5 +1,11 @@
 # PMS - Enterprise Clean Architecture Template
 
+> **Note on the examples in this document.**
+> The worked examples below use `Customer`, `Product` and `Order`. Those were the
+> template's sample domain and have been removed from the codebase — PMS builds its
+> own entities (Medicine, Batch, Sale, Supplier, ...) on the same patterns. Read them
+> as illustrations of the pattern, not as code that exists in this repository.
+
 A production-ready .NET 8 solution template implementing Clean Architecture with CQRS, Domain-Driven Design, and full observability support.
 
 ## Table of Contents

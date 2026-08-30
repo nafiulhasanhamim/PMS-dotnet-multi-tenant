@@ -39,7 +39,7 @@ public interface ICacheService
     /// <summary>
     /// Removes all values matching a pattern from the cache.
     /// </summary>
-    /// <param name="pattern">The key pattern (e.g., "customers:*").</param>
+    /// <param name="pattern">The key pattern (e.g., "suppliers:*").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task RemoveByPatternAsync(string pattern, CancellationToken cancellationToken = default);
 

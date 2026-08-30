@@ -20,14 +20,14 @@ namespace PMS.Persistence.Repositories;
 /// // In your query handler:
 /// public class GetSalesReportHandler
 /// {
-///     private readonly IReadRepository&lt;Order, IReportingDbContext&gt; _reportingRepo;
+///     private readonly IReadRepository&lt;Sale, IReportingDbContext&gt; _reportingRepo;
 ///
 ///     public async Task&lt;SalesReportDto&gt; Handle(GetSalesReportQuery query, CancellationToken ct)
 ///     {
 ///         // Uses read replica for heavy reporting queries
-///         var orders = await _reportingRepo.ListAsync(
+///         var sales = await _reportingRepo.ListAsync(
 ///             new OrdersByDateRangeSpec(query.StartDate, query.EndDate), ct);
-///         return MapToReport(orders);
+///         return MapToReport(sales);
 ///     }
 /// }
 /// </example>

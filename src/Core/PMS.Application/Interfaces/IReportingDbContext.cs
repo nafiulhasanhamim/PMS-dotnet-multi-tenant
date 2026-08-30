@@ -16,10 +16,10 @@ namespace PMS.Application.Interfaces;
 /// Example usage in handlers:
 /// <code>
 /// // Read from reporting database (read replica)
-/// private readonly IReadRepository&lt;Order, IReportingDbContext&gt; _reportingRepo;
+/// private readonly IReadRepository&lt;Sale, IReportingDbContext&gt; _reportingRepo;
 ///
 /// // Write to primary database
-/// private readonly IRepository&lt;Order, IApplicationDbContext&gt; _primaryRepo;
+/// private readonly IRepository&lt;Sale, IApplicationDbContext&gt; _primaryRepo;
 /// </code>
 /// </remarks>
 public interface IReportingDbContext : IDbContext

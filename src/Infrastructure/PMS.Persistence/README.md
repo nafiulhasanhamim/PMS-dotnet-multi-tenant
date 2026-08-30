@@ -51,23 +51,23 @@ For simple applications with one database:
 ```csharp
 public class CreateCustomerHandler : IRequestHandler<CreateCustomerCommand, Result<Guid>>
 {
-    private readonly IRepository<Customer> _customerRepo;
+    private readonly IRepository<Supplier> _supplierRepo;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateCustomerHandler(
-        IRepository<Customer> customerRepo,
+        IRepository<Supplier> supplierRepo,
         IUnitOfWork unitOfWork)
     {
-        _customerRepo = customerRepo;
+        _supplierRepo = supplierRepo;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<Result<Guid>> Handle(CreateCustomerCommand command, CancellationToken ct)
     {
-        var customer = new Customer(command.FirstName, command.LastName, command.Email);
-        await _customerRepo.AddAsync(customer, ct);
+        var supplier = new Supplier(command.FirstName, command.LastName, command.Email);
+        await _supplierRepo.AddAsync(supplier, ct);
         await _unitOfWork.SaveChangesAsync(ct);
-        return customer.Id;
+        return supplier.Id;
     }
 }
 ```
@@ -80,17 +80,17 @@ For applications with multiple databases (e.g., primary + read replica):
 public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Guid>>
 {
     // Write to primary database
-    private readonly IRepository<Order, IApplicationDbContext> _orderRepo;
-    private readonly IRepository<Product, IApplicationDbContext> _productRepo;
+    private readonly IRepository<Sale, IApplicationDbContext> _saleRepo;
+    private readonly IRepository<Medicine, IApplicationDbContext> _medicineRepo;
     private readonly IUnitOfWork<IApplicationDbContext> _unitOfWork;
 
     public CreateOrderHandler(
-        IRepository<Order, IApplicationDbContext> orderRepo,
-        IRepository<Product, IApplicationDbContext> productRepo,
+        IRepository<Sale, IApplicationDbContext> saleRepo,
+        IRepository<Medicine, IApplicationDbContext> medicineRepo,
         IUnitOfWork<IApplicationDbContext> unitOfWork)
     {
-        _orderRepo = orderRepo;
-        _productRepo = productRepo;
+        _saleRepo = saleRepo;
+        _medicineRepo = medicineRepo;
         _unitOfWork = unitOfWork;
     }
 
@@ -99,18 +99,18 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Result<Gui
         await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
-            var product = await _productRepo.GetByIdAsync(command.ProductId, ct);
-            if (product is null)
-                return Result.Failure<Guid>(Error.NotFound("Product", command.ProductId));
+            var medicine = await _medicineRepo.GetByIdAsync(command.MedicineId, ct);
+            if (medicine is null)
+                return Result.Failure<Guid>(Error.NotFound("Medicine", command.MedicineId));
 
-            var order = new Order(command.CustomerId, command.ShippingAddress);
-            order.AddItem(product.Id, product.Name, product.Price, command.Quantity);
+            var sale = new Sale(command.SupplierId, command.ShippingAddress);
+            sale.AddItem(medicine.Id, medicine.Name, medicine.Price, command.Quantity);
 
-            await _orderRepo.AddAsync(order, ct);
+            await _saleRepo.AddAsync(sale, ct);
             await _unitOfWork.SaveChangesAsync(ct);
             await _unitOfWork.CommitTransactionAsync(ct);
 
-            return order.Id;
+            return sale.Id;
         }
         catch
         {
@@ -129,9 +129,9 @@ For read-heavy operations using a read replica:
 public class GetSalesReportHandler : IRequestHandler<GetSalesReportQuery, SalesReportDto>
 {
     // Read from reporting database (read replica)
-    private readonly IReadRepository<Order, IReportingDbContext> _reportingRepo;
+    private readonly IReadRepository<Sale, IReportingDbContext> _reportingRepo;
 
-    public GetSalesReportHandler(IReadRepository<Order, IReportingDbContext> reportingRepo)
+    public GetSalesReportHandler(IReadRepository<Sale, IReportingDbContext> reportingRepo)
     {
         _reportingRepo = reportingRepo;
     }
@@ -139,10 +139,10 @@ public class GetSalesReportHandler : IRequestHandler<GetSalesReportQuery, SalesR
     public async Task<SalesReportDto> Handle(GetSalesReportQuery query, CancellationToken ct)
     {
         // Uses read replica - optimized for read-heavy operations
-        var orders = await _reportingRepo.ListAsync(
+        var sales = await _reportingRepo.ListAsync(
             new OrdersByDateRangeSpec(query.StartDate, query.EndDate), ct);
 
-        return MapToReport(orders);
+        return MapToReport(sales);
     }
 }
 ```
@@ -153,34 +153,34 @@ public class GetSalesReportHandler : IRequestHandler<GetSalesReportQuery, SalesR
 public class ProcessOrderHandler : IRequestHandler<ProcessOrderCommand, Result>
 {
     // Write operations use primary database
-    private readonly IRepository<Order, IApplicationDbContext> _orderRepo;
+    private readonly IRepository<Sale, IApplicationDbContext> _saleRepo;
     private readonly IUnitOfWork<IApplicationDbContext> _unitOfWork;
 
     // Heavy reads can use reporting database
-    private readonly IReadRepository<Customer, IReportingDbContext> _customerReadRepo;
+    private readonly IReadRepository<Supplier, IReportingDbContext> _customerReadRepo;
 
     public ProcessOrderHandler(
-        IRepository<Order, IApplicationDbContext> orderRepo,
+        IRepository<Sale, IApplicationDbContext> saleRepo,
         IUnitOfWork<IApplicationDbContext> unitOfWork,
-        IReadRepository<Customer, IReportingDbContext> customerReadRepo)
+        IReadRepository<Supplier, IReportingDbContext> customerReadRepo)
     {
-        _orderRepo = orderRepo;
+        _saleRepo = saleRepo;
         _unitOfWork = unitOfWork;
         _customerReadRepo = customerReadRepo;
     }
 
     public async Task<Result> Handle(ProcessOrderCommand command, CancellationToken ct)
     {
-        // Read customer info from replica (offload reads)
-        var customer = await _customerReadRepo.FirstOrDefaultAsync(
-            new CustomerByIdSpec(command.CustomerId), ct);
+        // Read supplier info from replica (offload reads)
+        var supplier = await _customerReadRepo.FirstOrDefaultAsync(
+            new CustomerByIdSpec(command.SupplierId), ct);
 
-        if (customer is null)
-            return Result.Failure(Error.NotFound("Customer", command.CustomerId));
+        if (supplier is null)
+            return Result.Failure(Error.NotFound("Supplier", command.SupplierId));
 
         // Write to primary database
-        var order = await _orderRepo.GetByIdAsync(command.OrderId, ct);
-        order.StartProcessing();
+        var sale = await _saleRepo.GetByIdAsync(command.SaleId, ct);
+        sale.StartProcessing();
 
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Success();
