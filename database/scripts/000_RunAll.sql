@@ -15,15 +15,21 @@ PRINT ''
 
 -- If using SQLCMD mode (Query > SQLCMD Mode), uncomment below:
 -- :r "001_CreateDatabase.sql"
+-- :r "002_CreateTenantsTable.sql"
+-- :r "005_CreateAccessLogsTable.sql"
 
 -- Otherwise, execute each script in order:
 -- 1. 001_CreateDatabase.sql
+-- 2. 002_CreateTenantsTable.sql      (before any tenant-owned table)
+-- 3. 005_CreateAccessLogsTable.sql
 
 PRINT ''
 PRINT '============================================'
 PRINT 'Instructions:'
 PRINT '============================================'
 PRINT '1. Run 001_CreateDatabase.sql first'
+PRINT '2. Run 002_CreateTenantsTable.sql   (before any tenant-owned table)'
+PRINT '3. Run 005_CreateAccessLogsTable.sql'
 PRINT ''
 PRINT 'Or enable SQLCMD mode in SSMS (Query > SQLCMD Mode)'
 PRINT 'and uncomment the :r commands above to run all at once.'

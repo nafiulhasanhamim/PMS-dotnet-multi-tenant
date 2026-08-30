@@ -21,6 +21,15 @@ BEGIN
 END
 GO
 
+-- Tenants last: every tenant-owned table references it, so it cannot go until
+-- they are all gone.
+IF OBJECT_ID('[dbo].[Tenants]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[Tenants]
+    PRINT 'Table [Tenants] dropped.'
+END
+GO
+
 PRINT ''
 PRINT '============================================'
 PRINT 'All tables dropped successfully.'

@@ -11,7 +11,15 @@ have been removed. PMS tables are added here as each module is built.
 |--------|-------------|
 | `000_RunAll.sql` | Instructions for running all scripts |
 | `001_CreateDatabase.sql` | Creates the database |
+| `002_CreateTenantsTable.sql` | Creates `Tenants` — one row per pharmacy. **Run before any tenant-owned table**, which all reference it |
+| `005_CreateAccessLogsTable.sql` | Creates `AccessLogs` for the audit trail |
 | `099_DropAllTables.sql` | Drops all tables (for development reset) |
+
+Numbering leaves gaps on purpose: PMS tables slot in between `002` and `005` as each
+module is built, in dependency order.
+
+Every script is idempotent — it checks whether the object exists first, so re-running it
+prints a notice rather than failing.
 
 ## Quick Start
 
@@ -21,6 +29,8 @@ have been removed. PMS tables are added here as each module is built.
 2. Execute scripts in order:
    ```
    001_CreateDatabase.sql
+   002_CreateTenantsTable.sql
+   005_CreateAccessLogsTable.sql
    ```
 
 ### Option 2: Command Line (sqlcmd)
