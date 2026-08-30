@@ -93,6 +93,29 @@ interfaces the entity implements.
 
 Pinned by `SoftDeleteAndTenantFilters_BothApply`.
 
+## The tenant record
+
+`Tenant` carries three identifiers, and they do different jobs:
+
+| Field | Unique | Purpose |
+|---|---|---|
+| `Id` (Guid) | yes | What every tenant-owned row points at, and what the `tenant_id` claim carries |
+| `Slug` | yes | Short stable key for URLs and support conversations, e.g. `citycare` |
+| `DomainName` | when set | The pharmacy's own host, e.g. `citycare.com` — optional |
+
+`DomainName` is stored as a **bare lowercase host**: no scheme, port, path or query. Whatever
+is typed is reduced to that form, so `https://CityCare.com/login` and `citycare.com` are
+recognised as the same domain. Without that, two tenants could hold what is really the same
+host and the unique index would not notice.
+
+Its unique index is **filtered on `IS NOT NULL`**. SQL Server treats NULLs as equal in a
+unique index, so an unfiltered one would allow exactly one tenant without a domain — while
+in practice most will not have one.
+
+**A domain does not authorise anything.** It can indicate which pharmacy's sign-in page a
+visitor has landed on, but authorisation still comes from the signed `tenant_id` claim after
+login. A host header is caller-supplied and must never be trusted on its own.
+
 ## Writing a tenant-owned entity
 
 ```csharp
