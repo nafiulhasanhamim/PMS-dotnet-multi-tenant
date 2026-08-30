@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- RootNamespace only - other settings inherited from Directory.Build.props -->
+  <PropertyGroup>
+    <RootNamespace>PMS.Persistence</RootNamespace>
+  </PropertyGroup>
+
+  <!-- NuGet Packages -->
+  <ItemGroup>
+    <!-- Specification Pattern for EF Core -->
+    <PackageReference Include="Ardalis.Specification.EntityFrameworkCore" />
+
+    <!-- ASP.NET Identity with EF Core -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+
+    <!-- EF Core SQL Server Provider -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+
+    <!-- EF Core CLI Tools (dotnet ef migrations) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
+    <!-- Configuration Abstractions -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\PMS.Application\PMS.Application.csproj" />
+  </ItemGroup>
+
+</Project>

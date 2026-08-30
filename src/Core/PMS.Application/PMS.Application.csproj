@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- RootNamespace only - other settings inherited from Directory.Build.props -->
+  <PropertyGroup>
+    <RootNamespace>PMS.Application</RootNamespace>
+  </PropertyGroup>
+
+  <!-- NuGet Packages -->
+  <ItemGroup>
+    <!-- MediatR for CQRS -->
+    <PackageReference Include="MediatR" />
+
+    <!-- Validation DI Extensions -->
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+
+    <!-- Object Mapping -->
+    <PackageReference Include="Mapster" />
+    <PackageReference Include="Mapster.DependencyInjection" />
+
+    <!-- Logging Abstractions -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\PMS.Domain\PMS.Domain.csproj" />
+  </ItemGroup>
+
+  <!--
+    File Nesting for CQRS Pattern
+    This makes Handler and Validator files nest under their Command/Query files in Solution Explorer:
+      CreateUserCommand.cs
+        ├── CreateUserCommand.Handler.cs
+        └── CreateUserCommand.Validator.cs
+  -->
+  <ItemGroup>
+    <Compile Update="**\*.Handler.cs">
+      <DependentUpon>$([System.String]::Copy('%(Filename)').Replace('.Handler', '')).cs</DependentUpon>
+    </Compile>
+    <Compile Update="**\*.Validator.cs">
+      <DependentUpon>$([System.String]::Copy('%(Filename)').Replace('.Validator', '')).cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>

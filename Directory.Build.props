@@ -1,0 +1,29 @@
+<Project>
+
+  <!-- Shared properties for all projects -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Assembly info -->
+    <Company>PMS</Company>
+    <Product>PMS</Product>
+    <Copyright>Copyright © PMS $([System.DateTime]::Now.Year)</Copyright>
+
+    <!-- Deterministic builds for reproducibility -->
+    <Deterministic>true</Deterministic>
+
+    <!-- Enable analyzers -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- Shared package references for all projects -->
+  <ItemGroup>
+    <!-- You can add packages that should be in ALL projects here -->
+  </ItemGroup>
+
+</Project>

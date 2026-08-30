@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- RootNamespace only - other settings inherited from Directory.Build.props -->
+  <PropertyGroup>
+    <RootNamespace>PMS.Domain</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\PMS.SharedKernel\PMS.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <!--
+    Domain layer has NO external NuGet packages.
+    It only references SharedKernel to keep it pure.
+  -->
+
+</Project>

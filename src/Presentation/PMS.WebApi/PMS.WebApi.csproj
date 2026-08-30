@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Note: Uses Microsoft.NET.Sdk.Web for ASP.NET Core features.
+    RootNamespace only - other settings inherited from Directory.Build.props
+  -->
+  <PropertyGroup>
+    <RootNamespace>PMS.WebApi</RootNamespace>
+    <!-- Enable XML documentation for Swagger -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- NuGet Packages -->
+  <ItemGroup>
+    <!-- Swagger / OpenAPI Documentation -->
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" />
+
+    <!-- Health Checks -->
+    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
+    <PackageReference Include="AspNetCore.HealthChecks.Redis" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI.Client" />
+
+    <!-- API Versioning -->
+    <PackageReference Include="Asp.Versioning.Mvc" />
+
+    <!-- OpenTelemetry / Observability -->
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Process" />
+  </ItemGroup>
+
+  <!--
+    Project References
+    WebApi references both Infrastructure projects (Composition Root pattern)
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Infrastructure\PMS.Infrastructure\PMS.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\PMS.Persistence\PMS.Persistence.csproj" />
+    <ProjectReference Include="..\..\Aspire\PMS.ServiceDefaults\PMS.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

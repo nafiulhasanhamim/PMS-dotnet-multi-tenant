@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- RootNamespace only - other settings inherited from Directory.Build.props -->
+  <PropertyGroup>
+    <RootNamespace>PMS.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <!-- NuGet Packages -->
+  <ItemGroup>
+    <!-- Micro ORM for raw SQL / Stored Procedures -->
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+
+    <!-- Distributed Caching (Redis) -->
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+
+    <!-- HTTP Client Resilience (Polly) -->
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
+
+    <!-- Structured Logging (Serilog) -->
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Enrichers.Environment" />
+    <PackageReference Include="Serilog.Formatting.Compact" />
+  </ItemGroup>
+
+  <!-- Project References -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\PMS.Application\PMS.Application.csproj" />
+  </ItemGroup>
+
+</Project>

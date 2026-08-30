@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- RootNamespace only - other settings inherited from Directory.Build.props -->
+  <PropertyGroup>
+    <RootNamespace>PMS.SharedKernel</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Guard Clauses & Result Pattern -->
+    <PackageReference Include="Ardalis.GuardClauses" />
+    <PackageReference Include="Ardalis.Result" />
+    <PackageReference Include="Ardalis.SmartEnum" />
+    <PackageReference Include="Ardalis.Specification" />
+
+    <!-- Validation -->
+    <PackageReference Include="FluentValidation" />
+
+    <!-- CQRS / Mediator -->
+    <PackageReference Include="MediatR" />
+
+    <!-- EF Core (for IDbContext marker) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+
+    <!-- DI Abstractions -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+
+    <!-- Database Abstractions -->
+    <PackageReference Include="System.Data.Common" />
+  </ItemGroup>
+
+</Project>
