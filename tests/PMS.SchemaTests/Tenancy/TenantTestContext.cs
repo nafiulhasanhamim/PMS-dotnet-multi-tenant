@@ -15,7 +15,7 @@ namespace PMS.SchemaTests.Tenancy;
 /// </summary>
 public class TenantThing : BaseEntity<Guid>, ITenantEntity, ISoftDelete
 {
-    public Guid TenantId { get; private set; }
+    public Guid TenantId { get; set; }
     public string Name { get; set; } = string.Empty;
 
     public bool IsDeleted { get; set; }
@@ -29,7 +29,7 @@ public class TenantThing : BaseEntity<Guid>, ITenantEntity, ISoftDelete
 }
 
 /// <summary>Settable tenant context, so a test can act as a given pharmacy.</summary>
-public sealed class StubTenantContext : ITenantContext
+public sealed class StubTenantContext : ICurrentTenantService
 {
     public Guid TenantId { get; set; } = Guid.Empty;
     public bool HasTenant => TenantId != Guid.Empty;
@@ -42,7 +42,7 @@ public sealed class StubTenantContext : ITenantContext
 /// </summary>
 public sealed class TenantTestContext : ApplicationDbContext
 {
-    public TenantTestContext(DbContextOptions<TenantTestContext> options, ITenantContext tenantContext)
+    public TenantTestContext(DbContextOptions<TenantTestContext> options, ICurrentTenantService tenantContext)
         : base(options, tenantContext)
     {
     }

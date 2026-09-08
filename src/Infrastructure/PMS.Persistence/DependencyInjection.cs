@@ -54,6 +54,9 @@ public static class DependencyInjection
         services.AddScoped<AuditableEntityInterceptor>();
         services.AddScoped<TenantEntityInterceptor>();
         services.AddScoped<ITenantStatusValidator, TenantStatusValidator>();
+        services.AddScoped<IIdentityQueries, IdentityQueries>();
+        services.AddScoped<IPlatformQueries, PlatformQueries>();
+        services.AddScoped<ITenantUserQueries, TenantUserQueries>();
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

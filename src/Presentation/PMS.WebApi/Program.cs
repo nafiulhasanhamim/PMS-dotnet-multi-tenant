@@ -36,11 +36,23 @@ try
     // Add Application Layer services (MediatR, Validators, Mapster, Behaviors)
     builder.Services.AddApplicationServices();
 
+    // How a browser address maps to a pharmacy. The API owns this rule because it owns the
+    // tenant data — a client sends the host it was reached on and gets back a pharmacy or a
+    // generic failure, without needing to know how the platform's addresses are arranged.
+    var tenancySettings = new PMS.Application.Common.Tenancy.TenancySettings();
+    builder.Configuration
+        .GetSection(PMS.Application.Common.Tenancy.TenancySettings.SectionName)
+        .Bind(tenancySettings);
+    builder.Services.AddSingleton(tenancySettings);
+
     // Add Persistence Layer services (DbContext, Repositories, Unit of Work)
     builder.Services.AddPersistence(builder.Configuration);
 
     // Add Infrastructure Layer services (Caching, Email, Storage, HTTP Clients)
     builder.Services.AddInfrastructure(builder.Configuration);
+
+    // Authentication: JWT bearer, plus the platform/tenant authorization policies
+    builder.Services.AddJwtAuthentication(builder.Configuration);
 
     // Add API controllers
     builder.Services.AddControllers();
@@ -96,7 +108,7 @@ try
 
     // Refuse requests from a suspended or deleted pharmacy. After authentication, because
     // the tenant is read from a claim.
-    app.UseTenantStatusCheck();
+    app.UseTenantResolution();
 
     // Health checks endpoint
     app.MapHealthChecks("/health", new HealthCheckOptions
@@ -117,6 +129,18 @@ try
 
     // Map controllers
     app.MapControllers();
+
+    // There is nothing at the root of an API, and a bare 404 there reads as "the app failed to
+    // start" rather than "you asked for a page that was never meant to exist". In development,
+    // send it somewhere useful instead.
+    if (app.Environment.IsDevelopment())
+    {
+        app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    }
+
+    // Create the first platform administrator if configuration asks for one. Without it there
+    // is nobody who can create a pharmacy, so nobody can sign in at all.
+    await app.SeedPlatformAdminAsync();
 
     Log.Information("PMS Web API started successfully");
     app.Run();

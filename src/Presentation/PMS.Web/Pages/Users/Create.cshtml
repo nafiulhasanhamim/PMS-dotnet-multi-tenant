@@ -1,0 +1,84 @@
+@page "/users/create"
+@model PMS.Web.Pages.Users.CreateModel
+@{
+    ViewData["Title"] = "Add user";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Add user</h1>
+        <p class="pms-page-header__subtitle">Give someone access to @Model.TenantName.</p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="row">
+    <div class="col-lg-7">
+        <section class="pms-card">
+            <div class="pms-card__body">
+                <form method="post" data-pms-guard novalidate>
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.Email">
+                            Email<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" type="email" asp-for="Input.Email"
+                               aria-describedby="emailHelp" autocomplete="off" required />
+                        <span id="emailHelp" class="pms-help">
+                            If this person already has an account at another pharmacy, their
+                            existing account will be linked to this pharmacy instead of
+                            creating a new one.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.Email"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.FullName">
+                            Full name<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.FullName"
+                               autocomplete="off" required />
+                        <span class="pms-field-error" asp-validation-for="Input.FullName"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.Password">
+                            Password<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" type="password" asp-for="Input.Password"
+                               aria-describedby="passwordHelp" autocomplete="new-password"
+                               minlength="8" required />
+                        <span id="passwordHelp" class="pms-help">
+                            At least 8 characters. Ignored if the email above already has an
+                            account.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.Password"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.Role">
+                            Role<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <select class="form-select" asp-for="Input.Role"
+                                aria-describedby="roleHelp"
+                                asp-items="@(new SelectList(
+                                    PMS.Web.Pages.Users.CreateModel.AssignableRoles))">
+                        </select>
+                        <span id="roleHelp" class="pms-help">
+                            Another administrator has to be added by a platform operator, not
+                            from here.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.Role"></span>
+                    </div>
+
+                    <div class="pms-form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="pms-spinner" aria-hidden="true"></span>Add user
+                        </button>
+                        <a class="btn btn-outline-secondary" asp-page="/Users/Index">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>

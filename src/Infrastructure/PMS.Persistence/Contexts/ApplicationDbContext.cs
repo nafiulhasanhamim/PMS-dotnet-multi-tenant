@@ -13,14 +13,14 @@ namespace PMS.Persistence.Contexts;
 /// </summary>
 public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
-    private readonly ITenantContext? _tenantContext;
+    private readonly ICurrentTenantService? _tenantContext;
 
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
     }
 
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ITenantContext tenantContext)
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, ICurrentTenantService tenantContext)
         : base(options)
     {
         _tenantContext = tenantContext;
@@ -30,7 +30,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// For derived contexts. EF Core requires a context to receive options typed to its own
     /// class, so a subclass cannot reuse the constructors above.
     /// </summary>
-    protected ApplicationDbContext(DbContextOptions options, ITenantContext? tenantContext)
+    protected ApplicationDbContext(DbContextOptions options, ICurrentTenantService? tenantContext)
         : base(options)
     {
         _tenantContext = tenantContext;
@@ -41,12 +41,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     ///
     /// Deliberately a public property on the context rather than a captured value: EF Core
     /// turns a query filter that reads a context member into a query *parameter*, re-read on
-    /// every execution. Capturing the id in a local, or injecting ITenantContext into an
+    /// every execution. Capturing the id in a local, or injecting ICurrentTenantService into an
     /// IEntityTypeConfiguration and reading it there, would instead bake whichever tenant
     /// happened to build the model into the cached model — and every later request, for every
     /// other pharmacy, would silently be filtered to that first tenant.
     ///
-    /// Guid.Empty when no tenant is resolved, which matches no rows. See ITenantContext.
+    /// Guid.Empty when no tenant is resolved, which matches no rows. See ICurrentTenantService.
     /// </summary>
     public Guid CurrentTenantId => _tenantContext?.TenantId ?? Guid.Empty;
 
@@ -58,6 +58,18 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// by a platform administrator.
     /// </summary>
     public DbSet<Tenant> Tenants => Set<Tenant>();
+
+    /// <summary>
+    /// Gets the Users DbSet. A global identity table, deliberately not tenant-scoped — a
+    /// login has to find a user before any pharmacy is known.
+    /// </summary>
+    public DbSet<User> Users => Set<User>();
+
+    /// <summary>
+    /// Gets the memberships. Filtered to the current pharmacy, but by its own rule rather
+    /// than the generic one — see ApplyQueryFilters.
+    /// </summary>
+    public DbSet<UserTenantMembership> UserTenantMemberships => Set<UserTenantMembership>();
 
     /// <summary>
     /// Gets the AccessLogs DbSet for audit trail.
@@ -76,6 +88,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
         // Apply the soft-delete and tenant global query filters
         ApplyQueryFilters(modelBuilder);
+
+        // Memberships are filtered separately — see the method for why.
+        ApplyMembershipFilter(modelBuilder);
     }
 
     /// <summary>
@@ -112,6 +127,30 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                 .MakeGenericMethod(clrType)
                 .Invoke(this, [modelBuilder]);
         }
+    }
+
+    /// <summary>
+    /// Confines memberships to the current pharmacy.
+    ///
+    /// Kept out of the generic loop above because UserTenantMembership is not an
+    /// ITenantEntity and could not be: its TenantId is *nullable*, since a platform
+    /// operator's membership has no pharmacy at all. The generic filter compares a
+    /// non-nullable Guid, so it would neither compile against this shape nor mean the right
+    /// thing.
+    ///
+    /// Note what falls out for free: platform rows have TenantId = null, and null never
+    /// equals a tenant id, so they are excluded without any special case. Inside a pharmacy
+    /// you see that pharmacy's memberships and nothing else — not another pharmacy's, and
+    /// not the platform operators'.
+    ///
+    /// Login and platform administration read this table before any tenant exists, and do so
+    /// through IgnoreQueryFilters(). Those are named exhaustively in
+    /// docs/01-tenant-foundation-and-auth.md.
+    /// </summary>
+    private void ApplyMembershipFilter(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<UserTenantMembership>()
+            .HasQueryFilter(m => m.TenantId == CurrentTenantId);
     }
 
     private void ApplySoftDeleteFilter<TEntity>(ModelBuilder modelBuilder)

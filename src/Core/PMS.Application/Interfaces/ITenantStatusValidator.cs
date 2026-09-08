@@ -18,7 +18,7 @@ public enum TenantStatus
 /// <summary>
 /// Checks a tenant's status.
 ///
-/// Deliberately separate from ITenantContext. That one reads a claim and costs nothing, and
+/// Deliberately separate from ICurrentTenantService. That one reads a claim and costs nothing, and
 /// is consulted constantly — by every query filter. This one hits the database, so it is
 /// called once per request at the edge rather than on every read.
 /// </summary>

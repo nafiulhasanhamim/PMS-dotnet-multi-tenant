@@ -21,6 +21,21 @@ BEGIN
 END
 GO
 
+-- Memberships reference both Users and Tenants, so they go first.
+IF OBJECT_ID('[dbo].[UserTenantMemberships]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[UserTenantMemberships]
+    PRINT 'Table [UserTenantMemberships] dropped.'
+END
+GO
+
+IF OBJECT_ID('[dbo].[Users]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[Users]
+    PRINT 'Table [Users] dropped.'
+END
+GO
+
 -- Tenants last: every tenant-owned table references it, so it cannot go until
 -- they are all gone.
 IF OBJECT_ID('[dbo].[Tenants]', 'U') IS NOT NULL

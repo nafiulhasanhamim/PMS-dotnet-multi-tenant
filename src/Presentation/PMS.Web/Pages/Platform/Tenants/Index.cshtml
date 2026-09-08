@@ -1,0 +1,95 @@
+@page "/platform/tenants"
+@model PMS.Web.Pages.Platform.Tenants.IndexModel
+@{
+    ViewData["Title"] = "Tenants";
+    Layout = "_PlatformLayout";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Tenants</h1>
+        <p class="pms-page-header__subtitle">Every pharmacy on the platform, whatever its status.</p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-platform" asp-page="/Platform/Tenants/Create">Create tenant</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="pms-table-wrap">
+    @if (Model.Tenants.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No tenants yet",
+            "Create the first pharmacy to get started.",
+            "Create tenant",
+            "/Platform/Tenants/Create"))" />
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="pms-table">
+                <caption class="visually-hidden">Pharmacies on the platform</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Domain name</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Subscription plan</th>
+                        <th scope="col">Created</th>
+                        <th scope="col" class="pms-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tenant in Model.Tenants.Items)
+                    {
+                        var status = StatusPresentation.ForTenant(tenant.Status);
+                        var formId = $"tenant-status-{tenant.Id}";
+                        var suspended = tenant.Status == TenantStatus.Suspended;
+                        <tr>
+                            <td>@tenant.Name</td>
+                            <td><span class="pms-mono">@tenant.DomainName</span></td>
+                            <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                            <td>@(tenant.SubscriptionPlan ?? "—")</td>
+                            <td>@tenant.CreatedOnUtc.ToString("d MMM yyyy")</td>
+                            <td class="pms-col-actions">
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   asp-page="/Platform/Tenants/Detail"
+                                   asp-route-id="@tenant.Id">Manage</a>
+
+                                <form method="post" id="@formId" class="d-inline"
+                                      asp-page-handler="Status"
+                                      asp-route-id="@tenant.Id"
+                                      asp-route-p="@Model.Tenants.Page">
+                                    @if (suspended)
+                                    {
+                                        <input type="hidden" name="status"
+                                               value="@((int)TenantStatus.Active)" />
+                                        <button type="submit" class="btn btn-sm btn-outline-success">
+                                            <span class="pms-spinner" aria-hidden="true"></span>Reactivate
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <input type="hidden" name="status"
+                                               value="@((int)TenantStatus.Suspended)" />
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                data-pms-confirm-form="@formId"
+                                                data-pms-confirm-title="Suspend @tenant.Name?"
+                                                data-pms-confirm-ok="Suspend"
+                                                data-pms-confirm="All users of this pharmacy will be unable to log in until reactivated. No data is deleted.">
+                                            Suspend
+                                        </button>
+                                    }
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_Pagination"
+                 model="@PaginationModel.For(Model.Tenants, "/Platform/Tenants/Index")" />
+    }
+</div>

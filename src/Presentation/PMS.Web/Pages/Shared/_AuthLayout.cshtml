@@ -1,0 +1,38 @@
+@*
+    Standalone centred card for the two login pages. No sidebar and no top bar: there is no
+    session yet, so there is nothing to navigate and no pharmacy to name.
+
+    The accent rule at the top of the card is set by each page via ViewData["Accent"], which
+    is how the two logins are told apart at a glance. It is never the only cue — each page
+    also names its area in words, because a colour difference is no use to someone who
+    cannot see it or who has never seen the other page.
+*@
+@{
+    var accent = ViewData["Accent"] as string == "platform" ? "pms-auth__accent--platform" : null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] &middot; PMS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<div class="pms-auth">
+    <div class="pms-auth__card">
+        <div class="pms-auth__accent @accent"></div>
+        <div class="pms-auth__body">
+            <main role="main">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+</div>
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

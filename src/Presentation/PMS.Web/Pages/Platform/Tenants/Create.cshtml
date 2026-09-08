@@ -1,0 +1,72 @@
+@page "/platform/tenants/create"
+@model PMS.Web.Pages.Platform.Tenants.CreateModel
+@{
+    ViewData["Title"] = "Create tenant";
+    Layout = "_PlatformLayout";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Create tenant</h1>
+        <p class="pms-page-header__subtitle">Onboard a pharmacy. It starts on trial.</p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="row">
+    <div class="col-lg-7">
+        <section class="pms-card">
+            <div class="pms-card__body">
+                <form method="post" data-pms-guard novalidate>
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.Name">
+                            Name<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.Name"
+                               placeholder="Popular Pharmacy" autocomplete="off" required />
+                        <span class="pms-field-error" asp-validation-for="Input.Name"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.DomainName">
+                            Domain name<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        @* The pattern is a hint, not the rule. The API normalises the value
+                           and its uniqueness check is authoritative — its rejection arrives
+                           on this input, not in a banner. *@
+                        <input class="form-control" asp-for="Input.DomainName"
+                               placeholder="popular-pharmacy" autocomplete="off"
+                               aria-describedby="domainHelp"
+                               pattern="[A-Za-z0-9.\-]+" required />
+                        <span id="domainHelp" class="pms-help">
+                            Used in the pharmacy&rsquo;s login URL. Lowercase letters, numbers,
+                            and hyphens only.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.DomainName"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.SubscriptionPlan">
+                            Subscription plan
+                        </label>
+                        <select class="form-select" asp-for="Input.SubscriptionPlan"
+                                asp-items="@(new SelectList(
+                                    PMS.Web.Pages.Platform.Tenants.CreateModel.Plans))">
+                        </select>
+                        <span class="pms-field-error"
+                              asp-validation-for="Input.SubscriptionPlan"></span>
+                    </div>
+
+                    <div class="pms-form-actions">
+                        <button type="submit" class="btn btn-platform">
+                            <span class="pms-spinner" aria-hidden="true"></span>Create tenant
+                        </button>
+                        <a class="btn btn-outline-secondary"
+                           asp-page="/Platform/Tenants/Index">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>

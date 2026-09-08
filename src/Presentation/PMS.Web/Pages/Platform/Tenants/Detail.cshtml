@@ -1,0 +1,254 @@
+@page "/platform/tenants/{id:guid}"
+@model PMS.Web.Pages.Platform.Tenants.DetailModel
+@{
+    ViewData["Title"] = Model.Tenant?.Name ?? "Tenant";
+    Layout = "_PlatformLayout";
+}
+
+@if (Model.Tenant is { } tenant)
+{
+    var status = StatusPresentation.ForTenant(tenant.Status);
+    var suspended = tenant.Status == TenantStatus.Suspended;
+
+    <div class="pms-page-header">
+        <div>
+            <h1>
+                @tenant.Name
+                <span class="pms-badge @status.Css ms-2">@status.Text</span>
+            </h1>
+            <p class="pms-page-header__subtitle pms-mono">@tenant.DomainName</p>
+        </div>
+        <div class="pms-page-header__actions">
+            <a class="btn btn-outline-secondary" asp-page="/Platform/Tenants/Index">
+                Back to tenants
+            </a>
+        </div>
+    </div>
+
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <section class="pms-card h-100">
+                <div class="pms-card__header">
+                    <h2>Summary</h2>
+                </div>
+                <div class="pms-card__body">
+                    <dl class="pms-detail-list">
+                        <dt>Name</dt>
+                        <dd>@tenant.Name</dd>
+
+                        <dt>Domain name</dt>
+                        <dd><span class="pms-mono">@tenant.DomainName</span></dd>
+
+                        <dt>Status</dt>
+                        <dd><span class="pms-badge @status.Css">@status.Text</span></dd>
+
+                        <dt>Subscription plan</dt>
+                        <dd>@(tenant.SubscriptionPlan ?? "—")</dd>
+
+                        <dt>Created</dt>
+                        <dd>@tenant.CreatedOnUtc.ToString("d MMMM yyyy")</dd>
+
+                        <dt>Staff sign in at</dt>
+                        <dd>
+                            @* The link to hand the pharmacy. Staff who open it type only their
+                               email and password — the address names the pharmacy. *@
+                            <span class="pms-mono">@Model.SignInUrl</span>
+                            @if (!tenant.DomainName.Contains('.'))
+                            {
+                                <span class="pms-help">
+                                    Works as soon as this pharmacy exists.
+                                </span>
+                            }
+                            else
+                            {
+                                @* An address the pharmacy owns cannot work until its DNS
+                                   points here and a certificate covers it. Saying so on the
+                                   page is cheaper than the support call that follows a link
+                                   handed out too early. *@
+                                <span class="pms-help">
+                                    This pharmacy uses its own address, so it will not work
+                                    until that domain points to this platform and has a
+                                    certificate.
+                                </span>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="pms-card h-100">
+                <div class="pms-card__header">
+                    <h2>Status</h2>
+                </div>
+                <div class="pms-card__body">
+                    <p class="text-muted">
+                        Suspending withdraws access without deleting anything. The pharmacy's
+                        sales, stock and history stay exactly as they are.
+                    </p>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        @if (suspended)
+                        {
+                            <form method="post" asp-page-handler="Status" data-pms-guard>
+                                <input type="hidden" name="status" value="@((int)TenantStatus.Active)" />
+                                <button type="submit" class="btn btn-outline-success">
+                                    <span class="pms-spinner" aria-hidden="true"></span>Reactivate
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            @if (tenant.Status == TenantStatus.Trial)
+                            {
+                                <form method="post" asp-page-handler="Status" data-pms-guard>
+                                    <input type="hidden" name="status" value="@((int)TenantStatus.Active)" />
+                                    <button type="submit" class="btn btn-outline-primary">
+                                        <span class="pms-spinner" aria-hidden="true"></span>Move to active
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <form method="post" asp-page-handler="Status" data-pms-guard>
+                                    <input type="hidden" name="status" value="@((int)TenantStatus.Trial)" />
+                                    <button type="submit" class="btn btn-outline-secondary">
+                                        <span class="pms-spinner" aria-hidden="true"></span>Move to trial
+                                    </button>
+                                </form>
+                            }
+
+                            <form method="post" id="suspend-tenant" asp-page-handler="Status">
+                                <input type="hidden" name="status" value="@((int)TenantStatus.Suspended)" />
+                                <button type="button" class="btn btn-danger"
+                                        data-pms-confirm-form="suspend-tenant"
+                                        data-pms-confirm-title="Suspend @tenant.Name?"
+                                        data-pms-confirm-ok="Suspend"
+                                        data-pms-confirm="All users of this pharmacy will be unable to log in until reactivated. No data is deleted.">
+                                    Suspend
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <section class="pms-card mt-3">
+        <div class="pms-card__header">
+            <h2>Users</h2>
+        </div>
+        @if (Model.Admins.Count == 0)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No users yet",
+                "Nobody can sign in to this pharmacy until it has an administrator. Create one below."))" />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="pms-table">
+                    <caption class="visually-hidden">Users of @tenant.Name</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Full name</th>
+                            <th scope="col">Email</th>
+                            <th scope="col">Role</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in Model.Admins)
+                        {
+                            var role = StatusPresentation.ForRole(user.Role);
+                            var membership = StatusPresentation.ForMembership(user.IsActive);
+                            <tr class="@(user.IsActive ? null : "pms-row-inactive")">
+                                <td>@user.FullName</td>
+                                <td>@user.Email</td>
+                                <td><span class="pms-badge @role.Css">@role.Text</span></td>
+                                <td><span class="pms-badge @membership.Css">@membership.Text</span></td>
+                                <td>@user.JoinedAt.ToString("d MMM yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="pms-table-footer">
+                <span>
+                    @* Staff are managed inside the pharmacy, by its own Admin. Saying so here
+                       stops this page growing into a second users screen with different rules. *@
+                    Deactivating or adding staff is done by an administrator signed in to this
+                    pharmacy.
+                </span>
+            </div>
+        }
+    </section>
+
+    <section class="pms-card mt-3">
+        <div class="pms-card__header">
+            <h2>Create admin user</h2>
+        </div>
+        <div class="pms-card__body">
+            <div class="row">
+                <div class="col-lg-7">
+                    <form method="post" asp-page-handler="CreateAdmin" data-pms-guard novalidate>
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.Email">
+                                Email<span class="pms-required" aria-hidden="true">*</span>
+                            </label>
+                            <input class="form-control" type="email" asp-for="Input.Email"
+                                   aria-describedby="adminEmailHelp" autocomplete="off" required />
+                            <span id="adminEmailHelp" class="pms-help">
+                                If this email already has a PMS account, it will be linked to
+                                this pharmacy rather than recreated, and its existing password
+                                will be kept.
+                            </span>
+                            <span class="pms-field-error" asp-validation-for="Input.Email"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.FullName">
+                                Full name<span class="pms-required" aria-hidden="true">*</span>
+                            </label>
+                            <input class="form-control" asp-for="Input.FullName"
+                                   autocomplete="off" required />
+                            <span class="pms-field-error" asp-validation-for="Input.FullName"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.Password">
+                                Password<span class="pms-required" aria-hidden="true">*</span>
+                            </label>
+                            <input class="form-control" type="password" asp-for="Input.Password"
+                                   autocomplete="new-password" minlength="8" required />
+                            <span class="pms-field-error" asp-validation-for="Input.Password"></span>
+                        </div>
+
+                        <div class="pms-form-actions">
+                            <button type="submit" class="btn btn-platform">
+                                <span class="pms-spinner" aria-hidden="true"></span>Create admin user
+                            </button>
+                            <a class="btn btn-outline-secondary"
+                               asp-page="/Platform/Tenants/Index">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+}
+else
+{
+    <div class="pms-page-header">
+        <div>
+            <h1>Tenant</h1>
+        </div>
+    </div>
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+    <a class="btn btn-outline-secondary" asp-page="/Platform/Tenants/Index">Back to tenants</a>
+}

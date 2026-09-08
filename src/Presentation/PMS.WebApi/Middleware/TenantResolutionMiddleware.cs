@@ -16,18 +16,18 @@ namespace PMS.WebApi.Middleware;
 /// Tenants to prove the owner is still active would cost that join on every read, forever,
 /// to enforce something that only changes when an administrator suspends someone.
 /// </summary>
-public class TenantStatusMiddleware
+public class TenantResolutionMiddleware
 {
     private readonly RequestDelegate _next;
 
-    public TenantStatusMiddleware(RequestDelegate next)
+    public TenantResolutionMiddleware(RequestDelegate next)
     {
         _next = next;
     }
 
     public async Task InvokeAsync(
         HttpContext context,
-        ITenantContext tenantContext,
+        ICurrentTenantService tenantContext,
         ITenantStatusValidator validator)
     {
         // Only validate what the request actually claims. A request with no tenant — login,
@@ -83,6 +83,6 @@ public static class TenantStatusMiddlewareExtensions
     /// Must be registered after UseAuthentication — the tenant comes from a claim, and there
     /// are no claims until authentication has run.
     /// </summary>
-    public static IApplicationBuilder UseTenantStatusCheck(this IApplicationBuilder app)
-        => app.UseMiddleware<TenantStatusMiddleware>();
+    public static IApplicationBuilder UseTenantResolution(this IApplicationBuilder app)
+        => app.UseMiddleware<TenantResolutionMiddleware>();
 }

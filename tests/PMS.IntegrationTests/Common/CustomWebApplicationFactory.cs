@@ -26,6 +26,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         // Set testing environment BEFORE any host building occurs
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
 
+        // As environment variables, not ConfigureAppConfiguration: startup reads the signing
+        // key while Program.cs is still executing, which is before the factory's
+        // configuration callbacks are applied. CreateBuilder picks env vars up immediately.
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "PMS.Tests");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "PMS.Tests");
+        Environment.SetEnvironmentVariable(
+            "Jwt__SigningKey", "integration-tests-only-signing-key-at-least-32-bytes");
+        Environment.SetEnvironmentVariable("Jwt__ExpiryMinutes", "60");
+
         // Reset Serilog to a simple logger for tests to avoid frozen logger issues
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Warning()
@@ -47,7 +56,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = null,
-                ["ConnectionStrings:Redis"] = null
+                ["ConnectionStrings:Redis"] = null,
+
+                // Startup refuses to run without a signing key — deliberately, so no
+                // environment can fall back to a predictable one. Supply a test key here.
+                ["Jwt:Issuer"] = "PMS.Tests",
+                ["Jwt:Audience"] = "PMS.Tests",
+                ["Jwt:SigningKey"] = "integration-tests-only-signing-key-at-least-32-bytes",
+                ["Jwt:ExpiryMinutes"] = "60"
             });
         });
 

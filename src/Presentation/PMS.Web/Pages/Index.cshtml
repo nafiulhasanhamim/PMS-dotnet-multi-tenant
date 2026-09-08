@@ -1,0 +1,73 @@
+@page "/"
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+@if (Model.Profile is { } profile)
+{
+    <div class="pms-page-header">
+        <div>
+            <h1>Welcome, @profile.FullName</h1>
+            <p class="pms-page-header__subtitle">
+                You are signed in to <strong>@profile.Tenant.Name</strong>
+                as @StatusPresentation.ForRole(profile.Role).Text.ToLowerInvariant().
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-5">
+            <section class="pms-card h-100">
+                <div class="pms-card__header">
+                    <h2>Current pharmacy</h2>
+                </div>
+                <div class="pms-card__body">
+                    <dl class="pms-detail-list">
+                        <dt>Pharmacy</dt>
+                        <dd>@profile.Tenant.Name</dd>
+
+                        <dt>Domain</dt>
+                        <dd><span class="pms-mono">@profile.Tenant.DomainName</span></dd>
+
+                        <dt>Your role here</dt>
+                        <dd>
+                            @{
+                                var role = StatusPresentation.ForRole(profile.Role);
+                            }
+                            <span class="pms-badge @role.Css">@role.Text</span>
+                        </dd>
+
+                        <dt>Signed in as</dt>
+                        <dd>@profile.Email</dd>
+                    </dl>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-7">
+            <section class="pms-card h-100">
+                <div class="pms-card__header">
+                    <h2>Daily operations</h2>
+                </div>
+                <div class="pms-card__body">
+                    <div class="pms-placeholder">
+                        <p class="mb-2">
+                            <strong>This is where the working panels will go.</strong>
+                        </p>
+                        <p class="mb-0">
+                            Stock levels, expiring batches, low-stock alerts, today&rsquo;s sales and
+                            outstanding purchase orders each arrive with their own module. For now
+                            this page exists to confirm that a signed-in session, the stored API
+                            token and the role-aware layout all work end to end.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+}
+else
+{
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+}

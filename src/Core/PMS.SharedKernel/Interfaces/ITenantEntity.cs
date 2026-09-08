@@ -15,7 +15,12 @@ namespace PMS.SharedKernel.Interfaces;
 public interface ITenantEntity
 {
     /// <summary>
-    /// The tenant that owns this row. Set once on insert and never changed.
+    /// The tenant that owns this row.
+    ///
+    /// Settable because the persistence layer stamps it on insert. Handlers must never set
+    /// it themselves: one that forgot would create a row no pharmacy owns, and one that set
+    /// it from user input would let a caller write into another pharmacy's data. An
+    /// interceptor refuses to let it change once written.
     /// </summary>
-    Guid TenantId { get; }
+    Guid TenantId { get; set; }
 }

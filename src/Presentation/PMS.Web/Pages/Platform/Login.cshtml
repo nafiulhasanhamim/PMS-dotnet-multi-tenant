@@ -1,0 +1,46 @@
+@page "/platform/login"
+@model PMS.Web.Pages.Platform.LoginModel
+@{
+    ViewData["Title"] = "Platform sign in";
+    ViewData["Accent"] = "platform";
+    Layout = "_AuthLayout";
+}
+
+<div class="pms-auth__brand">PMS</div>
+@* Named in words as well as coloured, so the two logins are distinguishable without
+   relying on seeing the accent. *@
+<p class="pms-auth__area pms-auth__area--platform">Platform administration</p>
+
+@if (Model.ShowSessionEnded)
+{
+    <partial name="_Alert" model="@AlertModel.Warning("Your session ended. Please sign in again.")" />
+}
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="post" data-pms-guard novalidate>
+    <div class="mb-3">
+        <label class="pms-form-label" asp-for="Input.Email">
+            Email<span class="pms-required" aria-hidden="true">*</span>
+        </label>
+        <input class="form-control" type="email" asp-for="Input.Email"
+               autocomplete="username" required />
+        <span class="pms-field-error" asp-validation-for="Input.Email"></span>
+    </div>
+
+    <div class="mb-3">
+        <label class="pms-form-label" asp-for="Input.Password">
+            Password<span class="pms-required" aria-hidden="true">*</span>
+        </label>
+        <input class="form-control" type="password" asp-for="Input.Password"
+               autocomplete="current-password" required />
+        <span class="pms-field-error" asp-validation-for="Input.Password"></span>
+    </div>
+
+    <button type="submit" class="btn btn-platform w-100">
+        <span class="pms-spinner" aria-hidden="true"></span>Sign in
+    </button>
+</form>
+
+<div class="pms-auth__footer">
+    Pharmacy staff? <a asp-page="/Login">Sign in here</a>.
+</div>

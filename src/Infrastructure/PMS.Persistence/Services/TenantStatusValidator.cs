@@ -1,5 +1,6 @@
 using PMS.Application.Interfaces;
 using PMS.Persistence.Contexts;
+using DomainTenantStatus = PMS.Domain.Enums.TenantStatus;
 using Microsoft.EntityFrameworkCore;
 
 namespace PMS.Persistence.Services;
@@ -25,17 +26,17 @@ public sealed class TenantStatusValidator : ITenantStatusValidator
 
         // Tenants carries the soft-delete filter, so a deleted pharmacy simply is not found
         // — there is no separate check for it here.
-        var isActive = await _context.Tenants
+        var status = await _context.Tenants
             .AsNoTracking()
             .Where(t => t.Id == tenantId)
-            .Select(t => (bool?)t.IsActive)
+            .Select(t => (DomainTenantStatus?)t.Status)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return isActive switch
+        return status switch
         {
             null => TenantStatus.NotFound,
-            false => TenantStatus.Inactive,
-            true => TenantStatus.Ok,
+            DomainTenantStatus.Suspended => TenantStatus.Inactive,
+            _ => TenantStatus.Ok,
         };
     }
 }

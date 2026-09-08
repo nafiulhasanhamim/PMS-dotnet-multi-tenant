@@ -14,6 +14,21 @@ public interface ICurrentUserService : IScopedService
     /// </summary>
     string? UserId { get; }
 
+    /// <summary>The signed-in user's id, or null when there is no valid one.</summary>
+    Guid? UserGuid { get; }
+
+    /// <summary>
+    /// The role held at the *current* pharmacy as written in the token, or null on a
+    /// platform-admin or anonymous request. The same person can resolve to a different role
+    /// at another pharmacy.
+    ///
+    /// A string rather than the UserRole enum because SharedKernel must not depend on Domain
+    /// — the architecture tests enforce that. Use
+    /// <c>ICurrentUserServiceExtensions.TenantRole()</c> in the Application layer for the
+    /// typed value.
+    /// </summary>
+    string? TenantRoleName { get; }
+
     /// <summary>
     /// Gets the username of the current user.
     /// Returns null if the user is not authenticated.

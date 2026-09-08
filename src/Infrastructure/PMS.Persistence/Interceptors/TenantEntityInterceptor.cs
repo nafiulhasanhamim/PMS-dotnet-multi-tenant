@@ -15,9 +15,9 @@ namespace PMS.Persistence.Interceptors;
 /// </summary>
 public sealed class TenantEntityInterceptor : SaveChangesInterceptor
 {
-    private readonly ITenantContext _tenantContext;
+    private readonly ICurrentTenantService _tenantContext;
 
-    public TenantEntityInterceptor(ITenantContext tenantContext)
+    public TenantEntityInterceptor(ICurrentTenantService tenantContext)
     {
         _tenantContext = tenantContext;
     }

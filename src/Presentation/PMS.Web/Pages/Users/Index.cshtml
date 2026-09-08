@@ -1,0 +1,110 @@
+@page "/users"
+@model PMS.Web.Pages.Users.IndexModel
+@{
+    ViewData["Title"] = "Users";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Users</h1>
+        <p class="pms-page-header__subtitle">Who can sign in to @Model.TenantName, and as what.</p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Users/Create">Add user</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="pms-table-wrap">
+    @if (Model.Users.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No users yet",
+            "Add the people who work here so they can sign in.",
+            "Add user",
+            "/Users/Create"))" />
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="pms-table">
+                <caption class="visually-hidden">Users with access to @Model.TenantName</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Full name</th>
+                        <th scope="col">Email</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Joined</th>
+                        <th scope="col" class="pms-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.Users.Items)
+                    {
+                        var isMe = Model.CurrentUserId is not null
+                            && string.Equals(user.UserId.ToString(), Model.CurrentUserId,
+                                StringComparison.OrdinalIgnoreCase);
+                        var role = StatusPresentation.ForRole(user.Role);
+                        var status = StatusPresentation.ForMembership(user.IsActive);
+                        var formId = $"user-active-{user.MembershipId}";
+                        <tr class="@(user.IsActive ? null : "pms-row-inactive")">
+                            <td>
+                                @user.FullName
+                                @if (isMe)
+                                {
+                                    <span class="pms-badge pms-badge--neutral ms-1">You</span>
+                                }
+                            </td>
+                            <td>@user.Email</td>
+                            <td><span class="pms-badge @role.Css">@role.Text</span></td>
+                            <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                            <td>@user.JoinedAt.ToString("d MMM yyyy")</td>
+                            <td class="pms-col-actions">
+                                @if (isMe)
+                                {
+                                    @* Locking yourself out of the pharmacy you administer is
+                                       never a useful outcome, so it is not offered. The API
+                                       refuses it too - this only keeps the button honest. *@
+                                    <span class="text-muted pms-small">&mdash;</span>
+                                }
+                                else
+                                {
+                                    <form method="post" id="@formId"
+                                          asp-page-handler="Active"
+                                          asp-route-id="@user.MembershipId"
+                                          asp-route-p="@Model.Users.Page">
+                                        <input type="hidden" name="isActive"
+                                               value="@((!user.IsActive).ToString().ToLowerInvariant())" />
+                                        @if (user.IsActive)
+                                        {
+                                            @* The scope wording matters. The membership model
+                                               means this ends access HERE only, and nobody
+                                               guesses that from the word "deactivate". *@
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-pms-confirm-form="@formId"
+                                                    data-pms-confirm-title="Deactivate @user.FullName?"
+                                                    data-pms-confirm-ok="Deactivate"
+                                                    data-pms-confirm="This will remove @(user.FullName)'s access to @Model.TenantName. Their access to any other pharmacy is unaffected.">
+                                                Deactivate
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <span class="pms-spinner" aria-hidden="true"></span>Reactivate
+                                            </button>
+                                        }
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_Pagination"
+                 model="@PaginationModel.For(Model.Users, "/Users/Index")" />
+    }
+</div>

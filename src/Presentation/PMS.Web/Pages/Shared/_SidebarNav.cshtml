@@ -1,0 +1,27 @@
+@*
+    The sidebar links. Driven entirely by NavRegistry - a new module adds an entry there
+    and appears here, without editing this file or the layout.
+
+    Server-side conditional rendering, never CSS hiding: a link a role should not have is
+    absent from the HTML, not merely invisible in it. And hiding is never the security
+    boundary - every page carries its own [Authorize].
+*@
+@using PMS.Web.Navigation
+@model IEnumerable<NavItem>
+@{
+    var currentPath = ViewContext.HttpContext.Request.Path.Value;
+}
+<ul class="pms-sidebar__nav">
+    @foreach (var item in Model)
+    {
+        var active = item.IsActive(currentPath);
+        <li>
+            <a class="pms-sidebar__link @(active ? "active" : null)"
+               asp-page="@item.Page"
+               aria-current="@(active ? "page" : null)">
+                <partial name="_NavIcon" model="@item.Icon" />
+                <span>@item.Title</span>
+            </a>
+        </li>
+    }
+</ul>

@@ -43,6 +43,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PMS.ServiceDefaults", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PMS.AppHost", "src\Aspire\PMS.AppHost\PMS.AppHost.csproj", "{7F3E4A59-6762-468E-A50E-B6208F93B1C3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PMS.Web", "src\Presentation\PMS.Web\PMS.Web.csproj", "{3803F746-0A33-4C74-8DC6-C6330BA0DAE2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,10 @@ Global
 		{7F3E4A59-6762-468E-A50E-B6208F93B1C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7F3E4A59-6762-468E-A50E-B6208F93B1C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7F3E4A59-6762-468E-A50E-B6208F93B1C3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3803F746-0A33-4C74-8DC6-C6330BA0DAE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3803F746-0A33-4C74-8DC6-C6330BA0DAE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3803F746-0A33-4C74-8DC6-C6330BA0DAE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3803F746-0A33-4C74-8DC6-C6330BA0DAE2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -123,6 +129,7 @@ Global
 		{80BB253A-3C3C-4E29-9EF3-15127CE3A6CC} = {A1B2C3D4-0001-0001-0001-000000000001}
 		{7B863979-DB5F-4F0C-8F4F-B13754DC5FF7} = {80BB253A-3C3C-4E29-9EF3-15127CE3A6CC}
 		{7F3E4A59-6762-468E-A50E-B6208F93B1C3} = {80BB253A-3C3C-4E29-9EF3-15127CE3A6CC}
+		{3803F746-0A33-4C74-8DC6-C6330BA0DAE2} = {A1B2C3D4-0004-0004-0004-000000000004}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4167AEFD-E776-41AA-87CF-5DEB8D625E72}
