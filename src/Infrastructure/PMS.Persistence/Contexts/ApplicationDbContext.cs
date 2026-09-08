@@ -1,6 +1,7 @@
 using System.Reflection;
 using PMS.Application.Interfaces;
 using PMS.Domain.Entities;
+using PMS.Domain.Entities.Catalog;
 using PMS.SharedKernel.Common;
 using PMS.SharedKernel.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -75,6 +76,23 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// Gets the AccessLogs DbSet for audit trail.
     /// </summary>
     public DbSet<AccessLog> AccessLogs => Set<AccessLog>();
+
+    // ── Medicine reference catalog ───────────────────────────────────────────────────────
+    //
+    // Platform-level and shared: none of these implement ITenantEntity, so none is filtered
+    // by tenant and none is stamped by the interceptor. A query here returns the same rows
+    // for every pharmacy, and for no pharmacy at all. Tenant users only ever read them; the
+    // importer in tools/PMS.DataImport is what writes them.
+
+    public DbSet<CatalogManufacturer> CatalogManufacturers => Set<CatalogManufacturer>();
+
+    public DbSet<CatalogDrugClass> CatalogDrugClasses => Set<CatalogDrugClass>();
+
+    public DbSet<CatalogDosageForm> CatalogDosageForms => Set<CatalogDosageForm>();
+
+    public DbSet<CatalogGeneric> CatalogGenerics => Set<CatalogGeneric>();
+
+    public DbSet<CatalogMedicine> CatalogMedicines => Set<CatalogMedicine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

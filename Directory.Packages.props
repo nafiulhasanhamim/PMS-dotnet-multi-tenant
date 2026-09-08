@@ -14,6 +14,10 @@
     Package Version Catalog
   -->
   <ItemGroup>
+    <!-- CSV parsing for the data importer. Quoted fields with embedded commas are
+         everywhere in the medicine dataset, so splitting on commas is not an option. -->
+    <PackageVersion Include="CsvHelper" Version="33.0.1" />
+
     <!-- Ardalis Packages -->
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.6.0" />
     <PackageVersion Include="Ardalis.Result" Version="7.2.0" />

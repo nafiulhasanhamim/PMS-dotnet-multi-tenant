@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PMS.DataImport</RootNamespace>
+    <!-- A one-off platform tool, not part of the shipped application. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Persistence gives us ApplicationDbContext and the catalog configurations, so the
+      importer writes through exactly the same model the application reads. Domain comes
+      transitively.
+
+      Note this tool constructs its own DbContext rather than going through the API's DI: the
+      catalog is platform data with no tenant context, and passing a null ICurrentTenantService
+      is both correct here and impossible through the API's normal wiring.
+    -->
+    <ProjectReference Include="..\..\src\Infrastructure\PMS.Persistence\PMS.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

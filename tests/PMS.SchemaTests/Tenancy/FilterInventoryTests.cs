@@ -19,6 +19,13 @@ public class FilterInventoryTests
     [InlineData(typeof(PMS.Domain.Entities.UserTenantMembership), true)]   // tenant (hand-written)
     [InlineData(typeof(PMS.Domain.Entities.User), false)]                  // global identity
     [InlineData(typeof(PMS.Domain.Entities.AccessLog), false)]             // audit trail
+    // The medicine reference catalog: shared platform data, deliberately unfiltered. A filter
+    // here would show every pharmacy an empty catalog without failing anything else.
+    [InlineData(typeof(PMS.Domain.Entities.Catalog.CatalogManufacturer), false)]
+    [InlineData(typeof(PMS.Domain.Entities.Catalog.CatalogDrugClass), false)]
+    [InlineData(typeof(PMS.Domain.Entities.Catalog.CatalogDosageForm), false)]
+    [InlineData(typeof(PMS.Domain.Entities.Catalog.CatalogGeneric), false)]
+    [InlineData(typeof(PMS.Domain.Entities.Catalog.CatalogMedicine), false)]
     public void FilterInventory_IsWhatWeThinkItIs(Type entity, bool expected)
     {
         using var context = new ApplicationDbContext(
