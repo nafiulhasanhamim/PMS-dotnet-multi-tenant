@@ -22,6 +22,12 @@ public class FilterInventoryTests
     // Module 2: each pharmacy's own catalogue. Tenant-scoped by convention, from
     // ITenantEntity alone - no filter is written by hand for it anywhere.
     [InlineData(typeof(PMS.Domain.Entities.Product), true)]
+    // Module 3: physical stock and its audit trail, both tenant-scoped by convention. These
+    // matter more than most: the stock list aggregates across batches, so an unfiltered Batch
+    // would fold another pharmacy's quantities into this one's totals rather than merely
+    // showing an extra row somebody might notice.
+    [InlineData(typeof(PMS.Domain.Entities.Batch), true)]
+    [InlineData(typeof(PMS.Domain.Entities.StockAdjustment), true)]
     // The medicine reference catalog: shared platform data, deliberately unfiltered. A filter
     // here would show every pharmacy an empty catalog without failing anything else.
     [InlineData(typeof(PMS.Domain.Entities.Catalog.CatalogManufacturer), false)]

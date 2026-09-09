@@ -38,6 +38,20 @@ public class UnitOfWork<TContext> : IUnitOfWork<TContext>
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// <b>Unusable as this context is configured, and it throws rather than misbehaving.</b>
+    /// ApplicationDbContext enables retry-on-failure, and
+    /// <c>SqlServerRetryingExecutionStrategy</c> refuses a user-initiated transaction: it
+    /// cannot retry a block whose boundaries it does not control. Calling this produces
+    /// "The configured execution strategy ... does not support user-initiated transactions".
+    ///
+    /// <para>Nothing in the application uses it. A single <see cref="SaveChangesAsync"/> is
+    /// already atomic across every pending change and is retriable, which covers the cases so
+    /// far — see AdjustBatchCommandHandler, where one save writes both a batch update and its
+    /// audit row. Work that genuinely needs several saves in one transaction has to go
+    /// through <c>Database.CreateExecutionStrategy().ExecuteAsync(...)</c>, and the retried
+    /// block must be safe to run twice.</para>
+    /// </remarks>
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         if (_transaction is not null)

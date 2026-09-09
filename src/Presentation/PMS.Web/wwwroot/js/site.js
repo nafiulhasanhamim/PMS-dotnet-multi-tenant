@@ -100,16 +100,22 @@
         });
 
         okEl.addEventListener('click', function () {
-            if (!pendingFormId) {
+            // A trigger naming a form that does not exist used to do nothing at all: no
+            // submit, no error, a button that looked fine and was dead. It cost a bug report.
+            // Now it says so in the console and leaves the modal open, so the button never
+            // pretends to have worked.
+            var form = pendingFormId ? document.getElementById(pendingFormId) : null;
+
+            if (!form) {
+                console.error(
+                    'pms-confirm: no form with id "' + pendingFormId + '". The element with '
+                    + 'data-pms-confirm-form must name a form on this page.');
                 return;
             }
 
-            var form = document.getElementById(pendingFormId);
-            if (form) {
-                okEl.classList.add('pms-busy');
-                okEl.disabled = true;
-                form.submit();
-            }
+            okEl.classList.add('pms-busy');
+            okEl.disabled = true;
+            form.submit();
         });
     }
 })();

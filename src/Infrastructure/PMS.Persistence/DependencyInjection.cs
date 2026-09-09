@@ -61,6 +61,10 @@ public static class DependencyInjection
         // Module 2: the product catalogue, and the two-stage catalogue search behind it.
         services.AddScoped<IProductQueries, ProductQueries>();
         services.AddScoped<ICatalogSearchQueries, CatalogSearchQueries>();
+
+        // Module 3: batches, adjustments and the FEFO reads over them.
+        services.AddScoped<IStockQueries, StockQueries>();
+
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

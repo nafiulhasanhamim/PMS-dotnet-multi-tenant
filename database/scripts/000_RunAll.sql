@@ -21,6 +21,7 @@ PRINT ''
 -- :r "005_CreateAccessLogsTable.sql"
 -- :r "006_CreateCatalogTables.sql"
 -- :r "007_CreateProductsTable.sql"
+-- :r "008_CreateBatchesAndStockAdjustmentsTables.sql"
 
 -- Otherwise, execute each script in order:
 -- 1. 001_CreateDatabase.sql
@@ -30,6 +31,7 @@ PRINT ''
 -- 5. 005_CreateAccessLogsTable.sql
 -- 6. 006_CreateCatalogTables.sql   (platform-level medicine catalog; no tenant)
 -- 7. 007_CreateProductsTable.sql    (tenant-scoped product master; needs 002 and 006)
+-- 8. 008_CreateBatchesAndStockAdjustmentsTables.sql   (stock; needs 002, 003 and 007)
 
 PRINT ''
 PRINT '============================================'
@@ -42,6 +44,7 @@ PRINT '4. Run 004_CreateUserTenantMembershipsTable.sql   (needs Tenants and User
 PRINT '5. Run 005_CreateAccessLogsTable.sql'
 PRINT '6. Run 006_CreateCatalogTables.sql   (platform-level medicine catalog)'
 PRINT '7. Run 007_CreateProductsTable.sql    (tenant-scoped product master)'
+PRINT '8. Run 008_CreateBatchesAndStockAdjustmentsTables.sql   (batches and stock)'
 PRINT ''
 PRINT 'Or enable SQLCMD mode in SSMS (Query > SQLCMD Mode)'
 PRINT 'and uncomment the :r commands above to run all at once.'

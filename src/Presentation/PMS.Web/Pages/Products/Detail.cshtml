@@ -233,11 +233,12 @@
                         <dd>@Clock.Format(product.CreatedOnUtc)</dd>
 
                         <dt>Last updated</dt>
-                        <dd>
-                            @(product.ModifiedOnUtc is { } modified
-                                ? $"{modified:d MMM yyyy, HH:mm} UTC"
-                                : "—")
-                        </dd>
+                        @* Clock.Format renders an em dash for null, so no conditional is
+                           needed here. This row was the one date render left showing raw UTC:
+                           an interpolated format rather than a .ToString call, which is how it
+                           survived the sweep that converted the others. It sat directly under
+                           a Created row in local time, six hours apart on the same card. *@
+                        <dd>@Clock.Format(product.ModifiedOnUtc)</dd>
                     </dl>
                 </div>
             </section>

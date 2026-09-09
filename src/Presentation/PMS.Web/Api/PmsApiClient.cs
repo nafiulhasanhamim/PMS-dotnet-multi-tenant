@@ -159,6 +159,73 @@ public sealed class PmsApiClient
         SendAsync<CatalogMedicineSearchItem>(
             HttpMethod.Get, $"api/catalog/medicines/{id}", null, ct);
 
+    // ── stock (Module 3) ─────────────────────────────────────────────────────────────────
+
+    /// <summary>One page of the stock list — a row per product, aggregated across its batches.</summary>
+    public Task<ApiResult<ApiPage<StockListItem>>> GetStockAsync(
+        string? search = null,
+        StockStatusFilter stockStatus = StockStatusFilter.All,
+        ExpiryStatusFilter expiryStatus = ExpiryStatusFilter.All,
+        StockProductTypeFilter productType = StockProductTypeFilter.All,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string>
+        {
+            $"stockStatus={stockStatus}",
+            $"expiryStatus={expiryStatus}",
+            $"productType={productType}",
+            $"page={page}",
+            $"pageSize={pageSize}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+
+        return SendAsync<ApiPage<StockListItem>>(
+            HttpMethod.Get, $"api/stock?{string.Join('&', query)}", null, ct);
+    }
+
+    /// <summary>
+    /// One product's stock: summary, live batches in FEFO order, and a page of depleted ones.
+    /// </summary>
+    public Task<ApiResult<ProductStockModel>> GetProductStockAsync(
+        Guid productId,
+        int depletedPage = 1,
+        int depletedPageSize = 10,
+        CancellationToken ct = default) =>
+        SendAsync<ProductStockModel>(
+            HttpMethod.Get,
+            $"api/stock/product/{productId}"
+                + $"?depletedPage={depletedPage}&depletedPageSize={depletedPageSize}",
+            null, ct);
+
+    public Task<ApiResult<BatchModel>> GetBatchAsync(Guid batchId, CancellationToken ct = default) =>
+        SendAsync<BatchModel>(HttpMethod.Get, $"api/stock/batch/{batchId}", null, ct);
+
+    /// <summary>A batch's adjustment history. Admin or Pharmacist; the API enforces it.</summary>
+    public Task<ApiResult<ApiPage<StockAdjustmentModel>>> GetBatchAdjustmentsAsync(
+        Guid batchId, int page = 1, int pageSize = 20, CancellationToken ct = default) =>
+        SendAsync<ApiPage<StockAdjustmentModel>>(
+            HttpMethod.Get,
+            $"api/stock/batch/{batchId}/adjustments?page={page}&pageSize={pageSize}",
+            null, ct);
+
+    public Task<ApiResult<BatchCreated>> CreateBatchAsync(
+        CreateBatchRequest request, CancellationToken ct = default) =>
+        SendAsync<BatchCreated>(HttpMethod.Post, "api/stock/batches", request, ct);
+
+    public Task<ApiResult<BatchModel>> UpdateBatchAsync(
+        Guid id, UpdateBatchRequest request, CancellationToken ct = default) =>
+        SendAsync<BatchModel>(HttpMethod.Put, $"api/stock/batches/{id}", request, ct);
+
+    public Task<ApiResult<BatchAdjusted>> AdjustBatchAsync(
+        Guid id, AdjustBatchRequest request, CancellationToken ct = default) =>
+        SendAsync<BatchAdjusted>(HttpMethod.Post, $"api/stock/batches/{id}/adjust", request, ct);
+
     // ── plumbing ─────────────────────────────────────────────────────────────────────────
 
     private async Task<ApiResult<T>> SendAsync<T>(

@@ -27,6 +27,10 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AuthorizeFolder("/Products", WebPolicies.TenantUser);
     options.Conventions.AuthorizeFolder("/Medicines", WebPolicies.TenantUser);
     options.Conventions.AuthorizeFolder("/OtherItems", WebPolicies.TenantUser);
+
+    // Module 3. Same shape: every role may look at stock, and each page that writes carries
+    // its own [Authorize(TenantWriter)] on top of this.
+    options.Conventions.AuthorizeFolder("/Stock", WebPolicies.TenantUser);
     options.Conventions.AuthorizePage("/Index", WebPolicies.TenantUser);
     options.Conventions.AuthorizePage("/Account", WebPolicies.TenantUser);
     options.Conventions.AuthorizePage("/Logout", WebPolicies.TenantUser);

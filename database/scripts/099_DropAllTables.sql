@@ -13,6 +13,22 @@ GO
 
 -- Drop PMS tables here as they are added, dependants before their parents.
 
+-- Module 3 stock, dependants first: an adjustment references its batch, and a batch
+-- references its product, so these have to go before Products below.
+IF OBJECT_ID('[dbo].[StockAdjustments]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[StockAdjustments]
+    PRINT 'Table [StockAdjustments] dropped.'
+END
+GO
+
+IF OBJECT_ID('[dbo].[Batches]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[Batches]
+    PRINT 'Table [Batches] dropped.'
+END
+GO
+
 -- Drop audit tables (no foreign key dependencies)
 IF OBJECT_ID('[dbo].[AccessLogs]', 'U') IS NOT NULL
 BEGIN

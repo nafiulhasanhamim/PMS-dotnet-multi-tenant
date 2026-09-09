@@ -5,6 +5,7 @@ using PMS.Domain.Entities.Catalog;
 using PMS.Persistence.Converters;
 using PMS.SharedKernel.Common;
 using PMS.SharedKernel.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace PMS.Persistence.Contexts;
@@ -84,6 +85,19 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// ITenantEntity.
     /// </summary>
     public DbSet<Product> Products => Set<Product>();
+
+    /// <summary>
+    /// Physical stock: one row per delivery, each with its own expiry and cost. Tenant-scoped
+    /// by convention.
+    /// </summary>
+    public DbSet<Batch> Batches => Set<Batch>();
+
+    /// <summary>
+    /// Every non-sale change to a batch quantity, with its reason. Tenant-scoped by
+    /// convention. Written only alongside the quantity change it explains — see
+    /// <c>Batch.Adjust</c>.
+    /// </summary>
+    public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
 
     // ── Medicine reference catalog ───────────────────────────────────────────────────────
     //
@@ -217,5 +231,59 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     {
         modelBuilder.Entity<TEntity>()
             .HasQueryFilter(e => !e.IsDeleted && e.TenantId == CurrentTenantId);
+    }
+
+    /// <summary>
+    /// Saves, translating a unique-constraint violation into
+    /// <see cref="DuplicateKeyException"/>.
+    ///
+    /// <para>Overridden at the context rather than in the unit of work because it is not the
+    /// only thing that saves: Ardalis's <c>RepositoryBase.AddAsync</c> calls
+    /// <c>SaveChangesAsync</c> itself, so a translation in the unit of work would miss every
+    /// insert that went through a repository. This is the one place all of them pass
+    /// through.</para>
+    ///
+    /// <para>Only 2601 and 2627 are translated. Everything else — a foreign key that does not
+    /// resolve, a CHECK constraint refusing negative stock — is a bug or a bypassed
+    /// validation, and quietly reshaping those into something a handler might swallow is how
+    /// a real defect gets a friendly message and survives to production.</para>
+    /// </summary>
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex, out var constraintName))
+        {
+            throw new DuplicateKeyException(constraintName, ex);
+        }
+    }
+
+    private static bool IsUniqueViolation(DbUpdateException exception, out string? constraintName)
+    {
+        constraintName = null;
+
+        // Typed against the SQL Server driver's own numbers: 2627 is a unique constraint or
+        // primary key, 2601 a unique index. Matching on the message text instead would break
+        // on a server with a non-English collation of messages.
+        if (exception.InnerException is not SqlException { Number: 2601 or 2627 } sql)
+        {
+            return false;
+        }
+
+        // The driver puts the index name in the message in quotes. Best-effort: a null name
+        // still produces the right exception type, and the handler's own check has almost
+        // always identified the clash already.
+        var message = sql.Message;
+        var open = message.IndexOf('\'');
+        var close = open >= 0 ? message.IndexOf('\'', open + 1) : -1;
+
+        if (open >= 0 && close > open + 1)
+        {
+            constraintName = message[(open + 1)..close];
+        }
+
+        return true;
     }
 }

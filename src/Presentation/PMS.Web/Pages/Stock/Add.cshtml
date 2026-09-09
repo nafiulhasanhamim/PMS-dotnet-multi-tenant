@@ -1,0 +1,314 @@
+@page "/stock/add"
+@model PMS.Web.Pages.Stock.AddModel
+@{
+    ViewData["Title"] = "Add stock";
+    var product = Model.Product;
+    var baseUnit = product?.BaseUnitName ?? "units";
+}
+
+<div class="mb-2">
+    @if (product is not null && Model.ProductLocked)
+    {
+        <a asp-page="/Stock/Detail" asp-route-productId="@product.Id">&larr; Back to @product.BrandName</a>
+    }
+    else
+    {
+        <a asp-page="/Stock/Index">&larr; Back to stock</a>
+    }
+</div>
+
+<div class="pms-page-header">
+    <div>
+        <h1>Add stock</h1>
+        <p class="pms-page-header__subtitle">
+            One batch per delivery. Quantity is stored in the product&rsquo;s own base unit
+            whichever unit you enter.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@* The picker reloads the page on change, so it is a form of its own - nesting it inside the
+   main form would submit the batch fields half-filled. *@
+<form method="get" id="product-picker" class="pms-card mb-3">
+    <div class="pms-card__body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="pms-form-label" for="product-filter">Find a product</label>
+                <input class="form-control" id="product-filter" name="pq"
+                       value="@Model.ProductQuery" data-stock-product-filter
+                       placeholder="Type a brand or generic name..."
+                       @(Model.ProductLocked ? "disabled" : null) />
+                <div class="pms-form-help">
+                    @if (Model.ProductsTruncated)
+                    {
+                        <text>Showing part of your catalogue — type to narrow it.</text>
+                    }
+                    else
+                    {
+                        <text>Filters the list beside it.</text>
+                    }
+                </div>
+            </div>
+            <div class="col-md-5">
+                <label class="pms-form-label" for="productId">
+                    Product <span class="pms-required" aria-hidden="true">*</span>
+                </label>
+                <select class="form-select" id="productId" name="productId"
+                        data-stock-reload-on-change data-stock-reload-form="product-picker"
+                        @(Model.ProductLocked ? "disabled" : null)>
+                    <option value="">Choose a product...</option>
+                    @foreach (var option in Model.Products)
+                    {
+                        <option value="@option.Id" selected="@(option.Id == Model.Input.ProductId)">
+                            @option.BrandName@(option.Strength is null ? "" : $" {option.Strength}")
+                            @(option.GenericName is null ? "" : $"({option.GenericName})")
+                        </option>
+                    }
+                </select>
+                <span class="text-danger" asp-validation-for="Input.ProductId"></span>
+            </div>
+            <div class="col-md-2">
+                @if (!Model.ProductLocked)
+                {
+                    <button type="submit" class="btn btn-outline-secondary w-100">Choose</button>
+                }
+            </div>
+        </div>
+        @if (Model.ProductLocked && product is not null)
+        {
+            <input type="hidden" name="productId" value="@product.Id" />
+            <input type="hidden" name="locked" value="true" />
+            <div class="pms-form-help mt-2">
+                Adding stock for <strong>@product.BrandName</strong>.
+                <a asp-page="/Stock/Add">Choose a different product</a>
+            </div>
+        }
+    </div>
+</form>
+
+@if (product is null)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "Choose a product first",
+        "The units, prices and expiry rules on this form all come from the product you pick."))" />
+}
+else
+{
+    <form method="post" data-pms-guard>
+        <input type="hidden" asp-for="Input.ProductId" value="@product.Id" />
+        <input type="hidden" name="pq" value="@Model.ProductQuery" />
+
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <h2 class="h6 mb-3">The delivery</h2>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.BatchNumber">
+                            Batch number <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.BatchNumber" />
+                        <div class="pms-form-help">
+                            The manufacturer&rsquo;s batch number, printed on the pack.
+                        </div>
+                        <span class="text-danger" asp-validation-for="Input.BatchNumber"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.ExpiryDate">
+                            Expiry date
+                            @if (Model.ExpiryRequired)
+                            {
+                                <span class="pms-required" aria-hidden="true">*</span>
+                            }
+                        </label>
+                        <input class="form-control" type="date" asp-for="Input.ExpiryDate" />
+                        <div class="pms-form-help">
+                            @if (Model.ExpiryRequired)
+                            {
+                                <text>@product.BrandName is a medicine, so this is required.</text>
+                            }
+                            else
+                            {
+                                <text>Leave blank if this product doesn&rsquo;t expire.</text>
+                            }
+                        </div>
+                        <span class="text-danger" asp-validation-for="Input.ExpiryDate"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.ManufactureDate">
+                            Manufacture date
+                        </label>
+                        <input class="form-control" type="date" asp-for="Input.ManufactureDate" />
+                        <div class="pms-form-help">Optional. Must be before the expiry date.</div>
+                        <span class="text-danger" asp-validation-for="Input.ManufactureDate"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <h2 class="h6 mb-1">Quantity and cost</h2>
+                <p class="pms-form-help mb-3">
+                    @product.PackingSummary. Enter whichever unit you were given —
+                    it is stored in @baseUnit.
+                </p>
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="pms-form-label" asp-for="Input.Quantity">
+                            How much arrived <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" type="number" step="any" min="0"
+                               asp-for="Input.Quantity" data-stock-quantity />
+                        <span class="text-danger" asp-validation-for="Input.Quantity"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pms-form-label" asp-for="Input.QuantityUnit">Unit</label>
+                        @* Options come from the product, never a fixed list: Napa offers
+                           piece/strip/box, handwash bottle/carton, a saline bag only bag. *@
+                        <select class="form-select" asp-for="Input.QuantityUnit"
+                                data-stock-quantity-unit>
+                            @foreach (var unit in Model.UnitOptions)
+                            {
+                                <option value="@unit.Level"
+                                        data-unit-name="@unit.Name"
+                                        data-base-units="@StockPresentation.BaseUnitsIn(unit.Level, product)"
+                                        selected="@(Model.Input.QuantityUnit == unit.Level)">
+                                    @unit.Name
+                                </option>
+                            }
+                        </select>
+                        <div class="pms-form-help" data-stock-quantity-help
+                             data-base-unit="@baseUnit"></div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="pms-form-label" asp-for="Input.PurchasePrice">
+                            Purchase price <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" type="number" step="any" min="0"
+                               asp-for="Input.PurchasePrice" data-stock-price />
+                        <span class="text-danger" asp-validation-for="Input.PurchasePrice"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pms-form-label" asp-for="Input.PurchasePriceUnit">Per</label>
+                        <select class="form-select" asp-for="Input.PurchasePriceUnit"
+                                data-stock-price-unit>
+                            @foreach (var unit in Model.UnitOptions)
+                            {
+                                <option value="@unit.Level"
+                                        data-unit-name="@unit.Name"
+                                        data-base-units="@StockPresentation.BaseUnitsIn(unit.Level, product)"
+                                        selected="@(Model.Input.PurchasePriceUnit == unit.Level)">
+                                    @unit.Name
+                                </option>
+                            }
+                        </select>
+                        <div class="pms-form-help" data-stock-price-help
+                             data-base-unit="@baseUnit"
+                             data-sale-price="@product.PricePerBase.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
+                    </div>
+                </div>
+
+                @* Non-blocking, and confirmed rather than refused. A pharmacy really does buy
+                   above its own list price and reprice afterwards; refusing the entry would
+                   leave the stock unrecorded, which is worse than recording it flagged. *@
+                <div class="pms-alert pms-alert--warning mt-3" data-stock-loss-warning hidden>
+                    <div data-stock-loss-text></div>
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" id="confirm-loss" />
+                        <label class="form-check-label" for="confirm-loss">
+                            I know — continue anyway
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <h2 class="h6 mb-3">Where it came from</h2>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.SupplierNameText">
+                            Supplier
+                        </label>
+                        <input class="form-control" asp-for="Input.SupplierNameText" />
+                        <div class="pms-form-help">
+                            Free text for now — becomes a supplier record in the Purchase module.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.Notes">Notes</label>
+                        <textarea class="form-control" rows="2" asp-for="Input.Notes"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" class="btn btn-primary">
+                <span class="pms-spinner" aria-hidden="true"></span>Add batch
+            </button>
+            <a class="btn btn-outline-secondary"
+               asp-page="@(Model.ProductLocked ? "/Stock/Detail" : "/Stock/Index")"
+               asp-route-productId="@(Model.ProductLocked ? product.Id : (Guid?)null)">Cancel</a>
+        </div>
+    </form>
+
+    @if (Model.ExistingStock is { } existing)
+    {
+        @* Shown so nobody enters the same delivery twice. Somebody typing B-100 should be
+           able to see that B-100 is already there before the server refuses it. *@
+        <div class="pms-card mb-4">
+            <div class="pms-card__body">
+                <h2 class="h6 mb-1">Already in stock</h2>
+                <p class="pms-form-help mb-2">
+                    @existing.FormattedQuantity across @existing.BatchCount
+                    @(existing.BatchCount == 1 ? "batch" : "batches").
+                </p>
+
+                @if (existing.ActiveBatches.Count == 0)
+                {
+                    <p class="pms-form-help mb-0">No batches with stock yet.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="pms-table">
+                            <caption class="visually-hidden">Existing batches of this product</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Batch number</th>
+                                    <th scope="col">Expiry</th>
+                                    <th scope="col">Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var batch in existing.ActiveBatches)
+                                {
+                                    var cell = StockPresentation.ExpiryCell(
+                                        batch.ExpiryDate, batch.DaysUntilExpiry, batch.ExpiryState);
+                                    <tr>
+                                        <td>@batch.BatchNumber</td>
+                                        <td class="@cell.Css" title="@cell.Title">@cell.Text</td>
+                                        <td>@batch.FormattedQuantity</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    <script src="~/js/stock-form.js" asp-append-version="true"></script>
+}

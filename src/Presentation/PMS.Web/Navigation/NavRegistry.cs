@@ -77,12 +77,17 @@ public static class NavRegistry
 
         new NavItem("Other items", "/OtherItems/Index", "box", MatchPrefix: "/other-items"),
 
+        // Module 3. One entry, visible to every role: an Employee has to be able to answer
+        // "have we got any?" without being able to change the answer. What they do not see is
+        // what the stock cost, and the API withholds that rather than the page hiding it.
+        new NavItem("Stock", "/Stock/Index", "layers", MatchPrefix: "/stock"),
+
         new NavItem("Users", "/Users/Index", "people",
             Roles: new[] { UserRole.Admin }),
 
         new NavItem("My profile", "/Account", "person"),
 
-        // Module 3 onwards: batches and stock, suppliers, billing, alerts, reports.
+        // Module 4 onwards: suppliers and purchases, billing, alerts, reports.
     };
 
     /// <summary>Sidebar for a platform operator. An entirely separate list — no overlap.</summary>

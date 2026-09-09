@@ -1,0 +1,89 @@
+@page "/stock/batch/{id:guid}/history"
+@model PMS.Web.Pages.Stock.BatchHistoryModel
+@inject DisplayTimeZone Clock
+@{
+    var batch = Model.Batch;
+    ViewData["Title"] = batch is null ? "Adjustment history" : $"History for {batch.BatchNumber}";
+}
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (batch is null)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "That batch could not be found.", null, "Back to stock", "/Stock/Index"))" />
+}
+else
+{
+    <div class="mb-2">
+        <a asp-page="/Stock/Detail" asp-route-productId="@batch.ProductId">
+            &larr; Back to @batch.ProductBrandName
+        </a>
+    </div>
+
+    <div class="pms-page-header">
+        <div>
+            <h1>Adjustment history</h1>
+            <p class="pms-page-header__subtitle">
+                @batch.ProductBrandName · batch <strong>@batch.BatchNumber</strong> ·
+                now @batch.FormattedQuantity of @batch.FormattedInitialQuantity received
+            </p>
+        </div>
+        <div class="pms-page-header__actions">
+            <a class="btn btn-outline-secondary" asp-page="/Stock/AdjustBatch"
+               asp-route-id="@batch.Id">Adjust stock</a>
+        </div>
+    </div>
+
+    <div class="pms-table-wrap">
+        @if (Model.Adjustments.IsEmpty)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No adjustments yet",
+                "This batch has not been adjusted since it was received. Sales are not "
+                + "adjustments — they will appear in the sales record."))" />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="pms-table">
+                    <caption class="visually-hidden">Every adjustment made to this batch</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">When</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Change</th>
+                            <th scope="col">After</th>
+                            <th scope="col">Reason</th>
+                            <th scope="col">By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Adjustments.Data)
+                        {
+                            var badge = StockPresentation.AdjustmentBadge(row.AdjustmentType);
+                            <tr>
+                                <td>@Clock.Format(row.CreatedOnUtc)</td>
+                                <td><span class="pms-badge @badge.Css">@badge.Text</span></td>
+                                <td>@row.FormattedQuantityChange</td>
+                                <td class="text-muted">
+                                    @row.QuantityBeforeInBaseUnits &rarr; @row.QuantityAfterInBaseUnits
+                                </td>
+                                <td>@row.Reason</td>
+                                @* Resolved from the user id at read time rather than copied
+                                   onto the row, so a corrected name is corrected everywhere.
+                                   The id is the record; this is the display. *@
+                                <td>@(row.AdjustedByName ?? "(unknown user)")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+                Model.Adjustments, "/Stock/BatchHistory", new Dictionary<string, string>
+                {
+                    ["id"] = batch.Id.ToString(),
+                }))" />
+        }
+    </div>
+}

@@ -1,0 +1,193 @@
+@page "/stock/batch/{id:guid}/adjust"
+@model PMS.Web.Pages.Stock.AdjustBatchModel
+@{
+    var batch = Model.Batch;
+    var product = Model.Product;
+    ViewData["Title"] = batch is null ? "Adjust stock" : $"Adjust batch {batch.BatchNumber}";
+    var baseUnit = product?.BaseUnitName ?? "units";
+}
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (batch is null || product is null)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "That batch could not be found.", null, "Back to stock", "/Stock/Index"))" />
+}
+else
+{
+    <div class="mb-2">
+        <a asp-page="/Stock/Detail" asp-route-productId="@batch.ProductId">
+            &larr; Back to @product.BrandName
+        </a>
+    </div>
+
+    <div class="pms-page-header">
+        <div>
+            <h1>Adjust stock</h1>
+            <p class="pms-page-header__subtitle">
+                @product.BrandName · batch <strong>@batch.BatchNumber</strong> ·
+                currently <strong>@batch.FormattedQuantity</strong>
+            </p>
+        </div>
+    </div>
+
+    @if (Model.IsNearExpiry)
+    {
+        @* The wrong-screen guard. Fresh stock added to an old batch silently inherits that
+           batch's expiry date and cost: it gets written off months early, or sold expired,
+           and the margin on it is wrong either way. The API refuses the addition unless the
+           box below is ticked, so this is a gate rather than a notice. *@
+        <div class="pms-alert pms-alert--warning">
+            <strong>
+                @if (batch.ExpiryState == ExpiryState.Expired)
+                {
+                    <text>This batch expired on @batch.ExpiryDate?.ToString("d MMM yyyy").</text>
+                }
+                else
+                {
+                    <text>
+                        This batch expires on @batch.ExpiryDate?.ToString("d MMM yyyy"),
+                        in @batch.DaysUntilExpiry days.
+                    </text>
+                }
+            </strong>
+            <p class="mb-0">
+                If new stock has arrived, don&rsquo;t add it here — record it as a
+                <a asp-page="/Stock/Add" asp-route-productId="@batch.ProductId"
+                   asp-route-locked="true">new batch</a>,
+                so it keeps its own expiry date and cost. Removing stock from this batch
+                (disposal) needs no confirmation.
+            </p>
+        </div>
+    }
+
+    @* The id is not decoration: the confirmation modal submits by looking this up.
+       Without it the Save button in the modal did nothing at all, silently. *@
+    <form method="post" id="adjust-form" data-pms-guard>
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <fieldset class="mb-3">
+                    <legend class="pms-form-label">What changed?</legend>
+                    @* data-adjust-kind, rather than letting the script read the
+                       value: these render as the enum NAMES ("Remove"), because
+                       that is what the tag helper compares to mark one checked.
+                       The script used to test for "1" and so always fell through
+                       to the Add branch - mislabelling the field and, worse,
+                       previewing a removal as an addition. *@
+
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" id="type-add"
+                               asp-for="Input.AdjustmentType" value="@AdjustmentType.Add"
+                               data-stock-adjust-type data-adjust-kind="add" />
+                        <label class="form-check-label" for="type-add">
+                            Add stock — a miscount on arrival, or a pack coming back
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" id="type-remove"
+                               asp-for="Input.AdjustmentType" value="@AdjustmentType.Remove"
+                               data-stock-adjust-type data-adjust-kind="remove" />
+                        <label class="form-check-label" for="type-remove">
+                            Remove stock — damage, breakage, expired disposal
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" id="type-correction"
+                               asp-for="Input.AdjustmentType" value="@AdjustmentType.Correction"
+                               data-stock-adjust-type data-adjust-kind="correction" />
+                        <label class="form-check-label" for="type-correction">
+                            Set correct quantity — you have counted the shelf
+                        </label>
+                    </div>
+                </fieldset>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.Quantity"
+                               data-stock-adjust-label>
+                            Quantity
+                        </label>
+                        <input class="form-control" type="number" step="any" min="0"
+                               asp-for="Input.Quantity" data-stock-quantity />
+                        <span class="text-danger" asp-validation-for="Input.Quantity"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.QuantityUnit">Unit</label>
+                        <select class="form-select" asp-for="Input.QuantityUnit"
+                                data-stock-quantity-unit>
+                            @foreach (var unit in Model.UnitOptions)
+                            {
+                                <option value="@unit.Level"
+                                        data-unit-name="@unit.Name"
+                                        data-base-units="@StockPresentation.BaseUnitsIn(unit.Level, product)"
+                                        selected="@(Model.Input.QuantityUnit == unit.Level)">
+                                    @unit.Name
+                                </option>
+                            }
+                        </select>
+                        <div class="pms-form-help" data-stock-adjust-preview
+                             data-current="@batch.QuantityInBaseUnits"
+                             data-base-unit="@baseUnit"></div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <label class="pms-form-label" asp-for="Input.Reason">
+                        Reason <span class="pms-required" aria-hidden="true">*</span>
+                    </label>
+                    <input class="form-control" id="reason" asp-for="Input.Reason" />
+                    <div class="pms-form-help mb-2">
+                        Required. This is the only record of why the number moved.
+                    </div>
+                    @* Buttons that fill an editable field rather than a dropdown that
+                       replaces it: a fixed list gets "Other" chosen for exactly the cases
+                       worth reading later. *@
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var quick in StockPresentation.QuickReasons)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    data-stock-reason="@quick">@quick</button>
+                        }
+                    </div>
+                    <span class="text-danger" asp-validation-for="Input.Reason"></span>
+                </div>
+
+                @if (Model.IsNearExpiry)
+                {
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox"
+                               asp-for="Input.AcknowledgeExpiringBatch" id="ack-expiring" />
+                        <label class="form-check-label" for="ack-expiring">
+                            I understand this batch is expired or expiring, and this stock
+                            really does belong to it
+                        </label>
+                        <span class="text-danger"
+                              asp-validation-for="Input.AcknowledgeExpiringBatch"></span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-4">
+            @* Confirmation before saving. The modal repeats the product, the batch, the
+               before-and-after and the reason, because this is the one screen that changes a
+               number nobody else will re-check. *@
+            <button type="button" class="btn btn-primary"
+                    data-pms-confirm-form="adjust-form"
+                    data-pms-confirm-title="Save this adjustment?"
+                    data-pms-confirm-ok="Save adjustment"
+                    data-pms-confirm="This will change @product.BrandName batch @batch.BatchNumber from @batch.FormattedQuantity to the quantity you entered, and record your reason against it. Adjustments cannot be deleted.">
+                Save adjustment
+            </button>
+            <a class="btn btn-outline-secondary" asp-page="/Stock/Detail"
+               asp-route-productId="@batch.ProductId">Cancel</a>
+            <a class="btn btn-outline-secondary ms-auto" asp-page="/Stock/BatchHistory"
+               asp-route-id="@batch.Id">Adjustment history</a>
+        </div>
+    </form>
+}
+
+@section Scripts {
+    <script src="~/js/stock-form.js" asp-append-version="true"></script>
+}
