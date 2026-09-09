@@ -18,7 +18,9 @@ namespace PMS.WebApi.Access;
 /// worse than having no table: it invites a decision based on a stale one.</para>
 ///
 /// <para>The one thing it cannot see is what a handler withholds <em>inside</em> a response.
-/// Those are declared in <see cref="WithheldFields"/> and labelled as declared.</para>
+/// Those are declared by hand in <see cref="WithheldFieldCatalog"/> — deliberately a
+/// separate file, so the part somebody has to remember to update is not buried inside the
+/// part that updates itself — and the page labels them as declared.</para>
 /// </summary>
 public sealed class AccessMatrixBuilder
 {
@@ -105,7 +107,7 @@ public sealed class AccessMatrixBuilder
         return new AccessMatrixDto(
             roles,
             areas,
-            WithheldFields,
+            WithheldFieldCatalog.Entries,
             entries.Count,
             entries.Count - authenticated.Count,
             _clock.UtcNow);
@@ -189,31 +191,4 @@ public sealed class AccessMatrixBuilder
 
         return text.ToString();
     }
-
-    /// <summary>
-    /// What is withheld inside a response rather than by refusing the request.
-    ///
-    /// <para><b>Maintained by hand.</b> See <see cref="WithheldFieldDto"/> — the routing table
-    /// cannot see a projection that skips a column, so this is the one part of the page that
-    /// can drift. Each row names the file that enforces it so the claim is checkable.</para>
-    /// </summary>
-    private static readonly IReadOnlyList<WithheldFieldDto> WithheldFields =
-    [
-        new WithheldFieldDto(
-            "Product catalogue",
-            "Sale price, in the product list",
-            "Employee",
-            "An Employee at the counter needs to answer \"how much is this?\" for one product, "
-            + "which the detail page still tells them. What they should not have is the whole "
-            + "price list in a single download.",
-            "ProductsController.CallerMaySeeListPrices → GetProductsQuery.IncludePrices"),
-
-        new WithheldFieldDto(
-            "Stock and batches",
-            "Purchase price, everywhere it appears",
-            "Employee",
-            "What the pharmacy paid, and so its margin. Nobody at the counter needs it. "
-            + "Stricter than the sale price above, which an Employee can see on a detail page.",
-            "StockController.CallerMaySeePurchasePrices → GetProductStockQuery / GetBatchQuery"),
-    ];
 }

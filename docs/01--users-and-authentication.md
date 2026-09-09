@@ -540,8 +540,25 @@ that no tenant policy ever admits a platform admin.
 
 The one thing the routing table cannot see is a field withheld *inside* a response — an
 Employee's missing purchase price is a fact about a projection. Those are declared by hand in
-`AccessMatrixBuilder.WithheldFields`, each naming the code that enforces it, and the page
-labels that section as hand-maintained so nobody mistakes it for derived.
+`WithheldFieldCatalog`, each naming the code that enforces it, and the page labels that
+section as hand-maintained so nobody mistakes it for derived.
+
+### When you add a feature
+
+Almost nothing. That is the design, and it is worth knowing exactly where the exceptions are:
+
+| What you added | What the access page needs |
+|---|---|
+| A controller action | **Nothing.** It appears with its roles on the next page load. |
+| An `[Authorize]` with an existing policy | **Nothing.** |
+| A **new policy** | Add it to `RoleAccessMap.RolesFor`. `RoleAccessMapTests` fails the build until you do — an unmapped policy renders as reachable by nobody. |
+| A **new role** | Add it to `RoleAccessMap.Columns` with a name and description. `RoleAccessMapTests` fails until you do. |
+| A field withheld from a role **inside** a response | Gate it with a `bool CallerMaySee…` property on the controller and add an entry to `WithheldFieldCatalog` naming that property. `WithheldFieldCatalogTests` fails the build until you do — and also fails if an entry names a gate that no longer exists, so a lifted restriction cannot keep being advertised. |
+| A new controller | Optional: a friendly area name in `AccessMatrixBuilder.AreaName` and a sort position in `AreaOrder`. Without them the controller name is humanised and the area sorts last — it degrades, it does not go wrong. |
+
+The only gap left is a field withheld by some route other than the `CallerMaySee…` convention.
+That is the argument for keeping to the convention, and the reason it is named in
+`WithheldFieldCatalogTests` rather than left as folklore.
 
 ## Suspension takes effect twice
 
