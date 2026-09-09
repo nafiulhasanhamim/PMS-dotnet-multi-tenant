@@ -1,0 +1,255 @@
+@page "/platform/access"
+@model PMS.Web.Pages.Platform.AccessModel
+@inject DisplayTimeZone Clock
+@{
+    ViewData["Title"] = "Roles & access";
+    var matrix = Model.Matrix;
+
+    // Endpoints that require a token. The denominator for each role card: comparing a role
+    // against the total would count the login endpoints, which every role trivially "has".
+    var guarded = matrix.TotalEndpoints - matrix.AnonymousEndpoints;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Roles &amp; access</h1>
+        <p class="pms-page-header__subtitle">
+            What each role can reach, read out of the running application rather than written
+            down — so it cannot fall out of step with the code.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (matrix.TotalEndpoints == 0)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "The access matrix could not be read.",
+        "The API returned nothing to show."))" />
+}
+else
+{
+    @* One card per role. The count is the blunt summary: useful mainly when it changes after
+       a release nobody expected it to change. *@
+    <div class="row g-3 mb-4">
+        @foreach (var role in matrix.Roles)
+        {
+            var isFiltered = Model.Role == role.Role;
+            <div class="col-md-3">
+                <div class="pms-card h-100 @(isFiltered ? "pms-card--selected" : null)">
+                    <div class="pms-card__body">
+                        <div class="pms-form-label mb-1">@role.Name</div>
+                        <div class="fs-4">
+                            @role.PermittedCount
+                            <span class="pms-form-help">of @guarded</span>
+                        </div>
+                        <p class="pms-form-help mb-2">@role.Description</p>
+                        @if (isFiltered)
+                        {
+                            <a asp-page="/Platform/Access" asp-route-area="@Model.Area"
+                               asp-route-auth="@Model.AuthenticatedOnly">Clear this filter</a>
+                        }
+                        else
+                        {
+                            <a asp-page="/Platform/Access" asp-route-role="@role.Role"
+                               asp-route-area="@Model.Area"
+                               asp-route-auth="@Model.AuthenticatedOnly">Show only this role</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* The point most easily missed, so it is said in words and not left to the ticks. *@
+    <div class="pms-alert pms-alert--info mb-4">
+        <strong>A platform admin is not a super-user.</strong>
+        Every pharmacy policy requires a pharmacy claim, which a platform token does not carry
+        — so a platform operator can create a pharmacy and its first Admin, and cannot read
+        that pharmacy&rsquo;s products, stock or sales. The gaps in the Platform admin column
+        are the design, not an oversight.
+    </div>
+
+    <form method="get" class="pms-card mb-3">
+        <div class="pms-card__body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="pms-form-label" for="role">Role</label>
+                    <select class="form-select" id="role" name="role">
+                        <option value="">All roles</option>
+                        @foreach (var role in matrix.Roles)
+                        {
+                            <option value="@role.Role" selected="@(Model.Role == role.Role)">
+                                @role.Name
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="pms-form-label" for="area">Area</label>
+                    <select class="form-select" id="area" name="area">
+                        <option value="">All areas</option>
+                        @foreach (var area in Model.AreaNames)
+                        {
+                            <option value="@area" selected="@(Model.Area == area)">@area</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="auth" name="auth"
+                               value="true" checked="@Model.AuthenticatedOnly" />
+                        <label class="form-check-label" for="auth">
+                            Needs sign-in only
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-primary w-100">Apply</button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <p class="pms-form-help">
+        Showing <strong>@Model.ShownCount</strong> of @matrix.TotalEndpoints endpoints.
+        @if (Model.AuthenticatedOnly && matrix.AnonymousEndpoints > 0)
+        {
+            <text>
+                @matrix.AnonymousEndpoints need no token at all — signing in, and the health
+                check. Untick the box to include them.
+            </text>
+        }
+        @if (Model.HasFilters)
+        {
+            <a asp-page="/Platform/Access" asp-route-auth="true">Clear filters</a>
+        }
+    </p>
+
+    @if (Model.ShownCount == 0)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "Nothing matches those filters.",
+            "This role cannot reach anything in the selected area."))" />
+    }
+
+    @foreach (var area in Model.FilteredAreas)
+    {
+        <h2 class="h6 mt-4 mb-2">@area.Name</h2>
+        <div class="pms-table-wrap">
+            <div class="table-responsive">
+                <table class="pms-table">
+                    <caption class="visually-hidden">
+                        Endpoints in @area.Name, and the roles permitted to call each
+                    </caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Action</th>
+                            <th scope="col">Request</th>
+                            @foreach (var role in Model.Columns)
+                            {
+                                <th scope="col" class="text-center">@role.Name</th>
+                            }
+                            <th scope="col">Policy</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in area.Entries)
+                        {
+                            <tr>
+                                <td>@entry.Description</td>
+                                <td>
+                                    <code>@entry.Method</code>
+                                    <span class="text-muted">@entry.Route</span>
+                                </td>
+                                @foreach (var role in Model.Columns)
+                                {
+                                    var allowed = entry.Allows(role.Role);
+                                    @* Never a tick alone: the cell carries a word for a screen
+                                       reader, and the title says which role it is about, since
+                                       a column header is a long way from a cell on a wide
+                                       table. *@
+                                    <td class="text-center @(allowed ? "pms-access--yes" : "pms-access--no")"
+                                        title="@(allowed ? $"{role.Name} may call this" : $"{role.Name} may not call this")">
+                                        <span aria-hidden="true">@(allowed ? "✓" : "—")</span>
+                                        <span class="visually-hidden">
+                                            @(allowed ? "permitted" : "not permitted")
+                                        </span>
+                                    </td>
+                                }
+                                <td>
+                                    @if (!entry.RequiresAuthentication)
+                                    {
+                                        <span class="pms-badge pms-badge--warning"
+                                              title="No token required">Open</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var policy in entry.Policies)
+                                        {
+                                            <span class="pms-badge pms-badge--neutral">@policy</span>
+                                        }
+                                        @if (entry.Policies.Count > 1)
+                                        {
+                                            @* Two policies is an AND, and it is the one thing
+                                               about this table a reader could get backwards. *@
+                                            <div class="pms-form-help">both required</div>
+                                        }
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <h2 class="h6 mt-5 mb-2">Withheld inside responses</h2>
+    <div class="pms-alert pms-alert--warning">
+        <strong>This section is maintained by hand.</strong>
+        Everything above is read from the application&rsquo;s own authorization metadata and
+        cannot drift. These cannot be read from anywhere — &ldquo;the query does not select the
+        cost column for an Employee&rdquo; is a fact about a handler, invisible to the routing
+        table. Each row names the code that enforces it, so the claim can be checked rather
+        than believed.
+    </div>
+
+    <div class="pms-table-wrap">
+        <div class="table-responsive">
+            <table class="pms-table">
+                <caption class="visually-hidden">
+                    Fields withheld from a role inside an otherwise permitted response
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Area</th>
+                        <th scope="col">Field</th>
+                        <th scope="col">Withheld from</th>
+                        <th scope="col">Why</th>
+                        <th scope="col">Enforced in</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var field in matrix.WithheldFields)
+                    {
+                        <tr>
+                            <td>@field.Area</td>
+                            <td>@field.Field</td>
+                            <td><span class="pms-badge pms-badge--danger">@field.WithheldFrom</span></td>
+                            <td>@field.Why</td>
+                            <td><code class="pms-form-help">@field.EnforcedIn</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <p class="pms-form-help mt-3">
+        Read from the running build at @Clock.Format(matrix.GeneratedAtUtc).
+        Endpoint labels are derived from method names, so they are approximate; the request
+        column beside them is exact.
+    </p>
+}

@@ -511,6 +511,38 @@ Worth stating for whoever builds the Razor app or a mobile client:
 - **No registration.** There is no self-service signup endpoint to call.
 
 
+## Seeing the access model: `/platform/access`
+
+A platform-only page rendering the whole role-by-endpoint matrix, with a per-role summary and
+filters for one role or one area.
+
+**It is derived, not documented.** `AccessMatrixBuilder` walks `EndpointDataSource` — the same
+routing table the server dispatches on — reads each endpoint's authorization metadata, and
+translates the policy names into role sets through `RoleAccessMap`. A new action appears the
+moment it exists; an action whose policy changes shows its new roles on the next page load.
+This section, by contrast, is prose somebody has to remember to update — which is exactly why
+the page exists and why this paragraph is short.
+
+Two details the page makes explicit, because they are the ones most often assumed wrongly:
+
+- **Stacked policies intersect.** `[Authorize(TenantUser)]` on a controller with
+  `[Authorize(TenantWriter)]` on an action admits Admin and Pharmacist. The action narrows the
+  controller; it does not widen it. Taking the union instead would report an Employee as able
+  to add stock.
+- **A platform admin is not a super-user.** Every tenant policy requires a tenant claim, which
+  a platform token does not carry, so the gaps down that column are the design. The page says
+  so in a banner rather than leaving it to be inferred from missing ticks.
+
+`RoleAccessMap` is a translation of the policies, never a second source of truth — the policies
+grant, it only explains. `RoleAccessMapTests` fails the build if a policy exists the map cannot
+translate, so the two cannot disagree silently, and it pins both assertions above, including
+that no tenant policy ever admits a platform admin.
+
+The one thing the routing table cannot see is a field withheld *inside* a response — an
+Employee's missing purchase price is a fact about a projection. Those are declared by hand in
+`AccessMatrixBuilder.WithheldFields`, each naming the code that enforces it, and the page
+labels that section as hand-maintained so nobody mistakes it for derived.
+
 ## Suspension takes effect twice
 
 `Status = Suspended` blocks login. It is also checked **per request** by

@@ -17,7 +17,7 @@ public static class StockPresentation
     {
         StockStatus.OutOfStock => ("Out of stock", "pms-badge--danger"),
         StockStatus.Low => ("Low", "pms-badge--warning"),
-        _ => ("OK", "pms-badge--muted"),
+        _ => ("OK", "pms-badge--neutral"),
     };
 
     /// <summary>
@@ -59,7 +59,7 @@ public static class StockPresentation
     {
         AdjustmentType.Add => ("Added", "pms-badge--success"),
         AdjustmentType.Remove => ("Removed", "pms-badge--danger"),
-        _ => ("Correction", "pms-badge--muted"),
+        _ => ("Correction", "pms-badge--neutral"),
     };
 
     /// <summary>

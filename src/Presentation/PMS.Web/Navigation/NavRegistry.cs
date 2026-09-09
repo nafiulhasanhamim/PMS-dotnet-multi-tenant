@@ -95,6 +95,12 @@ public static class NavRegistry
     {
         new NavItem("Tenants", "/Platform/Tenants/Index", "building",
             MatchPrefix: "/platform/tenants"),
+
+        // Who can do what, read out of the running build. Platform-side only: a pharmacy
+        // Admin has no use for the whole authorization model, and it is exactly the map
+        // somebody probing the system would want.
+        new NavItem("Roles & access", "/Platform/Access", "shield",
+            MatchPrefix: "/platform/access"),
     };
 
     public static IEnumerable<NavItem> ForTenantRole(UserRole? role) =>

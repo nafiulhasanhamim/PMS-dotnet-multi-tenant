@@ -2,6 +2,7 @@ using PMS.Application;
 using PMS.Infrastructure;
 using PMS.Infrastructure.Logging;
 using PMS.Persistence;
+using PMS.WebApi.Access;
 using PMS.WebApi.Extensions;
 using PMS.WebApi.Middleware;
 using HealthChecks.UI.Client;
@@ -53,6 +54,10 @@ try
 
     // Authentication: JWT bearer, plus the platform/tenant authorization policies
     builder.Services.AddJwtAuthentication(builder.Configuration);
+
+    // Reads the role/endpoint access matrix out of the routing table for the platform access
+    // page. Scoped rather than singleton only because it takes the clock; it holds no state.
+    builder.Services.AddScoped<AccessMatrixBuilder>();
 
     // Add API controllers
     builder.Services.AddControllers();

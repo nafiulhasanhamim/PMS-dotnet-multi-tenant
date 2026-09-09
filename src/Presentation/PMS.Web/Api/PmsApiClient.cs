@@ -60,6 +60,13 @@ public sealed class PmsApiClient
         SendAsync<TenantModel>(HttpMethod.Patch, $"api/platform/tenants/{tenantId}/status",
             new UpdateTenantStatusRequest(status), ct);
 
+    /// <summary>
+    /// The role-by-endpoint access matrix, read out of the API's own routing table. Platform
+    /// operators only; the API enforces it.
+    /// </summary>
+    public Task<ApiResult<AccessMatrix>> GetAccessMatrixAsync(CancellationToken ct = default) =>
+        SendAsync<AccessMatrix>(HttpMethod.Get, "api/platform/access", null, ct);
+
     public Task<ApiResult<ProvisionedUser>> CreateTenantAdminAsync(
         Guid tenantId, CreateTenantAdminRequest request, CancellationToken ct = default) =>
         SendAsync<ProvisionedUser>(
