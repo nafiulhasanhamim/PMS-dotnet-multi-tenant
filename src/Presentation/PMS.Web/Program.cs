@@ -19,6 +19,13 @@ builder.Services.AddRazorPages(options =>
     // policy does not merely reject a platform principal, it never authenticates one.
     options.Conventions.AuthorizeFolder("/Platform", WebPolicies.PlatformAdmin);
     options.Conventions.AuthorizeFolder("/Users", WebPolicies.TenantAdmin);
+
+    // Module 2. The lists are readable by every pharmacy user, including an Employee -
+    // looking up what the pharmacy stocks is the job. Everything that writes is Admin or
+    // Pharmacist, and each write page also carries its own [Authorize] attribute.
+    options.Conventions.AuthorizeFolder("/Products", WebPolicies.TenantUser);
+    options.Conventions.AuthorizeFolder("/Medicines", WebPolicies.TenantUser);
+    options.Conventions.AuthorizeFolder("/OtherItems", WebPolicies.TenantUser);
     options.Conventions.AuthorizePage("/Index", WebPolicies.TenantUser);
     options.Conventions.AuthorizePage("/Account", WebPolicies.TenantUser);
     options.Conventions.AuthorizePage("/Logout", WebPolicies.TenantUser);
@@ -112,6 +119,12 @@ builder.Services.AddAuthorizationBuilder()
         .RequireAuthenticatedUser()
         .RequireClaim(WebClaims.TenantId)
         .RequireRole(nameof(UserRole.Admin)))
+    // Admin or Pharmacist. Listing both role values on one RequireRole is an OR.
+    .AddPolicy(WebPolicies.TenantWriter, policy => policy
+        .AddAuthenticationSchemes(WebSchemes.Tenant)
+        .RequireAuthenticatedUser()
+        .RequireClaim(WebClaims.TenantId)
+        .RequireRole(nameof(UserRole.Admin), nameof(UserRole.Pharmacist)))
     .AddPolicy(WebPolicies.PlatformAdmin, policy => policy
         .AddAuthenticationSchemes(WebSchemes.Platform)
         .RequireAuthenticatedUser()

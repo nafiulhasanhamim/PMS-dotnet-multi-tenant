@@ -21,6 +21,14 @@ BEGIN
 END
 GO
 
+-- Products reference both Tenants and the medicine catalog, so they go before either.
+IF OBJECT_ID('[dbo].[Products]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[Products]
+    PRINT 'Table [Products] dropped.'
+END
+GO
+
 -- The medicine reference catalog. Independent of the tenant tables, but internally ordered:
 -- medicines reference generics and the lookups, generics reference drug classes.
 IF OBJECT_ID('[dbo].[CatalogMedicines]', 'U') IS NOT NULL

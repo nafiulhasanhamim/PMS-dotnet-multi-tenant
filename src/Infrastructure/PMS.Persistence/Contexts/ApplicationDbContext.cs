@@ -77,6 +77,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// </summary>
     public DbSet<AccessLog> AccessLogs => Set<AccessLog>();
 
+    /// <summary>
+    /// This pharmacy's own catalogue of what it sells - medicines and non-medicines alike.
+    /// Tenant-scoped: filtered and stamped by convention, because Product implements
+    /// ITenantEntity.
+    /// </summary>
+    public DbSet<Product> Products => Set<Product>();
+
     // ── Medicine reference catalog ───────────────────────────────────────────────────────
     //
     // Platform-level and shared: none of these implement ITenantEntity, so none is filtered

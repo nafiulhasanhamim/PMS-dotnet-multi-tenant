@@ -124,3 +124,78 @@ public static class StatusPresentation
         _ => ("pms-badge--neutral", role.ToString()),
     };
 }
+
+/// <summary>
+/// Pagination over a server-paged <see cref="ApiPage{T}"/>.
+///
+/// Distinct from <see cref="PaginationModel"/>, which pages a full list locally: these
+/// endpoints page in the database, so the totals come from the server and the control just
+/// renders them.
+/// </summary>
+public sealed class ApiPaginationModel
+{
+    private ApiPaginationModel(
+        string razorPage,
+        int currentPage,
+        int totalPages,
+        int totalCount,
+        int firstRow,
+        int lastRow,
+        IDictionary<string, string>? extraRoute)
+    {
+        RazorPage = razorPage;
+        CurrentPage = currentPage;
+        TotalPages = totalPages;
+        TotalCount = totalCount;
+        FirstRow = firstRow;
+        LastRow = lastRow;
+        ExtraRoute = extraRoute;
+    }
+
+    /// <summary>
+    /// Builds the control from any page of rows. Generic so the partial stays untyped without
+    /// the model having to reach for reflection.
+    /// </summary>
+    public static ApiPaginationModel For<T>(
+        ApiPage<T> page, string razorPage, IDictionary<string, string>? extraRoute = null) =>
+        new(razorPage, page.Page, page.TotalPages, page.Total, page.FirstRow, page.LastRow,
+            extraRoute);
+
+    public string RazorPage { get; }
+
+    public IDictionary<string, string>? ExtraRoute { get; }
+
+    public int CurrentPage { get; }
+
+    public int TotalPages { get; }
+
+    public int TotalCount { get; }
+
+    public int FirstRow { get; }
+
+    public int LastRow { get; }
+
+    public bool HasPrevious => CurrentPage > 1;
+
+    public bool HasNext => CurrentPage < TotalPages;
+
+    public IDictionary<string, string> RouteFor(int pageNumber)
+    {
+        var route = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (ExtraRoute is not null)
+        {
+            foreach (var (key, value) in ExtraRoute)
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    route[key] = value;
+                }
+            }
+        }
+
+        route["p"] = Math.Clamp(pageNumber, 1, Math.Max(TotalPages, 1)).ToString();
+
+        return route;
+    }
+}

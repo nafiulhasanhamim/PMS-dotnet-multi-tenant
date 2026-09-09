@@ -1,0 +1,28 @@
+@page "/other-items/create"
+@model PMS.Web.Pages.OtherItems.CreateModel
+@{
+    ViewData["Title"] = "Add item";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Add item</h1>
+        <p class="pms-page-header__subtitle">
+            Saline, syringes, diapers, formula, handwash, supplements &mdash; anything that is
+            not a medicine.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/OtherItems/Index">Back to other items</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-xl-9">
+        <partial name="_ProductForm" model="Model.FormModel" />
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/product-form.js" asp-append-version="true"></script>
+}

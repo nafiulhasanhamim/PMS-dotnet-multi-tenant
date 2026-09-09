@@ -57,6 +57,10 @@ public static class DependencyInjection
         services.AddScoped<IIdentityQueries, IdentityQueries>();
         services.AddScoped<IPlatformQueries, PlatformQueries>();
         services.AddScoped<ITenantUserQueries, TenantUserQueries>();
+
+        // Module 2: the product catalogue, and the two-stage catalogue search behind it.
+        services.AddScoped<IProductQueries, ProductQueries>();
+        services.AddScoped<ICatalogSearchQueries, CatalogSearchQueries>();
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

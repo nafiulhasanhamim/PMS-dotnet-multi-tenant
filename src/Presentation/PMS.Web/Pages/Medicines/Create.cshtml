@@ -1,0 +1,39 @@
+@page "/medicines/create"
+@model PMS.Web.Pages.Medicines.CreateModel
+@{
+    ViewData["Title"] = Model.FromCatalog is not null ? "Review and complete" : "Add medicine";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>@(Model.FromCatalog is not null ? "Review and complete" : "Add medicine")</h1>
+        <p class="pms-page-header__subtitle">
+            @if (Model.FromCatalog is not null)
+            {
+                <text>
+                    Check what came from the catalog, then add your prices and pack sizes.
+                </text>
+            }
+            else
+            {
+                <text>
+                    Not in the reference catalog? Enter it here.
+                    <a asp-page="/Medicines/Import">Search the catalog first</a> if you have not.
+                </text>
+            }
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Medicines/Index">Back to medicines</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-xl-9">
+        <partial name="_ProductForm" model="Model.FormModel" />
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/product-form.js" asp-append-version="true"></script>
+}

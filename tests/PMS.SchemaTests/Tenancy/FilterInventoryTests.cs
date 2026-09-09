@@ -19,6 +19,9 @@ public class FilterInventoryTests
     [InlineData(typeof(PMS.Domain.Entities.UserTenantMembership), true)]   // tenant (hand-written)
     [InlineData(typeof(PMS.Domain.Entities.User), false)]                  // global identity
     [InlineData(typeof(PMS.Domain.Entities.AccessLog), false)]             // audit trail
+    // Module 2: each pharmacy's own catalogue. Tenant-scoped by convention, from
+    // ITenantEntity alone - no filter is written by hand for it anywhere.
+    [InlineData(typeof(PMS.Domain.Entities.Product), true)]
     // The medicine reference catalog: shared platform data, deliberately unfiltered. A filter
     // here would show every pharmacy an empty catalog without failing anything else.
     [InlineData(typeof(PMS.Domain.Entities.Catalog.CatalogManufacturer), false)]

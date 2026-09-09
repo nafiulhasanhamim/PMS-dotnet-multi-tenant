@@ -1,0 +1,146 @@
+@page "/medicines/import"
+@model PMS.Web.Pages.Medicines.ImportModel
+@{
+    ViewData["Title"] = "Import from catalog";
+    var items = Model.Results?.Items ?? Array.Empty<CatalogMedicineSearchItem>();
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Import from catalog</h1>
+        <p class="pms-page-header__subtitle">
+            Add a medicine from the shared reference catalog, then set your own prices.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Medicines/Index">Back to medicines</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<section class="pms-card mb-3">
+    <div class="pms-card__body">
+        <form method="get">
+            <label class="pms-form-label" for="q">Search the medicine reference catalog</label>
+            <div class="input-group">
+                <input class="form-control form-control-lg" id="q" name="q" value="@Model.Term"
+                       placeholder="Search the medicine reference catalog..." autofocus />
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+            <span class="pms-help">
+                Over 20,000 medicines available in Bangladesh. Search by brand or generic name.
+            </span>
+        </form>
+    </div>
+</section>
+
+@if (Model.HasSearched)
+{
+    @if (items.Count == 0)
+    {
+        <div class="pms-table-wrap">
+            <div class="pms-empty">
+                <p class="pms-empty__title">No matches found.</p>
+                <p class="mb-0">
+                    If this medicine isn&rsquo;t in the catalog, you can add it manually.
+                </p>
+                <div class="pms-empty__actions">
+                    <a class="btn btn-primary" asp-page="/Medicines/Create">Add manually</a>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (Model.IsSuggestion)
+        {
+            @* Approximate results are labelled as such. Without this heading someone reads a
+               fuzzy guess as a confirmed match and imports the wrong medicine. *@
+            <div class="pms-alert pms-alert--warning" role="status">
+                <partial name="_NavIcon" model="@("alert")" />
+                <div class="pms-alert__body">
+                    <strong>
+                        No exact match for &lsquo;@Model.Results!.Term&rsquo;. Did you mean:
+                    </strong>
+                    <span class="pms-help d-block">
+                        These are close matches, not exact ones. Check the generic name and
+                        strength before adding.
+                    </span>
+                </div>
+            </div>
+        }
+
+        <div class="pms-table-wrap">
+            <div class="table-responsive">
+                <table class="pms-table">
+                    <caption class="visually-hidden">Reference catalog search results</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Brand name</th>
+                            <th scope="col">Generic</th>
+                            <th scope="col">Manufacturer</th>
+                            <th scope="col">Strength</th>
+                            <th scope="col">Dosage form</th>
+                            <th scope="col" class="pms-col-actions">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in items)
+                        {
+                            <tr class="@(item.AlreadyImported ? "pms-row-inactive" : null)">
+                                <td>
+                                    @item.BrandName
+                                    @if (item.IsAntibiotic)
+                                    {
+                                        <span class="pms-badge pms-badge--danger ms-1"
+                                              title="Suggested as an antibiotic by the catalog">
+                                            AB
+                                        </span>
+                                    }
+                                </td>
+                                <td>@(item.GenericName ?? "—")</td>
+                                <td>@(item.Manufacturer ?? "—")</td>
+                                <td>@(item.Strength ?? "—")</td>
+                                <td>@(item.DosageForm ?? "—")</td>
+                                <td class="pms-col-actions">
+                                    @if (item.AlreadyImported)
+                                    {
+                                        @* Flagged rather than hidden: someone who found nothing
+                                           would conclude the catalog lacks it, when in fact
+                                           their own earlier import is what succeeded. *@
+                                        <span class="text-muted pms-small me-2">
+                                            Already in your catalog
+                                        </span>
+                                        @if (item.ExistingProductId is { } existingId)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary"
+                                               asp-page="/Products/Detail" asp-route-id="@existingId">
+                                                View yours
+                                            </a>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <a class="btn btn-sm btn-primary"
+                                           asp-page="/Medicines/Create"
+                                           asp-route-catalogId="@item.Id">Add to my catalog</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="pms-table-footer">
+                <span>Showing @items.Count result@(items.Count == 1 ? "" : "s")</span>
+                @* Kept visible even when there are results: the medicine the person actually
+                   wants genuinely might not be in the catalog. *@
+                <span>
+                    Not the medicine you wanted?
+                    <a asp-page="/Medicines/Create">Add it manually</a>
+                </span>
+            </div>
+        </div>
+    }
+}

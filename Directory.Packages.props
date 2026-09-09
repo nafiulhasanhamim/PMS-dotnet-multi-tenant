@@ -18,6 +18,11 @@
          everywhere in the medicine dataset, so splitting on commas is not an option. -->
     <PackageVersion Include="CsvHelper" Version="33.0.1" />
 
+    <!-- Fuzzy string matching for the forgiving catalogue search. A strict LIKE returns
+         nothing on a typo, which pushes people into manual entry and defeats the point
+         of shipping a 21,000-row catalogue. -->
+    <PackageVersion Include="FuzzySharp" Version="2.0.2" />
+
     <!-- Ardalis Packages -->
     <PackageVersion Include="Ardalis.GuardClauses" Version="4.6.0" />
     <PackageVersion Include="Ardalis.Result" Version="7.2.0" />

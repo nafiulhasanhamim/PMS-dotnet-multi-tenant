@@ -50,6 +50,14 @@ public static class WebPolicies
     /// <summary>A pharmacy user holding the Admin role at the pharmacy they signed in to.</summary>
     public const string TenantAdmin = "TenantAdminPolicy";
 
+    /// <summary>
+    /// A pharmacy user who may change things: Admin or Pharmacist, not Employee.
+    ///
+    /// Mirrors the API's TenantWriterPolicy. The two differ on exactly one action - only an
+    /// Admin may deactivate - so deactivate buttons check the Admin policy instead.
+    /// </summary>
+    public const string TenantWriter = "TenantWriterPolicy";
+
     /// <summary>A platform operator.</summary>
     public const string PlatformAdmin = "PlatformAdminPolicy";
 }

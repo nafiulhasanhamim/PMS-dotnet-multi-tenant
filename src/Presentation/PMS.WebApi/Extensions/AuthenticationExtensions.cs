@@ -18,6 +18,16 @@ public static class AuthenticationExtensions
     /// <summary>Policy for anyone signed in *at a pharmacy* (any tenant role).</summary>
     public const string TenantUserPolicy = "TenantUser";
 
+    /// <summary>
+    /// A pharmacy user who may change things: Admin or Pharmacist, not Employee.
+    ///
+    /// Distinct from TenantAdminPolicy because the two differ on exactly one action.
+    /// A Pharmacist may add and edit products - they are the person who knows what the
+    /// pharmacy stocks - but only an Admin may deactivate one, because that decision affects
+    /// what everyone else can sell.
+    /// </summary>
+    public const string TenantWriterPolicy = "TenantWriter";
+
     public static IServiceCollection AddJwtAuthentication(
         this IServiceCollection services, IConfiguration configuration)
     {
@@ -81,7 +91,12 @@ public static class AuthenticationExtensions
                 .RequireClaim(AuthClaims.Role, nameof(UserRole.Admin)))
             .AddPolicy(TenantUserPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireClaim(AuthClaims.TenantId));
+                .RequireClaim(AuthClaims.TenantId))
+            // Admin or Pharmacist. Listing both values on one RequireClaim is an OR.
+            .AddPolicy(TenantWriterPolicy, policy => policy
+                .RequireAuthenticatedUser()
+                .RequireClaim(AuthClaims.TenantId)
+                .RequireClaim(AuthClaims.Role, nameof(UserRole.Admin), nameof(UserRole.Pharmacist)));
 
         return services;
     }

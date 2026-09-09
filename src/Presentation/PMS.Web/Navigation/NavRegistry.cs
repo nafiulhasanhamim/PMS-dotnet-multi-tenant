@@ -69,12 +69,20 @@ public static class NavRegistry
     {
         new NavItem("Dashboard", "/Index", "grid", MatchPrefix: "/"),
 
+        // Module 2. Two entries, one Product table: each reads it through a type filter.
+        // Split because the columns that matter differ completely — a diaper has no generic
+        // name, strength, dosage form or antibiotic flag, and showing those columns empty on
+        // every row is noise. Every role sees both; Employees just cannot change anything.
+        new NavItem("Medicines", "/Medicines/Index", "pill", MatchPrefix: "/medicines"),
+
+        new NavItem("Other items", "/OtherItems/Index", "box", MatchPrefix: "/other-items"),
+
         new NavItem("Users", "/Users/Index", "people",
             Roles: new[] { UserRole.Admin }),
 
         new NavItem("My profile", "/Account", "person"),
 
-        // Module 2 onwards: medicines, batches and stock, suppliers, billing, alerts, reports.
+        // Module 3 onwards: batches and stock, suppliers, billing, alerts, reports.
     };
 
     /// <summary>Sidebar for a platform operator. An entirely separate list — no overlap.</summary>

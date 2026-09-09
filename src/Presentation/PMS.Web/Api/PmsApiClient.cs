@@ -82,6 +82,83 @@ public sealed class PmsApiClient
     public Task<ApiResult<MyProfile>> GetMyProfileAsync(CancellationToken ct = default) =>
         SendAsync<MyProfile>(HttpMethod.Get, "api/users/me", null, ct);
 
+    // ── products (Module 2) ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// One page of products. <paramref name="listType"/> chooses between the two screens;
+    /// both read the same table.
+    /// </summary>
+    public Task<ApiResult<ApiPage<ProductListItem>>> GetProductsAsync(
+        ProductListType listType,
+        string? search = null,
+        ProductStatusFilter status = ProductStatusFilter.Active,
+        bool antibioticOnly = false,
+        ProductType? productType = null,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string>
+        {
+            $"type={listType}",
+            $"status={status}",
+            $"page={page}",
+            $"pageSize={pageSize}",
+        };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+
+        if (antibioticOnly)
+        {
+            query.Add("antibioticOnly=true");
+        }
+
+        if (productType is not null)
+        {
+            query.Add($"productType={productType}");
+        }
+
+        return SendAsync<ApiPage<ProductListItem>>(
+            HttpMethod.Get, $"api/products?{string.Join('&', query)}", null, ct);
+    }
+
+    public Task<ApiResult<ProductModel>> GetProductAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<ProductModel>(HttpMethod.Get, $"api/products/{id}", null, ct);
+
+    public Task<ApiResult<ProductModel>> CreateProductAsync(
+        CreateProductRequest request, CancellationToken ct = default) =>
+        SendAsync<ProductModel>(HttpMethod.Post, "api/products", request, ct);
+
+    public Task<ApiResult<ProductModel>> UpdateProductAsync(
+        Guid id, UpdateProductRequest request, CancellationToken ct = default) =>
+        SendAsync<ProductModel>(HttpMethod.Put, $"api/products/{id}", request, ct);
+
+    public Task<ApiResult<ProductModel>> SetProductActiveAsync(
+        Guid id, bool isActive, CancellationToken ct = default) =>
+        SendAsync<ProductModel>(HttpMethod.Patch,
+            $"api/products/{id}/{(isActive ? "reactivate" : "deactivate")}", null, ct);
+
+    // ── medicine reference catalogue ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Forgiving search over the shared catalogue. Check <c>MatchType</c> before rendering:
+    /// a Suggestion set must be labelled as approximate.
+    /// </summary>
+    public Task<ApiResult<CatalogSearchResult>> SearchCatalogAsync(
+        string term, int take = 20, CancellationToken ct = default) =>
+        SendAsync<CatalogSearchResult>(
+            HttpMethod.Get,
+            $"api/catalog/medicines/search?q={Uri.EscapeDataString(term)}&take={take}",
+            null, ct);
+
+    public Task<ApiResult<CatalogMedicineSearchItem>> GetCatalogMedicineAsync(
+        int id, CancellationToken ct = default) =>
+        SendAsync<CatalogMedicineSearchItem>(
+            HttpMethod.Get, $"api/catalog/medicines/{id}", null, ct);
+
     // ── plumbing ─────────────────────────────────────────────────────────────────────────
 
     private async Task<ApiResult<T>> SendAsync<T>(

@@ -1,0 +1,179 @@
+@page "/other-items"
+@model PMS.Web.Pages.OtherItems.IndexModel
+@{
+    ViewData["Title"] = "Other items";
+    var canWrite = User.IsTenantAdmin() || User.Role() == UserRole.Pharmacist;
+    var canDeactivate = User.IsTenantAdmin();
+    var showPrices = canWrite;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Other items</h1>
+        <p class="pms-page-header__subtitle">
+            Saline, syringes, baby care, personal care and supplements.
+        </p>
+    </div>
+    @if (canWrite)
+    {
+        @* No "import from catalog" here: the reference catalogue covers medicines only. *@
+        <div class="pms-page-header__actions">
+            <a class="btn btn-primary" asp-page="/OtherItems/Create">Add item</a>
+        </div>
+    }
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="pms-card mb-3">
+    <div class="pms-card__body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="pms-form-label" for="q">Search</label>
+                <input class="form-control" id="q" name="q" value="@Model.Search"
+                       placeholder="Search by name..." />
+            </div>
+            <div class="col-md-3">
+                <label class="pms-form-label" for="kind">Type</label>
+                <select class="form-select" id="kind" name="kind">
+                    <option value="">All</option>
+                    @foreach (var type in ProductPresentation.NonMedicineTypes)
+                    {
+                        <option value="@type" selected="@(Model.Kind == type)">
+                            @ProductPresentation.TypeLabel(type)
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="status">Status</label>
+                <select class="form-select" id="status" name="status">
+                    @foreach (var option in new[]
+                        { ProductStatusFilter.Active, ProductStatusFilter.Inactive, ProductStatusFilter.All })
+                    {
+                        <option value="@option" selected="@(Model.Status == option)">
+                            @(option == ProductStatusFilter.All ? "All" : option.ToString())
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Search</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="pms-table-wrap">
+    @if (Model.Products.IsEmpty)
+    {
+        @if (Model.HasFilters)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No items match your search."))" />
+            <div class="pms-empty pt-0">
+                <a asp-page="/OtherItems/Index">Clear filters</a>
+            </div>
+        }
+        else
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No other items yet",
+                "Click 'Add item' to add saline, baby care products, and similar items.",
+                canWrite ? "Add item" : null,
+                canWrite ? "/OtherItems/Create" : null))" />
+        }
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="pms-table">
+                <caption class="visually-hidden">Non-medicine items this pharmacy stocks</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Company</th>
+                        <th scope="col">Base unit</th>
+                        @if (showPrices)
+                        {
+                            <th scope="col">Price</th>
+                        }
+                        <th scope="col">Status</th>
+                        <th scope="col" class="pms-col-actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in Model.Products.Data)
+                    {
+                        var type = ProductPresentation.TypeBadge(product.ProductType);
+                        var status = ProductPresentation.StatusBadge(product.IsActive);
+                        var formId = $"product-active-{product.Id}";
+                        <tr class="@(product.IsActive ? null : "pms-row-inactive")">
+                            <td>
+                                <a asp-page="/Products/Detail" asp-route-id="@product.Id">@product.BrandName</a>
+                            </td>
+                            <td><span class="pms-badge @type.Css">@type.Text</span></td>
+                            <td>@(product.Company ?? "—")</td>
+                            <td>@product.BaseUnitName</td>
+                            @if (showPrices)
+                            {
+                                <td>@(product.PricePerBase is { } price
+                                        ? $"৳{price:N2} / {product.BaseUnitName}"
+                                        : "—")</td>
+                            }
+                            <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                            <td class="pms-col-actions">
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   asp-page="/Products/Detail" asp-route-id="@product.Id">View</a>
+
+                                @if (canWrite)
+                                {
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       asp-page="/Products/Edit" asp-route-id="@product.Id">Edit</a>
+                                }
+
+                                @if (canDeactivate)
+                                {
+                                    <form method="post" id="@formId" class="d-inline"
+                                          asp-page-handler="Active"
+                                          asp-route-id="@product.Id"
+                                          asp-route-q="@Model.Search"
+                                          asp-route-status="@Model.Status"
+                                          asp-route-kind="@Model.Kind"
+                                          asp-route-p="@Model.Products.Page">
+                                        <input type="hidden" name="isActive"
+                                               value="@((!product.IsActive).ToString().ToLowerInvariant())" />
+                                        @if (product.IsActive)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-pms-confirm-form="@formId"
+                                                    data-pms-confirm-title="Deactivate this product?"
+                                                    data-pms-confirm-ok="Deactivate"
+                                                    data-pms-confirm="This product will no longer appear in default lists or be available for new purchases and sales. You can reactivate it later. Existing stock and historical records are preserved.">
+                                                Deactivate
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <span class="pms-spinner" aria-hidden="true"></span>Reactivate
+                                            </button>
+                                        }
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            Model.Products, "/OtherItems/Index", new Dictionary<string, string>
+            {
+                ["q"] = Model.Search ?? string.Empty,
+                ["status"] = Model.Status.ToString(),
+                ["kind"] = Model.Kind?.ToString() ?? string.Empty,
+            }))" />
+    }
+</div>

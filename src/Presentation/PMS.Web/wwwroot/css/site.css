@@ -136,6 +136,24 @@ a:hover {
     text-decoration: underline;
 }
 
+/* Anchors that are not text links.
+   Plenty of controls here are <a> for navigation but read as buttons, tabs or
+   page numbers. The rule above is `a:hover` (specificity 0,1,1), which outranks
+   Bootstrap's own `.btn { text-decoration: none }` (0,1,0) - so without this,
+   every link-shaped button grew a link underline on hover. Listed explicitly
+   rather than as `a:not(.btn):hover`, so a new control class can be added here
+   in one line. */
+.btn:hover,
+.btn:focus,
+.page-link:hover,
+.page-link:focus,
+.pms-badge:hover,
+.pms-sidebar__link:hover,
+.pms-sidebar__brand:hover,
+.nav-link:hover {
+    text-decoration: none;
+}
+
 /* Visible focus everywhere. Removing this breaks keyboard use, which is how
    counter staff actually move through a form. */
 :focus-visible {
