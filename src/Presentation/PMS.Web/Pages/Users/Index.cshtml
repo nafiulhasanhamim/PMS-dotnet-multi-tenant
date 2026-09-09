@@ -1,5 +1,6 @@
 @page "/users"
 @model PMS.Web.Pages.Users.IndexModel
+@inject DisplayTimeZone Clock
 @{
     ViewData["Title"] = "Users";
 }
@@ -60,7 +61,7 @@
                             <td>@user.Email</td>
                             <td><span class="pms-badge @role.Css">@role.Text</span></td>
                             <td><span class="pms-badge @status.Css">@status.Text</span></td>
-                            <td>@user.JoinedAt.ToString("d MMM yyyy")</td>
+                            <td>@Clock.FormatDate(user.JoinedAt)</td>
                             <td class="pms-col-actions">
                                 @if (isMe)
                                 {

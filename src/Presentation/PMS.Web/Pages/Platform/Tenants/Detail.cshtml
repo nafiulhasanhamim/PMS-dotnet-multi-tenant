@@ -1,5 +1,6 @@
 @page "/platform/tenants/{id:guid}"
 @model PMS.Web.Pages.Platform.Tenants.DetailModel
+@inject DisplayTimeZone Clock
 @{
     ViewData["Title"] = Model.Tenant?.Name ?? "Tenant";
     Layout = "_PlatformLayout";
@@ -48,7 +49,7 @@
                         <dd>@(tenant.SubscriptionPlan ?? "—")</dd>
 
                         <dt>Created</dt>
-                        <dd>@tenant.CreatedOnUtc.ToString("d MMMM yyyy")</dd>
+                        <dd>@Clock.FormatDate(tenant.CreatedOnUtc, "d MMMM yyyy")</dd>
 
                         <dt>Staff sign in at</dt>
                         <dd>
@@ -172,7 +173,7 @@
                                 <td>@user.Email</td>
                                 <td><span class="pms-badge @role.Css">@role.Text</span></td>
                                 <td><span class="pms-badge @membership.Css">@membership.Text</span></td>
-                                <td>@user.JoinedAt.ToString("d MMM yyyy")</td>
+                                <td>@Clock.FormatDate(user.JoinedAt)</td>
                             </tr>
                         }
                     </tbody>

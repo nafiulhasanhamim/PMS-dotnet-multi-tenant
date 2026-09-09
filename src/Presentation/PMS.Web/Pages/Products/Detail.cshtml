@@ -1,5 +1,6 @@
 @page "/products/{id:guid}"
 @model PMS.Web.Pages.Products.DetailModel
+@inject DisplayTimeZone Clock
 @{
     var product = Model.Product;
     ViewData["Title"] = product?.BrandName ?? "Product";
@@ -229,7 +230,7 @@
                         </dd>
 
                         <dt>Created</dt>
-                        <dd>@product.CreatedOnUtc.ToString("d MMM yyyy, HH:mm") UTC</dd>
+                        <dd>@Clock.Format(product.CreatedOnUtc)</dd>
 
                         <dt>Last updated</dt>
                         <dd>

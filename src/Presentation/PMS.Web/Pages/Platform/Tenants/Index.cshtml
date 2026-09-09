@@ -1,5 +1,6 @@
 @page "/platform/tenants"
 @model PMS.Web.Pages.Platform.Tenants.IndexModel
+@inject DisplayTimeZone Clock
 @{
     ViewData["Title"] = "Tenants";
     Layout = "_PlatformLayout";
@@ -52,7 +53,7 @@
                             <td><span class="pms-mono">@tenant.DomainName</span></td>
                             <td><span class="pms-badge @status.Css">@status.Text</span></td>
                             <td>@(tenant.SubscriptionPlan ?? "—")</td>
-                            <td>@tenant.CreatedOnUtc.ToString("d MMM yyyy")</td>
+                            <td>@Clock.FormatDate(tenant.CreatedOnUtc)</td>
                             <td class="pms-col-actions">
                                 <a class="btn btn-sm btn-outline-secondary"
                                    asp-page="/Platform/Tenants/Detail"

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using PMS.Web.Api;
 using PMS.Web.Auth;
 using PMS.Web.Tenancy;
+using PMS.Web.Time;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,6 +51,12 @@ builder.Configuration.GetSection(TenancyOptions.SectionName).Bind(tenancy);
 builder.Services.AddSingleton(tenancy);
 builder.Services.AddSingleton<ITenantHostResolver, TenantHostResolver>();
 builder.Services.AddTransient<ApiTokenHandler>();
+
+// The API deals only in UTC. This is the one component that converts to the zone the person
+// reading the screen lives in — see DisplayTimeZone for why it is the only one.
+builder.Services.Configure<DisplayOptions>(
+    builder.Configuration.GetSection(DisplayOptions.SectionName));
+builder.Services.AddSingleton<DisplayTimeZone>();
 
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"]
     ?? throw new InvalidOperationException(

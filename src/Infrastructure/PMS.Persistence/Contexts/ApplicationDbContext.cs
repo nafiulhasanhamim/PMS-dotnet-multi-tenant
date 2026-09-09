@@ -2,6 +2,7 @@ using System.Reflection;
 using PMS.Application.Interfaces;
 using PMS.Domain.Entities;
 using PMS.Domain.Entities.Catalog;
+using PMS.Persistence.Converters;
 using PMS.SharedKernel.Common;
 using PMS.SharedKernel.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -116,6 +117,27 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
         // Memberships are filtered separately — see the method for why.
         ApplyMembershipFilter(modelBuilder);
+    }
+
+    /// <summary>
+    /// Makes every date-time property UTC on both sides of the database boundary.
+    ///
+    /// <para>Done by convention rather than per property, for the same reason the query
+    /// filters are: there is no version of this that is safe to opt into one entity at a
+    /// time. A single column left Unspecified serialises without a <c>Z</c>, and the client
+    /// that reads it cannot tell it apart from the ones that have one. See
+    /// <see cref="UtcDateTimeConverter"/> for what that cost before this existed.</para>
+    ///
+    /// <para>This governs storage and transport only. Showing a Dhaka pharmacist a UTC
+    /// timestamp is a presentation problem, solved in the web layer, and it depends on the
+    /// value arriving unambiguous — which is what this guarantees.</para>
+    /// </summary>
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        base.ConfigureConventions(configurationBuilder);
+
+        configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
+        configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
     }
 
     /// <summary>
