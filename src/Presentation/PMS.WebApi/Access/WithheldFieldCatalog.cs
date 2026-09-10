@@ -44,5 +44,41 @@ public static class WithheldFieldCatalog
             "What the pharmacy paid, and so its margin. Nobody at the counter needs it. "
             + "Stricter than the sale price above, which an Employee can see on a detail page.",
             "StockController.CallerMaySeePurchasePrices → GetProductStockQuery, GetBatchQuery"),
+
+        // ── Module 5. Neither of these is a column, which is why WithheldKind exists ──────
+
+        new WithheldFieldDto(
+            "Sales",
+            "Other people's sales, in the list and by direct id",
+            "Employee",
+            "Counter staff can see what they rang up and not what their colleagues did — a "
+            + "day's takings across the shop is the owner's information. Applied inside the "
+            + "query rather than to its results, so the row count is theirs too and there is "
+            + "no page to scroll to that holds somebody else's sales.",
+            "GetSalesQueryHandler (restrictTo) and GetSaleQueryHandler (403 on another "
+            + "cashier's invoice)",
+            WithheldKind.Rows),
+
+        new WithheldFieldDto(
+            "Sales",
+            "Selling any product marked as an antibiotic",
+            "Employee",
+            "Dispensing an antibiotic needs a pharmacist. A policy cannot express it because "
+            + "it depends on what is in the cart, not on the endpoint — so the till is open to "
+            + "every role and the cart is what gets refused, with 403 and a message telling "
+            + "them to call a pharmacist over.",
+            "CompleteSaleCommandHandler.Blocked (Error.Forbidden per antibiotic product)",
+            WithheldKind.Action),
+
+        new WithheldFieldDto(
+            "Sales",
+            "Discounting beyond the role's cap",
+            "Employee, Pharmacist",
+            "A discount moves money out of the business with no stock leaving the shelf, so it "
+            + "is capped: 5% for an Employee, 10% for a Pharmacist, unlimited for an Admin. "
+            + "Flat amounts are measured against the same percentage of the subtotal, or the "
+            + "cap would be a formatting preference rather than a control.",
+            "BillingPolicy.IsDiscountAllowed, called by CompleteSaleCommandHandler",
+            WithheldKind.Action),
     ];
 }

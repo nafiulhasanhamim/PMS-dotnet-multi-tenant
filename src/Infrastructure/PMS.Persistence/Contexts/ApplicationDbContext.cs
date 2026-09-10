@@ -99,6 +99,29 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// </summary>
     public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
 
+    /// <summary>
+    /// Completed sales. Tenant-scoped by convention, which is what makes a sale created in one
+    /// pharmacy invisible in another even by direct id.
+    /// </summary>
+    public DbSet<Sale> Sales => Set<Sale>();
+
+    /// <summary>
+    /// Sale lines: one per batch touched, so a FEFO split across two batches is two rows for
+    /// one thing the customer bought. Tenant-scoped by convention.
+    /// </summary>
+    public DbSet<SaleLine> SaleLines => Set<SaleLine>();
+
+    /// <summary>
+    /// Goods returned against a sale line. Tenant-scoped by convention. Written only alongside
+    /// the stock adjustment that puts the units back — see CreateSalesReturnCommandHandler.
+    /// </summary>
+    public DbSet<SalesReturn> SalesReturns => Set<SalesReturn>();
+
+    // Note there is no DbSet for InvoiceSequences. It is a counter table with no business data,
+    // read and written only by InvoiceNumberGenerator through one atomic statement; mapping it
+    // would give it a tenant query filter that the generator would then have to bypass. See
+    // that class for the reasoning.
+
     // ── Medicine reference catalog ───────────────────────────────────────────────────────
     //
     // Platform-level and shared: none of these implement ITenantEntity, so none is filtered

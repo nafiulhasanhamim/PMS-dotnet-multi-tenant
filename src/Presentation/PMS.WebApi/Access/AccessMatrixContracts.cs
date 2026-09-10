@@ -74,4 +74,36 @@ public sealed record WithheldFieldDto(
     string Field,
     string WithheldFrom,
     string Why,
-    string EnforcedIn);
+    string EnforcedIn,
+    WithheldKind Kind = WithheldKind.Field);
+
+/// <summary>
+/// What kind of restriction a declaration describes.
+///
+/// <para><b>Why this exists.</b> The catalogue began as fields hidden inside a response, which
+/// is one honest way to restrict a role and the only one the endpoint matrix cannot see. Module
+/// 5 brought two more: an Employee may list and open only sales they rang up themselves, and
+/// may not dispense an antibiotic at all. Neither is a column. Left undeclared, the access page
+/// would show <c>GET /api/sales</c> as fully readable by an Employee and say nothing about the
+/// fact that they see a different list from everybody else — which is precisely the kind of
+/// half-true access review the page exists to replace.</para>
+/// </summary>
+public enum WithheldKind
+{
+    /// <summary>
+    /// A column absent from the response for this role. Enforced by a <c>CallerMaySee*</c>
+    /// property on the controller, which the guarding test checks still exists.
+    /// </summary>
+    Field = 0,
+
+    /// <summary>
+    /// The role sees fewer rows, not fewer columns. The endpoint answers; it answers with less.
+    /// </summary>
+    Rows = 1,
+
+    /// <summary>
+    /// The endpoint is reachable but refuses some requests for this role, on grounds a policy
+    /// cannot express — which is why it is not simply a role missing from the matrix.
+    /// </summary>
+    Action = 2,
+}

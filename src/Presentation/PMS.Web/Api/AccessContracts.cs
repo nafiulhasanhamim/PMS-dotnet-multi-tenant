@@ -55,4 +55,20 @@ public sealed record WithheldField(
     string Field,
     string WithheldFrom,
     string Why,
-    string EnforcedIn);
+    string EnforcedIn,
+    WithheldKind Kind = WithheldKind.Field);
+
+/// <summary>
+/// What shape of restriction a declaration describes. Numeric values must match the server's.
+///
+/// <para>Conflating the three is how an access review goes wrong: a hidden column, a shorter
+/// list and a refused request need different things checked, and a table that called all three
+/// "withheld field" would leave a reader believing Module 5's sales list returns everybody's
+/// rows with some columns blanked, which is not what happens.</para>
+/// </summary>
+public enum WithheldKind
+{
+    Field = 0,
+    Rows = 1,
+    Action = 2,
+}

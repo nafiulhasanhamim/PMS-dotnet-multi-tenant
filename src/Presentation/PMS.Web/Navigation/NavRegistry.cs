@@ -69,6 +69,15 @@ public static class NavRegistry
     {
         new NavItem("Dashboard", "/Index", "grid", MatchPrefix: "/"),
 
+        // Module 5. First after the dashboard and deliberately so: it is the screen used more
+        // than every other one put together, and a cashier should not have to look for it.
+        // Every role sells — refusing an Employee the till would leave the pharmacy unable to
+        // staff a counter — and what they cannot do is enforced inside the sale, not by hiding
+        // the link.
+        new NavItem("New sale", "/Billing/Index", "cart", MatchPrefix: "/billing"),
+
+        new NavItem("Sales", "/Sales/Index", "receipt", MatchPrefix: "/sales"),
+
         // Module 2. Two entries, one Product table: each reads it through a type filter.
         // Split because the columns that matter differ completely — a diaper has no generic
         // name, strength, dosage form or antibiotic flag, and showing those columns empty on
@@ -87,7 +96,8 @@ public static class NavRegistry
 
         new NavItem("My profile", "/Account", "person"),
 
-        // Module 4 onwards: suppliers and purchases, billing, alerts, reports.
+        // Module 4, 6 onwards: suppliers and purchases, alerts, the antibiotic register,
+        // reports.
     };
 
     /// <summary>Sidebar for a platform operator. An entirely separate list — no overlap.</summary>

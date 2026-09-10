@@ -228,6 +228,7 @@ else
                         <th scope="col">Field</th>
                         <th scope="col">Withheld from</th>
                         <th scope="col">Why</th>
+                        <th scope="col">Kind</th>
                         <th scope="col">Enforced in</th>
                     </tr>
                 </thead>
@@ -239,6 +240,24 @@ else
                             <td>@field.Field</td>
                             <td><span class="pms-badge pms-badge--danger">@field.WithheldFrom</span></td>
                             <td>@field.Why</td>
+                            <td>
+                                @* Three different shapes of restriction, and conflating them
+                                   is how an access review goes wrong: "a hidden column" and
+                                   "a shorter list" and "some requests refused" need different
+                                   things checked. *@
+                                @switch (field.Kind)
+                                {
+                                    case WithheldKind.Field:
+                                        <span class="pms-badge pms-badge--neutral">Hidden field</span>
+                                        break;
+                                    case WithheldKind.Rows:
+                                        <span class="pms-badge pms-badge--info">Fewer rows</span>
+                                        break;
+                                    case WithheldKind.Action:
+                                        <span class="pms-badge pms-badge--warning">Action refused</span>
+                                        break;
+                                }
+                            </td>
                             <td><code class="pms-form-help">@field.EnforcedIn</code></td>
                         </tr>
                     }

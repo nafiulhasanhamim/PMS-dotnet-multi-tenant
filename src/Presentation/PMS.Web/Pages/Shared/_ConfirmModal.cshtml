@@ -15,7 +15,27 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                         aria-label="Close without changing anything"></button>
             </div>
-            <div class="modal-body" data-pms-confirm-body></div>
+            <div class="modal-body">
+                <p data-pms-confirm-body></p>
+
+                @*
+                    An optional reason, shown only when the trigger asks for one with
+                    data-pms-confirm-prompt. Module 5's cancellation needs it: "why was invoice
+                    452 cancelled" is a question an owner asks about their own staff, so the
+                    reason is collected at the moment of the decision rather than inferred
+                    later. It lives here rather than on a page of its own because a destructive
+                    action and its justification belong in the same breath.
+                *@
+                <div data-pms-confirm-prompt-field hidden>
+                    <label class="pms-form-label pms-required" for="pmsConfirmPrompt"
+                           data-pms-confirm-prompt-label></label>
+                    <input type="text" class="form-control" id="pmsConfirmPrompt"
+                           data-pms-confirm-prompt-input maxlength="500" autocomplete="off" />
+                    <span class="pms-field-error" data-pms-confirm-prompt-error hidden>
+                        A reason is required.
+                    </span>
+                </div>
+            </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"
                         data-pms-confirm-cancel>Cancel</button>

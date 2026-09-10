@@ -213,6 +213,49 @@ public sealed class Batch : BaseAuditableAggregateRoot<Guid>, ITenantEntity
     }
 
     /// <summary>
+    /// Takes stock out for a sale.
+    ///
+    /// <para><b>The one quantity change that writes no <see cref="StockAdjustment"/>, and that
+    /// is deliberate.</b> See <see cref="AdjustmentType"/>: a sale is audited by its own sale
+    /// line, which carries the price charged, the cashier and the customer — everything an
+    /// adjustment row would say and more. Recording both would give the pharmacy two competing
+    /// accounts of the same event, and would bury the handful of adjustments that genuinely
+    /// need explaining under one row per item sold.</para>
+    ///
+    /// <para>A sale line is therefore not optional bookkeeping. Nothing but
+    /// <c>CompleteSaleCommandHandler</c> should call this, and it inserts the line in the same
+    /// transaction — that pairing is what keeps this from being an untraceable stock
+    /// change.</para>
+    ///
+    /// <para>Going the other way — a cancellation or a return — <em>does</em> write an
+    /// adjustment, through <see cref="Adjust"/>. Stock reappearing on a shelf is exactly the
+    /// kind of event somebody counting later needs a reason for.</para>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The batch does not hold that much. Thrown rather than clamped: it means the caller read
+    /// the quantity before somebody else changed it, and selling whatever happens to be left
+    /// would hand the customer less than the invoice says they bought.
+    /// </exception>
+    public void DeductForSale(int quantityInBaseUnits)
+    {
+        if (quantityInBaseUnits <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(quantityInBaseUnits), quantityInBaseUnits,
+                "A sale has to take at least one unit out of a batch.");
+        }
+
+        if (quantityInBaseUnits > QuantityInBaseUnits)
+        {
+            throw new InvalidOperationException(
+                $"Batch '{BatchNumber}' holds {QuantityInBaseUnits} base units, so "
+                + $"{quantityInBaseUnits} cannot be sold from it.");
+        }
+
+        QuantityInBaseUnits -= quantityInBaseUnits;
+    }
+
+    /// <summary>
     /// Applies an edit to the batch's details. <b>Quantity is not a parameter</b> — see
     /// <see cref="Adjust"/>. Callers validate first; this trusts its input.
     /// </summary>

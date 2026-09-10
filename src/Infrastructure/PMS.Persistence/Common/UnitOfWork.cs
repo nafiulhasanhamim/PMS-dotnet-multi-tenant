@@ -38,6 +38,47 @@ public class UnitOfWork<TContext> : IUnitOfWork<TContext>
     }
 
     /// <inheritdoc />
+    public Task ExecuteInTransactionAsync(
+        Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default) =>
+        ExecuteInTransactionAsync<object?>(
+            async ct =>
+            {
+                await operation(ct);
+                return null;
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            // Each attempt starts from a clean slate. Without this, a transient failure that
+            // rolls the transaction back would leave the previous attempt entities still
+            // tracked as Added, and the retry would insert them a second time - two sales, two
+            // invoice numbers, stock deducted twice. The cost is that anything read before
+            // this call is detached, which is why the contract says the delegate loads its own
+            // state.
+            _dbContext.ChangeTracker.Clear();
+
+            await using var transaction =
+                await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            var result = await operation(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return result;
+        });
+    }
+
+    /// <inheritdoc />
     /// <remarks>
     /// <b>Unusable as this context is configured, and it throws rather than misbehaving.</b>
     /// ApplicationDbContext enables retry-on-failure, and
@@ -142,6 +183,47 @@ public class UnitOfWork : IUnitOfWork
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         return await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task ExecuteInTransactionAsync(
+        Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default) =>
+        ExecuteInTransactionAsync<object?>(
+            async ct =>
+            {
+                await operation(ct);
+                return null;
+            },
+            cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<TResult> ExecuteInTransactionAsync<TResult>(
+        Func<CancellationToken, Task<TResult>> operation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            // Each attempt starts from a clean slate. Without this, a transient failure that
+            // rolls the transaction back would leave the previous attempt entities still
+            // tracked as Added, and the retry would insert them a second time - two sales, two
+            // invoice numbers, stock deducted twice. The cost is that anything read before
+            // this call is detached, which is why the contract says the delegate loads its own
+            // state.
+            _dbContext.ChangeTracker.Clear();
+
+            await using var transaction =
+                await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+            var result = await operation(cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+
+            return result;
+        });
     }
 
     /// <inheritdoc />

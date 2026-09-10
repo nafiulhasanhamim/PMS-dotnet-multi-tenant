@@ -75,7 +75,12 @@
         var titleEl = modalEl.querySelector('[data-pms-confirm-title]');
         var bodyEl = modalEl.querySelector('[data-pms-confirm-body]');
         var okEl = modalEl.querySelector('[data-pms-confirm-ok]');
+        var promptField = modalEl.querySelector('[data-pms-confirm-prompt-field]');
+        var promptLabel = modalEl.querySelector('[data-pms-confirm-prompt-label]');
+        var promptInput = modalEl.querySelector('[data-pms-confirm-prompt-input]');
+        var promptError = modalEl.querySelector('[data-pms-confirm-prompt-error]');
         var pendingFormId = null;
+        var promptRequired = false;
 
         document.querySelectorAll('[data-pms-confirm]').forEach(function (trigger) {
             trigger.addEventListener('click', function (event) {
@@ -86,13 +91,32 @@
                 okEl.textContent = trigger.dataset.pmsConfirmOk || 'Confirm';
                 pendingFormId = trigger.dataset.pmsConfirmForm || null;
 
+                // A trigger that asks for a reason gets a required input; every other one
+                // behaves exactly as before, which is what lets this be added without
+                // touching the pages already using the modal.
+                promptRequired = !!trigger.dataset.pmsConfirmPrompt;
+
+                if (promptField) {
+                    promptField.hidden = !promptRequired;
+                    promptLabel.textContent = trigger.dataset.pmsConfirmPrompt || '';
+                    promptInput.value = '';
+                    promptError.hidden = true;
+                }
+
                 modal.show();
             });
         });
 
-        // Cancel is the default-focused control: the safe option should be the
-        // one that a reflexive Enter press picks.
+        // Cancel is the default-focused control: the safe option should be the one a
+        // reflexive Enter press picks. The exception is a modal asking for a reason, where
+        // nothing can happen until the person types - focusing the field is both more useful
+        // and still safe.
         modalEl.addEventListener('shown.bs.modal', function () {
+            if (promptRequired && promptInput) {
+                promptInput.focus();
+                return;
+            }
+
             var cancel = modalEl.querySelector('[data-pms-confirm-cancel]');
             if (cancel) {
                 cancel.focus();
@@ -111,6 +135,29 @@
                     'pms-confirm: no form with id "' + pendingFormId + '". The element with '
                     + 'data-pms-confirm-form must name a form on this page.');
                 return;
+            }
+
+            if (promptRequired) {
+                var reason = promptInput.value.trim();
+
+                if (!reason) {
+                    promptError.hidden = false;
+                    promptInput.focus();
+                    return;
+                }
+
+                // Into the form's own hidden field, so the reason posts with everything else
+                // and the page model reads it like any other bound value.
+                var target = form.querySelector('[data-pms-confirm-prompt-value]');
+
+                if (!target) {
+                    console.error(
+                        'pms-confirm: form "' + pendingFormId + '" asks for a reason but has '
+                        + 'no input marked data-pms-confirm-prompt-value to put it in.');
+                    return;
+                }
+
+                target.value = reason;
             }
 
             okEl.classList.add('pms-busy');

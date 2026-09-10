@@ -65,6 +65,11 @@ public static class DependencyInjection
         // Module 3: batches, adjustments and the FEFO reads over them.
         services.AddScoped<IStockQueries, StockQueries>();
 
+        // Module 5: billing. The invoice-number generator is scoped like everything else here
+        // because it reads the tenant from the request context.
+        services.AddScoped<ISaleQueries, SaleQueries>();
+        services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
+
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

@@ -979,3 +979,390 @@ a:hover {
     border-radius: 4px;
     min-width: 14rem;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Module 5 — billing, invoice and returns
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* A card heading. Module 5 is the first place a card needs one inside its body rather than in
+   a __header strip, because the billing screen stacks four cards and a bordered strip on each
+   would turn the page into a grid of boxes. */
+.pms-card__title {
+    font-size: var(--pms-font-h2);
+    font-weight: var(--pms-weight-heading);
+    margin: 0 0 var(--pms-space-4);
+}
+
+.pms-card__title .pms-form-help {
+    font-weight: 400;
+    margin-left: var(--pms-space-2);
+}
+
+/* A <details> card: the summary is the clickable header. */
+.pms-card__summary {
+    cursor: pointer;
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-card__summary::marker {
+    color: var(--pms-text-muted);
+}
+
+/* The prescription panel. Amber-tinted so it reads as a different kind of thing from the rest
+   of the form — it is a legal record, not a preference, and it appears and disappears as the
+   cart changes, which is disorienting unless it looks distinct. */
+.pms-card--prescription {
+    border-color: #e8c88a;
+    background: var(--pms-warning-bg);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────────────────────── */
+
+.pms-billing {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: var(--pms-space-5);
+    align-items: start;
+}
+
+/* One column below 992px. The summary moves under the cart rather than shrinking: the net
+   payable and the change are the two numbers read out loud, and squeezing them into a narrow
+   column is how they get misread. */
+@media (max-width: 991.98px) {
+    .pms-billing {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.pms-billing__main {
+    min-width: 0;
+}
+
+.pms-billing__summary {
+    position: sticky;
+
+    /* Clears the fixed topbar, so scrolling a long cart never hides the total. */
+    top: calc(var(--pms-topbar-height) + var(--pms-space-4));
+}
+
+@media (max-width: 991.98px) {
+    .pms-billing__summary {
+        position: static;
+    }
+}
+
+/* ── Search and its results ─────────────────────────────────────────────────────────────── */
+
+.pms-search {
+    position: relative;
+}
+
+.pms-search__results {
+    position: absolute;
+    z-index: 20;
+    inset-inline: 0;
+    top: calc(100% + 2px);
+    margin: 0;
+    padding: var(--pms-space-1);
+    list-style: none;
+    max-height: 22rem;
+    overflow-y: auto;
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border-strong);
+    border-radius: var(--pms-radius);
+    box-shadow: 0 8px 24px rgb(31 35 40 / 12%);
+}
+
+.pms-search__option {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--pms-space-3);
+    padding: var(--pms-space-2) var(--pms-space-3);
+    border-radius: var(--pms-radius);
+    cursor: pointer;
+}
+
+.pms-search__option:hover,
+.pms-search__option[aria-selected="true"] {
+    background: var(--pms-row-hover);
+}
+
+/* An unsellable product is shown, dimmed, with its reason — never hidden. A cashier who sees
+   nothing concludes the pharmacy does not stock the thing and tells the customer so. */
+.pms-search__option--blocked {
+    cursor: not-allowed;
+    color: var(--pms-text-muted);
+}
+
+.pms-search__option--blocked:hover,
+.pms-search__option--blocked[aria-selected="true"] {
+    background: var(--pms-canvas);
+}
+
+.pms-search__option--blocked .pms-search__name {
+    text-decoration: none;
+}
+
+.pms-search__name {
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-search__meta {
+    display: block;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-search__reason {
+    display: block;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-warning);
+}
+
+.pms-search__right {
+    text-align: right;
+    white-space: nowrap;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* ── The cart ───────────────────────────────────────────────────────────────────────────── */
+
+.pms-cart__qty {
+    width: 11rem;
+}
+
+.pms-cart__name {
+    display: block;
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-cart__row--invalid {
+    background: var(--pms-danger-bg);
+}
+
+/* ── The bill summary ───────────────────────────────────────────────────────────────────── */
+
+.pms-bill__lines {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--pms-space-3);
+    margin: 0 0 var(--pms-space-3);
+}
+
+.pms-bill__lines dt {
+    font-weight: 400;
+    color: var(--pms-text-muted);
+}
+
+.pms-bill__lines dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-bill__discount {
+    padding: var(--pms-space-3) 0;
+    border-top: 1px solid var(--pms-border);
+    border-bottom: 1px solid var(--pms-border);
+    margin-bottom: var(--pms-space-3);
+}
+
+/* Net payable and change are the two figures said out loud. Large and bold, and tabular so a
+   column of digits does not shift as it updates. */
+.pms-bill__net dt,
+.pms-bill__net dd,
+.pms-bill__change dt,
+.pms-bill__change dd {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--pms-text);
+}
+
+.pms-bill__cash {
+    margin-bottom: var(--pms-space-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   The invoice, on screen and on paper
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+.pms-invoice {
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    padding: var(--pms-space-6);
+    max-width: 52rem;
+}
+
+.pms-invoice__head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--pms-space-5);
+    padding-bottom: var(--pms-space-4);
+    border-bottom: 2px solid var(--pms-text);
+    margin-bottom: var(--pms-space-5);
+}
+
+.pms-invoice__pharmacy {
+    font-size: var(--pms-font-h2);
+    font-weight: 600;
+    margin: 0;
+}
+
+.pms-invoice__meta {
+    text-align: right;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-invoice__meta strong {
+    color: var(--pms-text);
+}
+
+.pms-invoice__totals {
+    margin-top: var(--pms-space-5);
+    margin-left: auto;
+    max-width: 20rem;
+}
+
+.pms-invoice__totals dl {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 0 var(--pms-space-2);
+}
+
+.pms-invoice__totals dt {
+    font-weight: 400;
+    color: var(--pms-text-muted);
+}
+
+.pms-invoice__totals dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-invoice__totals .pms-invoice__net dt,
+.pms-invoice__totals .pms-invoice__net dd {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--pms-text);
+    border-top: 1px solid var(--pms-border);
+    padding-top: var(--pms-space-2);
+}
+
+.pms-invoice__prescription {
+    margin-top: var(--pms-space-5);
+    padding: var(--pms-space-4);
+    border: 1px solid #e8c88a;
+    border-radius: var(--pms-radius);
+    background: var(--pms-warning-bg);
+}
+
+.pms-invoice__cancelled {
+    margin-bottom: var(--pms-space-4);
+}
+
+/* ── Print: A4 by default ───────────────────────────────────────────────────────────────── */
+
+@media print {
+    /* Everything that is not the invoice. The shell, the nav, the buttons: a customer's copy
+       of a receipt with a sidebar printed down the left of it is the classic sign of a web app
+       that never had its print stylesheet written. */
+    .pms-sidebar,
+    .pms-topbar,
+    .pms-page-header__actions,
+    .pms-no-print,
+    .pms-alert {
+        display: none !important;
+    }
+
+    .pms-shell,
+    .pms-main,
+    .pms-content {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+    .pms-invoice {
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        max-width: none;
+    }
+
+    /* Black on white. A tinted panel costs a customer their toner and reproduces as grey mush
+       on a cheap printer; the border alone still separates the block. */
+    .pms-invoice__prescription {
+        background: #fff !important;
+        border-color: #000;
+    }
+
+    .pms-table {
+        border-collapse: collapse;
+    }
+
+    .pms-table th,
+    .pms-table td {
+        border-bottom: 1px solid #999;
+    }
+
+    a[href]::after {
+        content: "";
+    }
+
+    @page {
+        size: A4;
+        margin: 14mm;
+    }
+}
+
+/* ── Print: thermal roll ────────────────────────────────────────────────────────────────────
+
+   Most pharmacy counters print to an 80mm thermal roll, not to A4. There is no media feature
+   for "is a receipt printer", so this keys off the narrow page width the driver reports, which
+   is what the printer's own paper size produces. Getting the driver and paper size set up is
+   the user's environment; what this does is make sure the page does not arrive laid out for a
+   sheet four times the width.
+   ───────────────────────────────────────────────────────────────────────────────────────────── */
+
+@media print and (max-width: 100mm) {
+    @page {
+        size: 80mm auto;
+        margin: 3mm;
+    }
+
+    html,
+    body {
+        font-size: 11px;
+    }
+
+    .pms-invoice__head {
+        display: block;
+        border-bottom: 1px dashed #000;
+    }
+
+    .pms-invoice__meta {
+        text-align: left;
+        margin-top: 2mm;
+    }
+
+    .pms-invoice__totals {
+        max-width: none;
+        margin-left: 0;
+    }
+
+    /* A roll has no room for a five-column table. Batch and strength columns go; quantity,
+       description and amount are what a customer checks against their change. */
+    .pms-invoice__optional {
+        display: none !important;
+    }
+
+    .pms-table th,
+    .pms-table td {
+        padding: 1mm 0;
+        border-bottom: 0;
+    }
+}

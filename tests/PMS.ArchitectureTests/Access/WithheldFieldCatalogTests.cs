@@ -27,6 +27,21 @@ public class WithheldFieldCatalogTests
     /// <summary>The naming convention the guard hangs off.</summary>
     private const string GatePrefix = "CallerMaySee";
 
+    /// <summary>
+    /// Only the declarations that claim a hidden column.
+    ///
+    /// <para>The two checks either side of this hang off the <c>CallerMaySee*</c> convention,
+    /// which is a statement about controllers. A <c>Rows</c> or <c>Action</c> declaration is
+    /// enforced in a handler and names one — requiring it to point at a controller property
+    /// would be requiring it to lie. Those are covered by
+    /// <see cref="EveryDeclaration_IsUsable"/>, which checks every entry says where it is
+    /// enforced, and by the unit tests over the rules themselves.</para>
+    /// </summary>
+    private static List<WithheldFieldDto> FieldEntries() =>
+        WithheldFieldCatalog.Entries
+            .Where(entry => entry.Kind == WithheldKind.Field)
+            .ToList();
+
     private static IEnumerable<(string Controller, string Property)> RoleGates() =>
         typeof(Program).Assembly
             .GetTypes()
@@ -53,7 +68,7 @@ public class WithheldFieldCatalogTests
             + "protects anything");
 
         var undeclared = gates
-            .Where(gate => !WithheldFieldCatalog.Entries.Any(entry =>
+            .Where(gate => !FieldEntries().Any(entry =>
                 entry.EnforcedIn.Contains(gate.Property, StringComparison.Ordinal)))
             .Select(gate => $"{gate.Controller}Controller.{gate.Property}")
             .ToList();
@@ -77,7 +92,7 @@ public class WithheldFieldCatalogTests
     {
         var gates = RoleGates().Select(gate => gate.Property).ToList();
 
-        var stale = WithheldFieldCatalog.Entries
+        var stale = FieldEntries()
             .Where(entry => !gates.Any(gate =>
                 entry.EnforcedIn.Contains(gate, StringComparison.Ordinal)))
             .Select(entry => $"{entry.Area} / {entry.Field} → {entry.EnforcedIn}")
@@ -87,6 +102,26 @@ public class WithheldFieldCatalogTests
             "this entry names a controller gate that no longer exists, so either the "
             + "restriction was lifted and the entry should go, or it was renamed and the entry "
             + "should follow it");
+    }
+
+    /// <summary>
+    /// A row or action restriction has to name where it is enforced in code, the same as a
+    /// field does — the whole value of the page is that a claim can be checked.
+    /// </summary>
+    [Fact]
+    public void NonFieldDeclarations_NameAHandler()
+    {
+        var vague = WithheldFieldCatalog.Entries
+            .Where(entry => entry.Kind != WithheldKind.Field)
+            .Where(entry => !entry.EnforcedIn.Contains("Handler", StringComparison.Ordinal)
+                && !entry.EnforcedIn.Contains("Policy", StringComparison.Ordinal))
+            .Select(entry => $"{entry.Area} / {entry.Field} → {entry.EnforcedIn}")
+            .ToList();
+
+        vague.Should().BeEmpty(
+            "a row or action restriction is enforced in a handler or a policy class, and the "
+            + "entry has to name it so an operator can go and read the rule rather than "
+            + "trusting this table");
     }
 
     [Fact]

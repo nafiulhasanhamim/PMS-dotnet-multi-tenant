@@ -247,6 +247,94 @@ public sealed class PmsApiClient
         Guid id, AdjustBatchRequest request, CancellationToken ct = default) =>
         SendAsync<BatchAdjusted>(HttpMethod.Post, $"api/stock/batches/{id}/adjust", request, ct);
 
+    // ── billing (Module 5) ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The billing screen type-ahead. Unsellable products come back with a reason attached
+    /// rather than being filtered out — the screen greys them and says why.
+    /// </summary>
+    public Task<ApiResult<List<SellableProduct>>> SearchSellableAsync(
+        string? search, int limit = 0, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+
+        if (limit > 0)
+        {
+            query.Add($"limit={limit}");
+        }
+
+        var suffix = query.Count > 0 ? "?" + string.Join('&', query) : string.Empty;
+
+        return SendAsync<List<SellableProduct>>(
+            HttpMethod.Get, $"api/products/sellable{suffix}", null, ct);
+    }
+
+    public Task<ApiResult<BillingLimits>> GetBillingLimitsAsync(CancellationToken ct = default) =>
+        SendAsync<BillingLimits>(HttpMethod.Get, "api/sales/limits", null, ct);
+
+    public Task<ApiResult<SaleCompleted>> CompleteSaleAsync(
+        CompleteSalePayload payload, CancellationToken ct = default) =>
+        SendAsync<SaleCompleted>(HttpMethod.Post, "api/sales", payload, ct);
+
+    public Task<ApiResult<ApiPage<SaleListItem>>> GetSalesAsync(
+        DateOnly? from = null,
+        DateOnly? to = null,
+        Guid? cashier = null,
+        SaleStatusFilter status = SaleStatusFilter.All,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string>
+        {
+            $"status={status}",
+            $"page={page}",
+            $"pageSize={pageSize}",
+        };
+
+        if (from is { } fromDate)
+        {
+            query.Add($"from={fromDate:yyyy-MM-dd}");
+        }
+
+        if (to is { } toDate)
+        {
+            query.Add($"to={toDate:yyyy-MM-dd}");
+        }
+
+        if (cashier is { } cashierId)
+        {
+            query.Add($"cashier={cashierId}");
+        }
+
+        return SendAsync<ApiPage<SaleListItem>>(
+            HttpMethod.Get, $"api/sales?{string.Join('&', query)}", null, ct);
+    }
+
+    public Task<ApiResult<List<CashierOption>>> GetCashiersAsync(CancellationToken ct = default) =>
+        SendAsync<List<CashierOption>>(HttpMethod.Get, "api/sales/cashiers", null, ct);
+
+    public Task<ApiResult<SaleDetail>> GetSaleAsync(Guid id, CancellationToken ct = default) =>
+        SendAsync<SaleDetail>(HttpMethod.Get, $"api/sales/{id}", null, ct);
+
+    public Task<ApiResult<ReturnableSale>> GetReturnableLinesAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<ReturnableSale>(HttpMethod.Get, $"api/sales/{id}/returnable-lines", null, ct);
+
+    public Task<ApiResult<SalesReturned>> CreateReturnAsync(
+        Guid saleId, CreateReturnPayload payload, CancellationToken ct = default) =>
+        SendAsync<SalesReturned>(HttpMethod.Post, $"api/sales/{saleId}/returns", payload, ct);
+
+    public Task<ApiResult<CancelledSale>> CancelSaleAsync(
+        Guid saleId, string reason, CancellationToken ct = default) =>
+        SendAsync<CancelledSale>(
+            HttpMethod.Post, $"api/sales/{saleId}/cancel", new CancelSalePayload(reason), ct);
+
     // ── plumbing ─────────────────────────────────────────────────────────────────────────
 
     private async Task<ApiResult<T>> SendAsync<T>(

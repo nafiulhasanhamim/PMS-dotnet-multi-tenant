@@ -7,6 +7,7 @@ using PMS.Application.Features.Products.Commands.SetProductActive;
 using PMS.Application.Features.Products.Commands.UpdateProduct;
 using PMS.Application.Features.Products.Queries.GetProduct;
 using PMS.Application.Features.Products.Queries.GetProducts;
+using PMS.Application.Features.Sales.Queries.GetSellableProducts;
 using PMS.Domain.Enums;
 using PMS.SharedKernel.Grid;
 using PMS.SharedKernel.Interfaces;
@@ -71,6 +72,34 @@ public class ProductsController : ApiControllerBase
                 type, search, status, antibioticOnly, productType,
                 CallerMaySeeListPrices, page, pageSize),
             cancellationToken));
+
+    /// <summary>
+    /// The billing screen type-ahead: products that can be sold, and the reason for the ones
+    /// that cannot.
+    ///
+    /// <para><b>Unsellable products are returned with a reason rather than filtered out.</b>
+    /// A cashier who types "napa" and sees nothing tells the customer the pharmacy does not
+    /// stock it. One who sees it greyed with "needs prices set" fetches whoever can fix that in
+    /// fifteen seconds, and one who sees "requires a pharmacist" calls a pharmacist over.
+    /// Silence is the only outcome that loses the sale and teaches nobody anything. The single
+    /// exception is a deactivated product, which is absent: deactivating one is how a pharmacy
+    /// says it does not sell the thing at all.</para>
+    ///
+    /// <para>Returns each product's unit configuration and current prices alongside, so a cart
+    /// row can be priced and its unit dropdown built without a second request. Those prices are
+    /// the live ones — the snapshot that matters is taken by the sale, not by this.</para>
+    ///
+    /// <para>Antibiotics are flagged rather than hidden for an Employee, and the caller cannot
+    /// ask to be treated otherwise: the role comes from the token.</para>
+    /// </summary>
+    [HttpGet("sellable")]
+    [ProducesResponseType(typeof(IReadOnlyList<SellableProductDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSellable(
+        [FromQuery] string? search = null,
+        [FromQuery] int limit = 0,
+        CancellationToken cancellationToken = default)
+        => HandleResult(await Mediator.Send(
+            new GetSellableProductsQuery(search, limit), cancellationToken));
 
     /// <summary>
     /// One product in full. 404 for another pharmacy's id — it is genuinely absent behind the

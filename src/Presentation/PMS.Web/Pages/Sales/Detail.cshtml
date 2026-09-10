@@ -1,0 +1,227 @@
+@page "/sales/{id:guid}"
+@model PMS.Web.Pages.Sales.DetailModel
+@inject DisplayTimeZone Clock
+@{
+    var sale = Model.Sale;
+    ViewData["Title"] = $"Invoice {sale.InvoiceNumber}";
+
+    // Placeholder pharmacy details. A Settings module makes these configurable; hard-coding
+    // them here rather than inventing a half-settings table now keeps the one place they will
+    // move from obvious.
+    var pharmacyName = User.TenantName() ?? "Pharmacy";
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Invoice @sale.InvoiceNumber</h1>
+        <p class="pms-page-header__subtitle">
+            @Clock.Format(sale.SaleDate) &middot; served by @(sale.CashierName ?? "(unknown user)")
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <button type="button" class="btn btn-primary" onclick="window.print();">Print</button>
+        @if (Model.Limits.MayReturn && !sale.IsCancelled)
+        {
+            <a class="btn btn-outline-secondary" asp-page="/Sales/Return" asp-route-id="@sale.Id">
+                Return items
+            </a>
+        }
+        <a class="btn btn-outline-secondary" asp-page="/Billing/Index">Back to billing</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<article class="pms-invoice">
+    @if (sale.IsCancelled)
+    {
+        @* On the printed copy too, deliberately. A cancelled invoice that prints identically
+           to a live one is a document somebody can present as proof of purchase. *@
+        <div class="pms-invoice__cancelled">
+            <partial name="_Alert" model="@AlertModel.Danger(
+                $"This sale was cancelled on {Clock.Format(sale.CancelledAt!.Value)}" +
+                (sale.CancelledByName is not null ? $" by {sale.CancelledByName}" : "") +
+                $". Reason: {sale.CancelledReason}")" />
+        </div>
+    }
+
+    <header class="pms-invoice__head">
+        <div>
+            <p class="pms-invoice__pharmacy">@pharmacyName</p>
+            <p class="pms-form-help mb-0">
+                Address line one, Dhaka<br />
+                Phone 01700-000000
+            </p>
+        </div>
+        <div class="pms-invoice__meta">
+            <p class="mb-1"><strong class="pms-mono">@sale.InvoiceNumber</strong></p>
+            <p class="mb-1">@Clock.Format(sale.SaleDate)</p>
+            <p class="mb-0">Served by @(sale.CashierName ?? "(unknown user)")</p>
+            @if (!string.IsNullOrWhiteSpace(sale.CustomerName)
+                 || !string.IsNullOrWhiteSpace(sale.CustomerPhone))
+            {
+                <p class="mb-0 mt-2">
+                    @sale.CustomerName
+                    @if (!string.IsNullOrWhiteSpace(sale.CustomerPhone))
+                    {
+                        <text> &middot; @sale.CustomerPhone</text>
+                    }
+                </p>
+            }
+        </div>
+    </header>
+
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <caption class="visually-hidden">Items on this invoice.</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Item</th>
+                    <th scope="col" class="text-end">Quantity</th>
+                    <th scope="col" class="text-end">Unit price</th>
+                    <th scope="col" class="text-end">Line total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @* One row per thing the customer bought. A cart item that FEFO split across two
+                   batches was still one purchase, and which batch a tablet came out of is the
+                   pharmacy's bookkeeping - see InvoiceLineDto for the grouping. *@
+                @foreach (var line in sale.InvoiceLines)
+                {
+                    <tr>
+                        <td>
+                            @line.BrandName
+                            @if (!string.IsNullOrWhiteSpace(line.Strength))
+                            {
+                                <span class="pms-form-help pms-invoice__optional">@line.Strength</span>
+                            }
+                            @if (line.IsAntibiotic)
+                            {
+                                <span class="pms-badge pms-badge--warning pms-invoice__optional">AB</span>
+                            }
+                            @if (line.ReturnedInBaseUnits > 0)
+                            {
+                                <span class="pms-badge pms-badge--warning">
+                                    @line.ReturnedInBaseUnits returned
+                                </span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            @line.Quantity.ToString("0.##") @line.UnitSoldName
+                        </td>
+                        <td class="text-end">@line.UnitSalePrice.ToString("N2")</td>
+                        <td class="text-end">@line.LineTotal.ToString("N2")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pms-invoice__totals">
+        <dl>
+            <dt>Subtotal</dt>
+            <dd>@sale.Subtotal.ToString("N2")</dd>
+        </dl>
+
+        @if (sale.DiscountAmount > 0)
+        {
+            <dl>
+                <dt>@sale.DiscountLabel</dt>
+                <dd>&minus;@sale.DiscountAmount.ToString("N2")</dd>
+            </dl>
+        }
+
+        <dl class="pms-invoice__net">
+            <dt>Net total</dt>
+            <dd>@sale.NetTotal.ToString("N2")</dd>
+        </dl>
+
+        <dl>
+            <dt>Cash received</dt>
+            <dd>@sale.CashReceived.ToString("N2")</dd>
+        </dl>
+
+        <dl>
+            <dt>Change</dt>
+            <dd>@sale.ChangeGiven.ToString("N2")</dd>
+        </dl>
+
+        @if (sale.TotalRefunded > 0)
+        {
+            <dl>
+                <dt>Refunded since</dt>
+                <dd>&minus;@sale.TotalRefunded.ToString("N2")</dd>
+            </dl>
+        }
+    </div>
+
+    @if (sale.Prescription is { } prescription)
+    {
+        <section class="pms-invoice__prescription">
+            <h2 class="pms-card__title">Prescription</h2>
+            <dl class="pms-detail-list">
+                <dt>Patient</dt>
+                <dd>@prescription.PatientName @(string.IsNullOrWhiteSpace(prescription.PatientPhone) ? "" : $"({prescription.PatientPhone})")</dd>
+                <dt>Doctor</dt>
+                <dd>@prescription.DoctorName</dd>
+                <dt>Prescription number</dt>
+                <dd class="pms-mono">@prescription.PrescriptionNumber</dd>
+                <dt>Prescription date</dt>
+                <dd>@prescription.PrescriptionDate?.ToString("d MMM yyyy")</dd>
+                <dt>Verified</dt>
+                <dd>@(prescription.PrescriptionVerified ? "Yes" : "No")</dd>
+            </dl>
+        </section>
+    }
+</article>
+
+@* Staff-facing, and not part of the customer's copy: which batch each line came out of. It is
+   what a recall or a stock reconciliation needs, and it is the only place the FEFO split is
+   visible at all. *@
+<details class="pms-card mt-4 pms-no-print">
+    <summary class="pms-card__body pms-card__summary">
+        Batch detail (@Copy.Count(sale.Lines.Count, "line"))
+    </summary>
+    <div class="pms-card__body pt-0">
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Item</th>
+                        <th scope="col">Batch</th>
+                        <th scope="col">Expiry</th>
+                        <th scope="col" class="text-end">Quantity</th>
+                        <th scope="col" class="text-end">Line total</th>
+                        <th scope="col" class="text-end">Discount share</th>
+                        <th scope="col" class="text-end">Net</th>
+                        <th scope="col" class="text-end">Returned</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in sale.Lines)
+                    {
+                        <tr>
+                            <td>@line.BrandName</td>
+                            <td class="pms-mono">@line.BatchNumber</td>
+                            <td>@(line.BatchExpiryDate?.ToString("MMM yyyy") ?? "No expiry")</td>
+                            <td class="text-end">@line.QuantityInBaseUnits @line.BaseUnitName</td>
+                            <td class="text-end">@line.LineTotal.ToString("N2")</td>
+                            <td class="text-end">@line.DiscountShare.ToString("N2")</td>
+                            <td class="text-end">@line.NetLineTotal.ToString("N2")</td>
+                            <td class="text-end">
+                                @if (line.ReturnedInBaseUnits > 0)
+                                {
+                                    <text>@line.ReturnedInBaseUnits (@line.RefundedAmount.ToString("N2"))</text>
+                                }
+                                else
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</details>

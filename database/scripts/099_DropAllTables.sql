@@ -14,6 +14,36 @@ GO
 -- Drop PMS tables here as they are added, dependants before their parents.
 
 -- Module 3 stock, dependants first: an adjustment references its batch, and a batch
+-- Module 5 first of all: sale lines reference products AND batches, and returns reference
+-- sale lines, so the whole billing stack has to come out before stock or products.
+IF OBJECT_ID('[dbo].[SalesReturns]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[SalesReturns]
+    PRINT 'Table [SalesReturns] dropped.'
+END
+GO
+
+IF OBJECT_ID('[dbo].[SaleLines]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[SaleLines]
+    PRINT 'Table [SaleLines] dropped.'
+END
+GO
+
+IF OBJECT_ID('[dbo].[Sales]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[Sales]
+    PRINT 'Table [Sales] dropped.'
+END
+GO
+
+IF OBJECT_ID('[dbo].[InvoiceSequences]', 'U') IS NOT NULL
+BEGIN
+    DROP TABLE [dbo].[InvoiceSequences]
+    PRINT 'Table [InvoiceSequences] dropped.'
+END
+GO
+
 -- references its product, so these have to go before Products below.
 IF OBJECT_ID('[dbo].[StockAdjustments]', 'U') IS NOT NULL
 BEGIN

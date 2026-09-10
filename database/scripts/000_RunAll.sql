@@ -36,6 +36,7 @@ PRINT ''
 -- 8. 008_CreateBatchesAndStockAdjustmentsTables.sql   (stock; needs 002, 003 and 007)
 -- 9. 009_AddProductSetupComplete.sql   (nullable price + IsSetupComplete; needs 007)
 -- 10. 010_ProductIdentityIncludesDosageForm.sql   (identity gains dosage form; needs 007)
+-- 11. 011_CreateSalesTables.sql   (sales, lines, returns, invoice counter; needs 002, 003, 007, 008)
 
 PRINT ''
 PRINT '============================================'
@@ -51,6 +52,7 @@ PRINT '7. Run 007_CreateProductsTable.sql    (tenant-scoped product master)'
 PRINT '8. Run 008_CreateBatchesAndStockAdjustmentsTables.sql   (batches and stock)'
 PRINT '9. Run 009_AddProductSetupComplete.sql   (product setup completeness)'
 PRINT '10. Run 010_ProductIdentityIncludesDosageForm.sql   (identity + dosage form)'
+PRINT '11. Run 011_CreateSalesTables.sql   (billing: sales, lines, returns)'
 PRINT ''
 PRINT 'Or enable SQLCMD mode in SSMS (Query > SQLCMD Mode)'
 PRINT 'and uncomment the :r commands above to run all at once.'
