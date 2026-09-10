@@ -36,6 +36,15 @@ public class IndexModel : PmsPageModel
 
     public ApiPage<ProductListItem> Products { get; private set; } = ApiPage<ProductListItem>.Empty;
 
+    /// <summary>
+    /// How many active medicines are still unpriced, for the banner.
+    ///
+    /// <para>Read with a separate one-row query rather than counted from the page in front of
+    /// the person: the count has to be the pharmacy's total, and the page they are looking at
+    /// is twenty-five rows of a filtered list.</para>
+    /// </summary>
+    public int IncompleteCount { get; private set; }
+
     /// <summary>True when any filter is narrowing the list, so an empty result can say so.</summary>
     public bool HasFilters =>
         !string.IsNullOrWhiteSpace(Search)
@@ -54,6 +63,25 @@ public class IndexModel : PmsPageModel
         }
 
         Products = result.Value ?? ApiPage<ProductListItem>.Empty;
+
+        // A second call, and cheap: the API answers it from a filtered index over the
+        // incomplete rows only. Skipped when the list is already filtered to them, because
+        // then the banner is not shown and the number would go unused.
+        if (Status != ProductStatusFilter.SetupIncomplete)
+        {
+            var incomplete = await _api.GetProductsAsync(
+                ProductListType.Medicine,
+                search: null,
+                status: ProductStatusFilter.SetupIncomplete,
+                page: 1,
+                pageSize: 1,
+                ct: ct);
+
+            if (incomplete.IsSuccess)
+            {
+                IncompleteCount = incomplete.Value?.Total ?? 0;
+            }
+        }
 
         return Page();
     }

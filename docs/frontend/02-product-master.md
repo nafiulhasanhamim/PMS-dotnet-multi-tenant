@@ -14,8 +14,10 @@ Backend: [../02-product-master.md](../02-product-master.md).
 | Route | Page | Authorization | Purpose |
 |---|---|---|---|
 | `/medicines` | `Medicines/Index` | TenantUser | Medicines list: search, status, antibiotics-only |
-| `/medicines/import` | `Medicines/Import` | **TenantWriter** | Step 1 of import — search the shared catalogue |
-| `/medicines/create` | `Medicines/Create` | **TenantWriter** | Add a medicine; step 2 of import with `?catalogId=` |
+| `/medicines/import` | `Medicines/Import` | **TenantWriter** | Search the shared catalogue; tick rows for a bulk import |
+| `/medicines/import/setup` | `Medicines/BulkSetup` | **TenantWriter** | Shared units, review grid, save with or without prices |
+| `/medicines/complete-setup` | `Medicines/CompleteSetup` | **TenantWriter** | Fill in the prices of products imported without them |
+| `/medicines/create` | `Medicines/Create` | **TenantWriter** | Add a medicine; step 2 of a single import with `?catalogId=` |
 | `/other-items` | `OtherItems/Index` | TenantUser | Non-medicine list: search, type, status |
 | `/other-items/create` | `OtherItems/Create` | **TenantWriter** | Add a non-medicine |
 | `/products/{id}` | `Products/Detail` | TenantUser | One product in full |
@@ -285,3 +287,42 @@ page-header patterns are used as they are.
 - Stock levels, batches and expiry on the detail page — **Module 3**. The detail page says so
   where they will appear.
 - A "reference catalogue changed" review prompt.
+
+---
+
+## 8. Bulk import (added later)
+
+The single-medicine path above is unchanged. Alongside it, `/medicines/import` now has a
+checkbox column, a "select all on this page" control, and a persistent footer bar showing the
+count with **Continue** and **Clear selection**.
+
+**The selection lives in server session**, not in the form. It has to survive paging *and* a
+completely new search — tick three from "napa", search "azin", tick two more, continue with
+five — and nothing about that journey passes the earlier ticks through a form. A query string
+would have to carry two hundred ids; a cookie would exceed four kilobytes and ship on every
+request; `localStorage` would put the source of truth where the server rendering the next screen
+cannot read it. Each tick is a POST-redirect, so it survives a refresh and the back button
+behaves.
+
+Already-imported entries stay visible but are **not selectable** — flagged, not hidden, for the
+same reason as before: somebody who found nothing would conclude the catalogue lacks it.
+
+The catalogue search gained paging to make this work. It pages over a **capped** result set of
+200, and says so, because the fuzzy stage scores candidates in memory and cannot be offset — a
+count implying the whole catalogue would be a lie.
+
+`/medicines/import/setup` has three sections: the shared unit preset (defaulted to
+piece/strip/box, since most bulk-imported items are tablets), the review grid, and the two save
+buttons. Rows the catalogue flagged as antibiotics are tinted amber — subtly, because a strong
+colour on forty of fifty rows draws attention to nothing, and the point is to pull the eye to
+the classifications that need a human.
+
+`_PriceGrid` is shared with `/medicines/complete-setup`: the same copy-down affordance and
+keyboard order, because it is the same problem at a different moment. Copy-down fills a column
+with **identical** values, not proportional ones — a proportional fill would produce a different
+number per row, which is impossible to check at a glance on fifty rows, and checking is what the
+control exists to save.
+
+Incomplete products then show an amber **Setup incomplete** badge in both lists, gain a status
+filter option, and raise a dismissible banner on the medicines list with the count and a link.
+See [../02-product-master.md](../02-product-master.md) §6c for why that is deliberately noisy.

@@ -23,7 +23,8 @@ public sealed record ProductListItemDto(
     bool IsActive,
     string BaseUnitName,
     decimal? PricePerBase,
-    bool ImportedFromCatalog);
+    bool ImportedFromCatalog,
+    bool IsSetupComplete);
 
 /// <summary>A product in full, for the detail page. Prices are visible to every role here.</summary>
 public sealed record ProductDto(
@@ -45,13 +46,14 @@ public sealed record ProductDto(
     int? MidPerLarge,
     int? BaseUnitsPerLarge,
     string PackingSummary,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     decimal? PricePerMid,
     decimal? PricePerLarge,
     int ReorderLevel,
     string? ShelfLocation,
     DateTime CreatedOnUtc,
-    DateTime? ModifiedOnUtc)
+    DateTime? ModifiedOnUtc,
+    bool IsSetupComplete)
 {
     public bool ImportedFromCatalog => CatalogMedicineId is not null;
 }
@@ -71,6 +73,15 @@ public enum ProductStatusFilter
     Active = 0,
     Inactive = 1,
     All = 2,
+
+    /// <summary>
+    /// Active products still missing a price for one of their unit levels.
+    ///
+    /// <para>A filter rather than a separate screen: these are ordinary products in every
+    /// other respect, and a pharmacy working through them wants them in the list they already
+    /// know, alongside the search and the type filter.</para>
+    /// </summary>
+    SetupIncomplete = 3,
 }
 
 /// <summary>
@@ -110,7 +121,26 @@ public enum CatalogMatchType
 /// <param name="MatchType">
 /// Part of the API contract, not a hint: the UI changes its heading based on it.
 /// </param>
+/// <param name="Total">
+/// How many matches were found, up to the search ceiling — not how many exist in the
+/// catalogue. See <c>SearchCatalogMedicinesQuery.Page</c>.
+/// </param>
+/// <param name="Capped">
+/// True when the result hit the ceiling, so the UI can say the list is partial instead of
+/// implying the catalogue holds nothing more.
+/// </param>
 public sealed record CatalogSearchResultDto(
     CatalogMatchType MatchType,
     string Term,
-    IReadOnlyList<CatalogMedicineSearchItemDto> Items);
+    IReadOnlyList<CatalogMedicineSearchItemDto> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    bool Capped)
+{
+    public int TotalPages => PageSize > 0 ? (int)Math.Ceiling((double)Total / PageSize) : 1;
+
+    public bool HasPreviousPage => Page > 1;
+
+    public bool HasNextPage => Page < TotalPages;
+}

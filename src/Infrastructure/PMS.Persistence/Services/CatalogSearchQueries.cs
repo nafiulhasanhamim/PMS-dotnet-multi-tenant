@@ -131,6 +131,32 @@ public sealed class CatalogSearchQueries : ICatalogSearchQueries
         return flagged[0];
     }
 
+    public async Task<IReadOnlyDictionary<int, CatalogMedicineSearchItemDto>> FindManyAsync(
+        IReadOnlyCollection<int> catalogMedicineIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (catalogMedicineIds.Count == 0)
+        {
+            return new Dictionary<int, CatalogMedicineSearchItemDto>();
+        }
+
+        // One query for the whole selection. The bulk import can carry two hundred ids, and
+        // two hundred calls to FindAsync would be two hundred round trips - each of which also
+        // runs its own already-imported check.
+        var ids = catalogMedicineIds.Distinct().ToList();
+
+        var entries = await Project(
+                _context.CatalogMedicines.Where(m => ids.Contains(m.Id)))
+            .ToListAsync(cancellationToken);
+
+        var flagged = await WithImportFlags(entries, cancellationToken);
+
+        // Keyed by id; an id that does not exist is simply missing from the result. The caller
+        // reports that per row rather than failing the whole call, because one bad id in a
+        // batch of two hundred should say which one.
+        return flagged.ToDictionary(entry => entry.Id);
+    }
+
     /// <summary>
     /// The shared projection. Score is filled in later by the fuzzy stage; a direct match has
     /// no score to report and leaves it at zero.

@@ -36,7 +36,8 @@ public interface IProductWriteRequest
 
     int? MidPerLarge { get; }
 
-    decimal PricePerBase { get; }
+    /// <summary>Null when the product has not been priced yet — see the bulk import.</summary>
+    decimal? PricePerBase { get; }
 
     decimal? PricePerMid { get; }
 
@@ -72,8 +73,12 @@ public static class ProductWriteRules
         validator.RuleFor(x => x.Category).MaximumLength(100);
         validator.RuleFor(x => x.ShelfLocation).MaximumLength(100);
 
+        // Non-negative *when present*. Whether it may be absent at all is decided by each
+        // command: the single-product forms require it, and only the bulk import allows it to
+        // be omitted. Putting NotNull here would forbid the whole point of that feature.
         validator.RuleFor(x => x.PricePerBase)
-            .GreaterThanOrEqualTo(0).WithMessage("A price cannot be negative.");
+            .GreaterThanOrEqualTo(0).WithMessage("A price cannot be negative.")
+            .When(x => x.PricePerBase is not null);
 
         validator.RuleFor(x => x.ReorderLevel)
             .GreaterThanOrEqualTo(0).WithMessage("A reorder level cannot be negative.");
@@ -137,8 +142,14 @@ public static class ProductWriteRules
                 .GreaterThan(1).WithMessage("A pack has to hold more than one unit.")
                 .When(x => x.BasePerMid is not null);
 
+            // Required only when the product is being priced at all. Either you are setting
+            // prices - in which case every level the product has needs one, or the product
+            // would be sellable at some levels and not others - or you are not, which is the
+            // bulk-import path and leaves the product honestly incomplete. A half-priced
+            // product is the state worth forbidding, and this is what forbids it.
             validator.RuleFor(x => x.PricePerMid)
-                .NotNull().WithMessage("Enter the price for this pack.");
+                .NotNull().WithMessage("Enter the price for this pack.")
+                .When(x => x.PricePerBase is not null);
 
             validator.RuleFor(x => x.PricePerMid)
                 .GreaterThanOrEqualTo(0).WithMessage("A price cannot be negative.")
@@ -168,8 +179,10 @@ public static class ProductWriteRules
                 .GreaterThan(1).WithMessage("A bulk pack has to hold more than one.")
                 .When(x => x.MidPerLarge is not null);
 
+            // Same rule as the pack price above: required only once a base price is given.
             validator.RuleFor(x => x.PricePerLarge)
-                .NotNull().WithMessage("Enter the price for the bulk pack.");
+                .NotNull().WithMessage("Enter the price for the bulk pack.")
+                .When(x => x.PricePerBase is not null);
 
             validator.RuleFor(x => x.PricePerLarge)
                 .GreaterThanOrEqualTo(0).WithMessage("A price cannot be negative.")

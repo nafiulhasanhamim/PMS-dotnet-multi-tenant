@@ -22,6 +22,8 @@ PRINT ''
 -- :r "006_CreateCatalogTables.sql"
 -- :r "007_CreateProductsTable.sql"
 -- :r "008_CreateBatchesAndStockAdjustmentsTables.sql"
+-- :r "009_AddProductSetupComplete.sql"
+-- :r "010_ProductIdentityIncludesDosageForm.sql"
 
 -- Otherwise, execute each script in order:
 -- 1. 001_CreateDatabase.sql
@@ -32,6 +34,8 @@ PRINT ''
 -- 6. 006_CreateCatalogTables.sql   (platform-level medicine catalog; no tenant)
 -- 7. 007_CreateProductsTable.sql    (tenant-scoped product master; needs 002 and 006)
 -- 8. 008_CreateBatchesAndStockAdjustmentsTables.sql   (stock; needs 002, 003 and 007)
+-- 9. 009_AddProductSetupComplete.sql   (nullable price + IsSetupComplete; needs 007)
+-- 10. 010_ProductIdentityIncludesDosageForm.sql   (identity gains dosage form; needs 007)
 
 PRINT ''
 PRINT '============================================'
@@ -45,6 +49,8 @@ PRINT '5. Run 005_CreateAccessLogsTable.sql'
 PRINT '6. Run 006_CreateCatalogTables.sql   (platform-level medicine catalog)'
 PRINT '7. Run 007_CreateProductsTable.sql    (tenant-scoped product master)'
 PRINT '8. Run 008_CreateBatchesAndStockAdjustmentsTables.sql   (batches and stock)'
+PRINT '9. Run 009_AddProductSetupComplete.sql   (product setup completeness)'
+PRINT '10. Run 010_ProductIdentityIncludesDosageForm.sql   (identity + dosage form)'
 PRINT ''
 PRINT 'Or enable SQLCMD mode in SSMS (Query > SQLCMD Mode)'
 PRINT 'and uncomment the :r commands above to run all at once.'

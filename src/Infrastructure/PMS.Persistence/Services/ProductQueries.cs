@@ -1,4 +1,5 @@
 using PMS.Application.Common.DTOs;
+using PMS.Application.Common.Products;
 using PMS.Application.Interfaces;
 using PMS.Domain.Entities;
 using PMS.Persistence.Contexts;
@@ -57,6 +58,13 @@ public sealed class ProductQueries : IProductQueries
         {
             ProductStatusFilter.Active => query.Where(p => p.IsActive),
             ProductStatusFilter.Inactive => query.Where(p => !p.IsActive),
+
+            // Active *and* unpriced. A deactivated product with no price is not something
+            // anybody needs to act on - it is not for sale either way - so including it would
+            // pad the list the pharmacy is working through.
+            ProductStatusFilter.SetupIncomplete =>
+                query.Where(p => p.IsActive && !p.IsSetupComplete),
+
             _ => query,
         };
 
@@ -102,7 +110,8 @@ public sealed class ProductQueries : IProductQueries
                 // is never read, so it never crosses the wire — as opposed to sending it and
                 // trusting the UI to omit a column, which is not a control at all.
                 includePrices ? p.PricePerBase : null,
-                p.CatalogMedicineId != null))
+                p.CatalogMedicineId != null,
+                p.IsSetupComplete))
             .ToListAsync(cancellationToken);
 
         return GridResult<ProductListItemDto>.Create(items, total, page, pageSize);
@@ -122,23 +131,34 @@ public sealed class ProductQueries : IProductQueries
             : PMS.Application.Common.Products.ProductMapping.ToDto(product);
     }
 
-    public Task<bool> ExistsWithBrandAndStrengthAsync(
+    public Task<bool> ExistsWithIdentityAsync(
         string brandName,
         string? strength,
+        string? dosageForm,
         Guid? excludingId = null,
         CancellationToken cancellationToken = default)
     {
         var name = brandName.Trim();
-        var normalizedStrength = string.IsNullOrWhiteSpace(strength) ? null : strength.Trim();
+        var normalizedStrength = Blank(strength);
+        var normalizedForm = Blank(dosageForm);
 
         // Case-insensitive through the database collation, which is what the unique index in
-        // script 007 relies on too — so the check and the constraint agree.
+        // migration 010 relies on too — so the check and the constraint agree.
+        //
+        // Written as three column comparisons rather than against the computed IdentityKey
+        // column: that column is not mapped in the EF model, and comparing against a
+        // constructed string would stop the index being seekable anyway. The columns are the
+        // leading keys of IX_Products_Tenant_Brand_Strength.
         var query = _context.Products.AsNoTracking()
             .Where(p => p.BrandName == name);
 
         query = normalizedStrength is null
             ? query.Where(p => p.Strength == null)
             : query.Where(p => p.Strength == normalizedStrength);
+
+        query = normalizedForm is null
+            ? query.Where(p => p.DosageForm == null)
+            : query.Where(p => p.DosageForm == normalizedForm);
 
         if (excludingId is not null)
         {
@@ -148,4 +168,56 @@ public sealed class ProductQueries : IProductQueries
 
         return query.AnyAsync(cancellationToken);
     }
+
+    private static string? Blank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// The brand + strength keys this pharmacy already holds, normalised the way the bulk
+    /// import compares them.
+    /// </summary>
+    public async Task<IReadOnlySet<string>> GetIdentityKeysAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // Inactive products included, and that matters: the unique index does not exempt them,
+        // so a key check that skipped them would report no clash and then lose to the
+        // constraint at insert time.
+        var keys = await _context.Products
+            .AsNoTracking()
+            .Select(p => new { p.BrandName, p.Strength, p.DosageForm })
+            .ToListAsync(cancellationToken);
+
+        return keys
+            .Select(key => ProductKeys.Identity(key.BrandName, key.Strength, key.DosageForm))
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    public async Task<IReadOnlySet<int>> GetImportedCatalogIdsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var ids = await _context.Products
+            .AsNoTracking()
+            .Where(p => p.CatalogMedicineId != null)
+            .Select(p => p.CatalogMedicineId!.Value)
+            .ToListAsync(cancellationToken);
+
+        return ids.ToHashSet();
+    }
+
+    public Task<int> CountSetupIncompleteAsync(CancellationToken cancellationToken = default) =>
+        // Active only. A deactivated product with no price is not something anybody needs to
+        // be nagged about - it is not for sale either way.
+        _context.Products
+            .AsNoTracking()
+            .CountAsync(p => p.IsActive && !p.IsSetupComplete, cancellationToken);
+
+    public async Task<IReadOnlyList<Product>> GetForPriceUpdateAsync(
+        IReadOnlyCollection<Guid> productIds,
+        CancellationToken cancellationToken = default)
+        // Tracked, deliberately: the caller is about to set prices on these and save. The
+        // tenant filter still applies, so another pharmacy's id simply does not come back and
+        // the caller reports it as not found.
+        => await _context.Products
+            .Where(p => productIds.Contains(p.Id))
+            .ToListAsync(cancellationToken);
 }

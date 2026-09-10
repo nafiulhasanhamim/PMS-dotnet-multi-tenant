@@ -29,7 +29,7 @@ public sealed record UpdateProductCommand(
     string? LargeUnitName,
     int? BasePerMid,
     int? MidPerLarge,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     decimal? PricePerMid,
     decimal? PricePerLarge,
     int ReorderLevel,

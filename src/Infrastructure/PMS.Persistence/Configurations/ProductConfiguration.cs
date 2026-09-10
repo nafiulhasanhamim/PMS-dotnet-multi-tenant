@@ -33,9 +33,12 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         // Money as decimal, never floating point. 18,4 leaves room for a per-base unit price
         // derived from a bulk pack, which is often not a round number of paisa.
-        builder.Property(p => p.PricePerBase).IsRequired().HasPrecision(18, 4);
+        // Nullable: an unpriced product is a real state, created by bulk import.
+        builder.Property(p => p.PricePerBase).HasPrecision(18, 4);
         builder.Property(p => p.PricePerMid).HasPrecision(18, 4);
         builder.Property(p => p.PricePerLarge).HasPrecision(18, 4);
+
+        builder.Property(p => p.IsSetupComplete).IsRequired();
 
         builder.Property(p => p.ReorderLevel).IsRequired();
         builder.Property(p => p.ShelfLocation).HasMaxLength(100);
@@ -56,6 +59,13 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasIndex(p => new { p.TenantId, p.GenericName })
             .HasDatabaseName("IX_Products_Tenant_GenericName");
+
+        // The incomplete-products filter and the banner count. Filtered so the index holds
+        // only the rows it is ever used to find - the incomplete ones are a small and
+        // shrinking set, while the complete ones are the whole catalogue.
+        builder.HasIndex(p => new { p.TenantId, p.IsSetupComplete })
+            .HasDatabaseName("IX_Products_Tenant_SetupIncomplete")
+            .HasFilter("[IsSetupComplete] = 0");
 
         // Finding "have I already imported this?" on the catalogue import screen.
         builder.HasIndex(p => new { p.TenantId, p.CatalogMedicineId })

@@ -211,7 +211,10 @@ else
                         </select>
                         <div class="pms-form-help" data-stock-price-help
                              data-base-unit="@baseUnit"
-                             data-sale-price="@product.PricePerBase.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
+                             @* Zero when the product has no sale price, which switches the
+                                loss warning off rather than flagging every batch against a
+                                price that does not exist. *@
+                             data-sale-price="@((product.PricePerBase ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture))"></div>
                     </div>
                 </div>
 

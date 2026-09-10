@@ -1,0 +1,36 @@
+@model PMS.Web.Selection.CatalogSelection
+@*
+    The persistent selection bar. Appears as soon as anything is ticked and stays put while
+    the person searches for something else, because that is the journey: tick a few from one
+    search, a few from another, then continue with all of them.
+
+    Fixed to the bottom rather than sitting above the table, so it is visible without
+    scrolling back up after ticking the last row on a long page.
+*@
+@if (Model.Count > 0)
+{
+    <div class="pms-selection-bar" role="region" aria-label="Selected medicines">
+        <div class="pms-selection-bar__count">
+            <strong>@Model.Count</strong>
+            @(Model.Count == 1 ? "medicine" : "medicines") selected
+            @if (Model.IsFull)
+            {
+                <span class="pms-badge pms-badge--warning ms-2">Maximum reached</span>
+            }
+        </div>
+
+        <div class="pms-selection-bar__actions">
+            <form method="post" asp-page-handler="ClearSelection" class="d-inline">
+                <input type="hidden" name="q" value="@Context.Request.Query["q"]" />
+                <input type="hidden" name="p" value="@Context.Request.Query["p"]" />
+                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                    Clear selection
+                </button>
+            </form>
+
+            <a class="btn btn-primary" asp-page="/Medicines/BulkSetup">
+                Continue with @Model.Count
+            </a>
+        </div>
+    </div>
+}

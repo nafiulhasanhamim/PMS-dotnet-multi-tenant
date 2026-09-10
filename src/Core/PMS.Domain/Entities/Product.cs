@@ -35,7 +35,7 @@ public sealed class Product : BaseAuditableAggregateRoot<Guid>, ITenantEntity
         ProductType productType,
         string brandName,
         string baseUnitName,
-        decimal pricePerBase)
+        decimal? pricePerBase)
     {
         Id = Guid.NewGuid();
         ProductType = productType;
@@ -43,6 +43,8 @@ public sealed class Product : BaseAuditableAggregateRoot<Guid>, ITenantEntity
         BaseUnitName = baseUnitName.Trim();
         PricePerBase = pricePerBase;
         IsActive = true;
+
+        RecomputeSetupComplete();
     }
 
     /// <summary>
@@ -133,13 +135,41 @@ public sealed class Product : BaseAuditableAggregateRoot<Guid>, ITenantEntity
 
     // ── Pricing. Current defaults; the sale line snapshots what was charged. ────────────
 
-    public decimal PricePerBase { get; private set; }
+    /// <summary>
+    /// What one base unit sells for, or <b>null when nobody has priced it yet</b>.
+    ///
+    /// <para>Nullable because of bulk import: a pharmacy onboarding two hundred medicines can
+    /// save them all and price them afterwards. The alternative was storing zero and treating
+    /// it as "unpriced", which is the kind of sentinel that eventually sells something for
+    /// nothing — zero is a real price, and a column that cannot tell the two apart will one
+    /// day be asked to.</para>
+    ///
+    /// <para>An unpriced product is not sellable. That is what
+    /// <see cref="IsSetupComplete"/> records, and Module 5 is where it will be enforced.</para>
+    /// </summary>
+    public decimal? PricePerBase { get; private set; }
 
     /// <summary>Required when <see cref="MidUnitName"/> is set, null otherwise.</summary>
     public decimal? PricePerMid { get; private set; }
 
     /// <summary>Required when <see cref="LargeUnitName"/> is set, null otherwise.</summary>
     public decimal? PricePerLarge { get; private set; }
+
+    /// <summary>
+    /// Whether every unit level this product defines has a price.
+    ///
+    /// <para><b>Stored, not derived on read.</b> It is a pure function of the price and unit
+    /// columns, so a computed property would always agree — but the stock list, the medicines
+    /// list, the incomplete-products banner and Module 5's sale path all need to filter and
+    /// count on it, and none of those can put a C# expression in a WHERE clause. Storing it
+    /// keeps the filter a single indexed predicate instead of loading every product to ask.</para>
+    ///
+    /// <para>The cost of storing it is that it can go stale, so nothing outside this entity
+    /// may set it: <see cref="RecomputeSetupComplete"/> runs on construction and after every
+    /// change to a price or a unit level. Adding a bulk pack to a product that has no bulk
+    /// price makes it incomplete again, which is why the unit setter recomputes too.</para>
+    /// </summary>
+    public bool IsSetupComplete { get; private set; }
 
     // ── Inventory settings ──────────────────────────────────────────────────────────────
 
@@ -186,7 +216,7 @@ public sealed class Product : BaseAuditableAggregateRoot<Guid>, ITenantEntity
         string? largeUnitName,
         int? basePerMid,
         int? midPerLarge,
-        decimal pricePerBase,
+        decimal? pricePerBase,
         decimal? pricePerMid,
         decimal? pricePerLarge,
         int reorderLevel,
@@ -244,14 +274,35 @@ public sealed class Product : BaseAuditableAggregateRoot<Guid>, ITenantEntity
         // nothing can interpret.
         BasePerMid = MidUnitName is null ? null : basePerMid;
         MidPerLarge = LargeUnitName is null ? null : midPerLarge;
+
+        // Adding a level that has no price makes an otherwise complete product incomplete,
+        // and removing one can complete it. Either way the flag has to follow.
+        RecomputeSetupComplete();
     }
 
-    public void SetPrices(decimal pricePerBase, decimal? pricePerMid, decimal? pricePerLarge)
+    public void SetPrices(decimal? pricePerBase, decimal? pricePerMid, decimal? pricePerLarge)
     {
         PricePerBase = pricePerBase;
         PricePerMid = MidUnitName is null ? null : pricePerMid;
         PricePerLarge = LargeUnitName is null ? null : pricePerLarge;
+
+        RecomputeSetupComplete();
     }
+
+    /// <summary>
+    /// Recomputes <see cref="IsSetupComplete"/>. The only writer of that property.
+    ///
+    /// <para>A price is required for each level the product actually defines, and for no
+    /// others — a product sold only in bags needs one price, not three. Note it asks whether
+    /// the price is <em>present</em>, not whether it is positive: zero is a legitimate price
+    /// for a sample or a giveaway, and treating it as unset is exactly the sentinel confusion
+    /// nullable prices exist to avoid.</para>
+    /// </summary>
+    private void RecomputeSetupComplete() =>
+        IsSetupComplete =
+            PricePerBase is not null
+            && (!HasMidUnit || PricePerMid is not null)
+            && (!HasLargeUnit || PricePerLarge is not null);
 
     public void LinkToCatalog(int catalogMedicineId) => CatalogMedicineId = catalogMedicineId;
 

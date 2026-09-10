@@ -35,9 +35,11 @@ public class CatalogMedicinesController : ApiControllerBase
     [ProducesResponseType(typeof(CatalogSearchResultDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Search(
         [FromQuery] string q,
-        [FromQuery] int take = 20,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
-        => Ok(await Mediator.Send(new SearchCatalogMedicinesQuery(q ?? string.Empty, take),
+        => Ok(await Mediator.Send(
+            new SearchCatalogMedicinesQuery(q ?? string.Empty, page, pageSize),
             cancellationToken));
 
     /// <summary>One catalogue entry, to pre-fill the import review form.</summary>

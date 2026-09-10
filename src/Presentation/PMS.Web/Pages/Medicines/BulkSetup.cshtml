@@ -1,0 +1,183 @@
+@page "/medicines/import/setup"
+@model PMS.Web.Pages.Medicines.BulkSetupModel
+@{
+    ViewData["Title"] = "Set up imported medicines";
+
+    var gridRows = Model.Rows.Select(row =>
+    {
+        var entry = Model.Entries[row.CatalogMedicineId];
+        return new PriceGridRow(
+            row.CatalogMedicineId.ToString(),
+            entry.BrandName,
+            entry.GenericName,
+            entry.Strength,
+            entry.IsAntibiotic,
+            row.BaseUnitName ?? "piece",
+            row.MidUnitName,
+            row.LargeUnitName,
+            row.BasePerMid,
+            row.MidPerLarge);
+    }).ToList();
+
+    var columns = new List<PriceGridColumn> { new("Price per unit", "PricePerBase") };
+    if (Model.Rows.Any(r => r.MidUnitName is not null))
+    {
+        columns.Add(new PriceGridColumn("Price per pack", "PricePerMid"));
+    }
+    if (Model.Rows.Any(r => r.LargeUnitName is not null))
+    {
+        columns.Add(new PriceGridColumn("Price per bulk", "PricePerLarge"));
+    }
+
+    var values = new Dictionary<string, decimal?>();
+    foreach (var row in Model.Rows)
+    {
+        var key = row.CatalogMedicineId.ToString();
+        values[key + "|PricePerBase"] = row.PricePerBase;
+        values[key + "|PricePerMid"] = row.PricePerMid;
+        values[key + "|PricePerLarge"] = row.PricePerLarge;
+    }
+
+    var grid = new PriceGridViewModel(
+        "Selected medicines and their prices",
+        "Rows",
+        gridRows,
+        columns,
+        ShowAntibioticColumn: true,
+        AllowUnitOverride: true,
+        Model.RowErrors.ToDictionary(e => e.Key.ToString(), e => e.Value),
+        values)
+    {
+        KeyFieldName = "CatalogMedicineId",
+    };
+}
+
+<div class="mb-2">
+    <a asp-page="/Medicines/Import">&larr; Back to the catalogue</a>
+</div>
+
+<div class="pms-page-header">
+    <div>
+        <h1>Set up imported medicines</h1>
+        <p class="pms-page-header__subtitle">
+            @Model.SelectedCount selected from the reference catalogue. Confirm how they are
+            sold, check the antibiotic flags, and price them — now or later.
+        </p>
+    </div>
+</div>
+
+@* The banner and the named rows together: the message says nothing was saved and why,
+   and the list says which medicines to look at. Without the list, "marked below" means
+   scrolling twenty rows to find two. *@
+@if (Model.FormError is not null)
+{
+    <div class="pms-alert pms-alert--danger">
+        <div>@Model.FormError</div>
+        @if (Model.FailureSummary.Count > 0)
+        {
+            <ul class="mb-0 mt-2">
+                @foreach (var failure in Model.FailureSummary)
+                {
+                    <li><strong>@failure.Name</strong> — @failure.Reason</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@* One form, one handler. The preset button overrides it with its own formaction, and the
+   "without prices" button sets a hidden flag before the confirmation modal submits - which is
+   why the flag is a field and not the button's own value: form.submit() from the modal does
+   not carry a button. *@
+<form method="post" id="bulk-setup-form" asp-page-handler="Save">
+    @* ── Section 1: the shared unit setup ────────────────────────────────────────────── *@
+    <div class="pms-card mb-3">
+        <div class="pms-card__body">
+            <h2 class="h6 mb-1">How are these sold?</h2>
+            <p class="pms-form-help mb-3">
+                These settings apply to all @Model.SelectedCount selected medicines. You can
+                adjust individual items below.
+            </p>
+
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="pms-form-label" asp-for="SharedPreset">Unit setup</label>
+                    <select class="form-select" asp-for="SharedPreset">
+                        @foreach (var kind in Enum.GetValues<UnitPresetKind>())
+                        {
+                            <option value="@kind" selected="@(Model.SharedPreset == kind)">
+                                @UnitPresets.Describe(kind)
+                            </option>
+                        }
+                    </select>
+                    <div class="pms-form-help">
+                        @* Defaulted to piece/strip/box because most of what a pharmacy
+                           bulk-imports is tablets. A default that fits the common case is the
+                           difference between confirming one dropdown and filling five fields
+                           fifty times. *@
+                        Defaults to piece → strip → box, which suits most tablets.
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-outline-secondary w-100"
+                            asp-page-handler="ApplyPreset">
+                        Apply to all rows
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Section 2: the review grid ──────────────────────────────────────────────────── *@
+    <h2 class="h6 mb-2">Review</h2>
+    <p class="pms-form-help mb-2">
+        Rows tinted amber were flagged as antibiotics by the reference catalogue. That flag is
+        a machine-derived suggestion — confirm each one.
+    </p>
+
+    <partial name="_PriceGrid" model="grid" />
+
+    @* ── Section 3: how much to commit ───────────────────────────────────────────────── *@
+    <div class="pms-card mt-3 mb-4">
+        <div class="pms-card__body">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button type="submit" class="btn btn-primary" asp-page-handler="Save"
+                        data-save-all
+                        disabled="@(Model.MissingPriceCount > 0)">
+                    Save all
+                </button>
+
+                @* Not a validation failure. A pharmacy onboarding two hundred medicines may
+                   genuinely not have its price list to hand, and refusing the import would
+                   leave the catalogue empty - which is worse than a catalogue that is complete
+                   except for prices and says so on every screen. *@
+                <button type="button" class="btn btn-outline-secondary"
+                        data-pms-confirm-form="bulk-setup-form"
+                        data-pms-confirm-title="Save without prices?"
+                        data-pms-confirm-ok="Save without prices"
+                        data-pms-confirm="@Model.SelectedCount medicines will be added without prices. They will not be available for sale until prices are set. You can complete setup later from the Medicines list."
+                        data-set-field="withoutPrices=true">
+                    Save without prices
+                </button>
+
+                @* The script rewrites the whole sentence, not just the number: "1 items
+                   are missing prices" is what happens when only the digit is swapped. *@
+                <span class="pms-form-help ms-2" data-missing-hint
+                      data-noun-singular="item" data-noun-plural="items"
+                      data-hint-suffix="missing prices. Fill them in, or use &ldquo;Save without prices&rdquo;."
+                      hidden="@(Model.MissingPriceCount == 0)">
+                    <strong data-missing-count>@Model.MissingPriceCount</strong>
+                    @Copy.Noun(Model.MissingPriceCount, "item")
+                    @Copy.Is(Model.MissingPriceCount) missing prices. Fill them in, or use
+                    &ldquo;Save without prices&rdquo;.
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <input type="hidden" name="withoutPrices" value="false" data-without-prices />
+</form>
+
+@section Scripts {
+    <script src="~/js/price-grid.js" asp-append-version="true"></script>
+}

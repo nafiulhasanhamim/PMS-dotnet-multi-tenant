@@ -132,7 +132,7 @@ public sealed record ProductStockModel(
     bool IsAntibiotic,
     string BaseUnitName,
     string PackingSummary,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     int ReorderLevel,
     int TotalQuantityInBaseUnits,
     string FormattedQuantity,
@@ -171,7 +171,8 @@ public sealed record StockAdjustmentModel(
 public sealed record BatchCreated(
     BatchModel Batch,
     bool SellsAtALoss,
-    decimal ProductPricePerBaseUnit,
+    decimal? ProductPricePerBaseUnit,
+    bool ProductIsSetupComplete,
     string? Warning);
 
 public sealed record BatchAdjusted(

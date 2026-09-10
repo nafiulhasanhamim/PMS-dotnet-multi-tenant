@@ -148,6 +148,19 @@ public sealed class PmsApiClient
         SendAsync<ProductModel>(HttpMethod.Patch,
             $"api/products/{id}/{(isActive ? "reactivate" : "deactivate")}", null, ct);
 
+    /// <summary>
+    /// Imports many catalogue medicines at once. All or nothing: on any row failure nothing is
+    /// created and the result carries a row-level reason for each.
+    /// </summary>
+    public Task<ApiResult<BulkImportResult>> BulkImportProductsAsync(
+        BulkImportRequest request, CancellationToken ct = default) =>
+        SendAsync<BulkImportResult>(HttpMethod.Post, "api/products/bulk-import", request, ct);
+
+    /// <summary>Sets prices on existing products, several at a time. Also all or nothing.</summary>
+    public Task<ApiResult<BulkImportResult>> SetProductPricesAsync(
+        SetPricesRequest request, CancellationToken ct = default) =>
+        SendAsync<BulkImportResult>(HttpMethod.Post, "api/products/prices", request, ct);
+
     // ── medicine reference catalogue ─────────────────────────────────────────────────────
 
     /// <summary>
@@ -155,10 +168,11 @@ public sealed class PmsApiClient
     /// a Suggestion set must be labelled as approximate.
     /// </summary>
     public Task<ApiResult<CatalogSearchResult>> SearchCatalogAsync(
-        string term, int take = 20, CancellationToken ct = default) =>
+        string term, int page = 1, int pageSize = 20, CancellationToken ct = default) =>
         SendAsync<CatalogSearchResult>(
             HttpMethod.Get,
-            $"api/catalog/medicines/search?q={Uri.EscapeDataString(term)}&take={take}",
+            $"api/catalog/medicines/search?q={Uri.EscapeDataString(term)}"
+                + $"&page={page}&pageSize={pageSize}",
             null, ct);
 
     public Task<ApiResult<CatalogMedicineSearchItem>> GetCatalogMedicineAsync(

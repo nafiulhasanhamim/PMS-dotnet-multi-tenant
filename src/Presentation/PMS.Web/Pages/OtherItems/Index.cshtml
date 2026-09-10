@@ -49,10 +49,20 @@
                 <label class="pms-form-label" for="status">Status</label>
                 <select class="form-select" id="status" name="status">
                     @foreach (var option in new[]
-                        { ProductStatusFilter.Active, ProductStatusFilter.Inactive, ProductStatusFilter.All })
+                        {
+                            ProductStatusFilter.Active,
+                            ProductStatusFilter.Inactive,
+                            ProductStatusFilter.SetupIncomplete,
+                            ProductStatusFilter.All,
+                        })
                     {
                         <option value="@option" selected="@(Model.Status == option)">
-                            @(option == ProductStatusFilter.All ? "All" : option.ToString())
+                            @(option switch
+                            {
+                                ProductStatusFilter.All => "All",
+                                ProductStatusFilter.SetupIncomplete => "Setup incomplete",
+                                _ => option.ToString(),
+                            })
                         </option>
                     }
                 </select>
@@ -122,7 +132,19 @@
                                         ? $"৳{price:N2} / {product.BaseUnitName}"
                                         : "—")</td>
                             }
-                            <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                            <td>
+                                <span class="pms-badge @status.Css">@status.Text</span>
+                                @if (ProductPresentation.SetupBadge(product.IsSetupComplete)
+                                        is { } setup)
+                                {
+                                    @* Amber, and alongside rather than instead of Active: the
+                                       product is active AND not yet sellable, and showing one
+                                       badge would lose half of that. *@
+                                    <span class="pms-badge @setup.Css" title="@setup.Title">
+                                        @setup.Text
+                                    </span>
+                                }
+                            </td>
                             <td class="pms-col-actions">
                                 <a class="btn btn-sm btn-outline-secondary"
                                    asp-page="/Products/Detail" asp-route-id="@product.Id">View</a>

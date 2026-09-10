@@ -33,6 +33,20 @@ public static class ProductPresentation
         isActive ? ("pms-badge--success", "Active") : ("pms-badge--neutral", "Inactive");
 
     /// <summary>
+    /// The badge for a product whose prices are missing, or null when it has them.
+    ///
+    /// <para>Amber rather than red: nothing is wrong, there is something left to do. Shown
+    /// <em>alongside</em> the active badge instead of replacing it, because the two say
+    /// different things — the product is active and it is not yet sellable, and collapsing
+    /// them would lose one of those facts.</para>
+    /// </summary>
+    public static (string Css, string Text, string Title)? SetupBadge(bool isSetupComplete) =>
+        isSetupComplete
+            ? null
+            : ("pms-badge--warning", "Setup incomplete",
+               "This product has no price yet, so it cannot be sold");
+
+    /// <summary>
     /// Every type a pharmacy can pick on the "other items" form.
     ///
     /// Medicine is absent on purpose: that form does not render generic name, strength or

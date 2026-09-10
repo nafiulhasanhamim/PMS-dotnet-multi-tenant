@@ -88,6 +88,26 @@ var secureCookiePolicy = builder.Environment.IsDevelopment()
     ? CookieSecurePolicy.SameAsRequest
     : CookieSecurePolicy.Always;
 
+// The catalogue import selection lives in session: it has to survive paging and a completely
+// new search, which no hidden field on the form can carry. See CatalogSelection for the
+// alternatives and why they were rejected.
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.Name = "pms.session";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = secureCookiePolicy;
+
+    // Marked essential so it is not suppressed by a cookie-consent policy: without it the
+    // import screen silently forgets every tick, which reads as the page being broken.
+    options.Cookie.IsEssential = true;
+
+    // Long enough for an onboarding session of a couple of hundred medicines, short enough
+    // that an abandoned selection does not sit in memory for a day.
+    options.IdleTimeout = TimeSpan.FromHours(2);
+});
+
 void ConfigureCookie(CookieAuthenticationOptions cookie, string name, string loginPath)
 {
     cookie.Cookie.Name = name;
@@ -167,6 +187,8 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStaticFiles();
 app.UseRouting();
+app.UseSession();
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapRazorPages();

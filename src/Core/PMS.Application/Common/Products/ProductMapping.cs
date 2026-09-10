@@ -38,5 +38,6 @@ public static class ProductMapping
         product.ReorderLevel,
         product.ShelfLocation,
         product.CreatedOnUtc,
-        product.ModifiedOnUtc);
+        product.ModifiedOnUtc,
+        product.IsSetupComplete);
 }

@@ -147,7 +147,11 @@ public sealed class CreateBatchCommandHandler
                 + $"'{product.BrandName}' by someone else. Use a different batch number."));
         }
 
-        var sellsAtALoss = purchasePricePerBaseUnit > product.PricePerBase;
+        // No sale price means no comparison to make. An unpriced product cannot sell at a
+        // loss because it cannot sell at all - that is what IsSetupComplete records - so this
+        // stays false rather than treating a missing price as zero and flagging every batch.
+        var sellsAtALoss = product.PricePerBase is { } salePrice
+            && purchasePricePerBaseUnit > salePrice;
 
         _logger.LogInformation(
             "Batch created {BatchId} '{BatchNumber}' for '{BrandName}' ({ProductId}): "
@@ -178,6 +182,7 @@ public sealed class CreateBatchCommandHandler
             dto,
             sellsAtALoss,
             product.PricePerBase,
+            product.IsSetupComplete,
             sellsAtALoss
                 ? $"This batch costs {purchasePricePerBaseUnit:0.####} per {product.BaseUnitName} "
                   + $"but '{product.BrandName}' sells for {product.PricePerBase:0.####}. "

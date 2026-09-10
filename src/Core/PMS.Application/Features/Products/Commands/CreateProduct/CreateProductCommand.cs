@@ -30,7 +30,7 @@ public sealed record CreateProductCommand(
     string? LargeUnitName,
     int? BasePerMid,
     int? MidPerLarge,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     decimal? PricePerMid,
     decimal? PricePerLarge,
     int ReorderLevel,

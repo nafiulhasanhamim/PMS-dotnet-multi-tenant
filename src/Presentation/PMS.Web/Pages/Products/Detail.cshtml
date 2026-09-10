@@ -160,7 +160,17 @@
                             <tbody>
                                 <tr>
                                     <td>1 @product.BaseUnitName</td>
-                                    <td>৳@product.PricePerBase.ToString("N2")</td>
+                                    @* An unpriced product shows the reason, not ৳0.00. *@
+                                    <td>
+                                        @if (product.PricePerBase is { } basePrice)
+                                        {
+                                            <text>৳@basePrice.ToString("N2")</text>
+                                        }
+                                        else
+                                        {
+                                            <span class="pms-badge pms-badge--warning">Not priced</span>
+                                        }
+                                    </td>
                                 </tr>
                                 @if (product.MidUnitName is not null && product.PricePerMid is { } mid)
                                 {

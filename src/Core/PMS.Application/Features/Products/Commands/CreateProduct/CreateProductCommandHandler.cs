@@ -35,23 +35,26 @@ public sealed class CreateProductCommandHandler
     {
         // Uniqueness is per pharmacy, and the check needs no tenant argument: the query
         // filter already restricts it to this one. Two pharmacies may both stock Napa 500.
-        var clash = await _products.ExistsWithBrandAndStrengthAsync(
-            request.BrandName, request.Strength, excludingId: null, cancellationToken);
+        var clash = await _products.ExistsWithIdentityAsync(
+            request.BrandName, request.Strength, request.DosageForm,
+            excludingId: null, cancellationToken: cancellationToken);
 
         if (clash)
         {
+            var identity = ProductKeys.Describe(
+                request.BrandName, request.Strength, request.DosageForm);
+
             // Logged here rather than left to the pipeline, because the pipeline can only say
             // that a CreateProductCommand was rejected - not which name collided. "Why will it
             // not let me add this?" is answerable from this line alone.
             _logger.LogWarning(
-                "Product not created: '{BrandName}' at {Strength} already exists in this pharmacy",
-                request.BrandName.Trim(),
-                string.IsNullOrWhiteSpace(request.Strength) ? "(no strength)" : request.Strength.Trim());
+                "Product not created: {Identity} already exists in this pharmacy", identity);
 
+            // Names all three parts of the identity, including the dosage form. A message
+            // that stopped at brand and strength would leave somebody looking at a cream and
+            // a lotion with no explanation of why the second was refused.
             return Result.Failure<ProductDto>(Error.Conflict(
-                string.IsNullOrWhiteSpace(request.Strength)
-                    ? $"You already have a product called '{request.BrandName.Trim()}'."
-                    : $"You already have '{request.BrandName.Trim()}' at {request.Strength.Trim()}."));
+                $"You already have {identity}."));
         }
 
         var product = new Product(

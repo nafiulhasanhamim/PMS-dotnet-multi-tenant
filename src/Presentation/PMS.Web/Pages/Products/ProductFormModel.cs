@@ -60,7 +60,11 @@ public sealed class ProductFormInput
 
     // ── Pricing and inventory ───────────────────────────────────────────────────────────
 
-    public decimal PricePerBase { get; set; }
+    /// <summary>
+    /// Nullable so an unpriced product can be loaded into this form to be completed. The
+    /// single-product path still requires it — see ProductWritePageModel.
+    /// </summary>
+    public decimal? PricePerBase { get; set; }
 
     public decimal? PricePerMid { get; set; }
 

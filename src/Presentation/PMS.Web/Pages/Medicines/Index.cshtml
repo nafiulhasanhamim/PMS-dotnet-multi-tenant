@@ -23,6 +23,24 @@
 
 <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
 
+@* Dismissible, and it comes back on the next page load while any product is still unpriced -
+   the count is the point, not the notification. Only shown when the list is not already
+   filtered to them, because then the whole page is the message. *@
+@if (Model.IncompleteCount > 0 && Model.Status != ProductStatusFilter.SetupIncomplete)
+{
+    <div class="pms-alert pms-alert--warning d-flex justify-content-between align-items-center"
+         data-dismissible-banner="setup-incomplete">
+        <div>
+            <strong>@Model.IncompleteCount</strong>
+            @(Model.IncompleteCount == 1 ? "product needs" : "products need") prices before
+            @(Model.IncompleteCount == 1 ? "it" : "they") can be sold.
+            <a asp-page="/Medicines/CompleteSetup">Complete setup</a>
+        </div>
+        <button type="button" class="btn-close" aria-label="Dismiss"
+                data-dismiss-banner></button>
+    </div>
+}
+
 <form method="get" class="pms-card mb-3">
     <div class="pms-card__body">
         <div class="row g-3 align-items-end">
@@ -35,10 +53,20 @@
                 <label class="pms-form-label" for="status">Status</label>
                 <select class="form-select" id="status" name="status">
                     @foreach (var option in new[]
-                        { ProductStatusFilter.Active, ProductStatusFilter.Inactive, ProductStatusFilter.All })
+                        {
+                            ProductStatusFilter.Active,
+                            ProductStatusFilter.Inactive,
+                            ProductStatusFilter.SetupIncomplete,
+                            ProductStatusFilter.All,
+                        })
                     {
                         <option value="@option" selected="@(Model.Status == option)">
-                            @(option == ProductStatusFilter.All ? "All" : option.ToString())
+                            @(option switch
+                            {
+                                ProductStatusFilter.All => "All",
+                                ProductStatusFilter.SetupIncomplete => "Setup incomplete",
+                                _ => option.ToString(),
+                            })
                         </option>
                     }
                 </select>
@@ -134,7 +162,19 @@
                                     <span class="text-muted">—</span>
                                 }
                             </td>
-                            <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                            <td>
+                                <span class="pms-badge @status.Css">@status.Text</span>
+                                @if (ProductPresentation.SetupBadge(product.IsSetupComplete)
+                                        is { } setup)
+                                {
+                                    @* Amber, and alongside rather than instead of Active: the
+                                       product is active AND not yet sellable, and showing one
+                                       badge would lose half of that. *@
+                                    <span class="pms-badge @setup.Css" title="@setup.Title">
+                                        @setup.Text
+                                    </span>
+                                }
+                            </td>
                             <td class="pms-col-actions">
                                 <a class="btn btn-sm btn-outline-secondary"
                                    asp-page="/Products/Detail" asp-route-id="@product.Id">View</a>

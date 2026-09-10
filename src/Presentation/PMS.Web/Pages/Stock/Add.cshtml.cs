@@ -216,7 +216,8 @@ public class AddModel : PmsPageModel
                     Product.Id, Product.ProductType, Product.BrandName, Product.GenericName,
                     Product.Company, Product.Strength, Product.DosageForm, Product.Category,
                     Product.IsAntibiotic, Product.IsActive, Product.BaseUnitName,
-                    Product.PricePerBase, Product.ImportedFromCatalog))
+                    Product.PricePerBase, Product.ImportedFromCatalog,
+                    Product.IsSetupComplete))
                 .OrderBy(p => p.BrandName)
                 .ToList();
         }

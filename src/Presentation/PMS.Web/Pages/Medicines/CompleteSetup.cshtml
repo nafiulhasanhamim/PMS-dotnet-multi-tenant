@@ -1,0 +1,109 @@
+@page "/medicines/complete-setup"
+@model PMS.Web.Pages.Medicines.CompleteSetupModel
+@{
+    ViewData["Title"] = "Complete product setup";
+
+    var gridRows = Model.Rows.Select(row =>
+    {
+        var product = Model.Details[row.ProductId];
+        return new PriceGridRow(
+            row.ProductId.ToString(),
+            product.BrandName,
+            product.GenericName,
+            product.Strength,
+            product.IsAntibiotic,
+            product.BaseUnitName,
+            product.MidUnitName,
+            product.LargeUnitName,
+            product.BasePerMid,
+            product.MidPerLarge);
+    }).ToList();
+
+    var columns = new List<PriceGridColumn> { new("Price per unit", "PricePerBase") };
+    if (Model.Details.Values.Any(p => p.MidUnitName is not null))
+    {
+        columns.Add(new PriceGridColumn("Price per pack", "PricePerMid"));
+    }
+    if (Model.Details.Values.Any(p => p.LargeUnitName is not null))
+    {
+        columns.Add(new PriceGridColumn("Price per bulk", "PricePerLarge"));
+    }
+
+    var values = new Dictionary<string, decimal?>();
+    foreach (var row in Model.Rows)
+    {
+        var key = row.ProductId.ToString();
+        values[key + "|PricePerBase"] = row.PricePerBase;
+        values[key + "|PricePerMid"] = row.PricePerMid;
+        values[key + "|PricePerLarge"] = row.PricePerLarge;
+    }
+
+    var grid = new PriceGridViewModel(
+        "Products awaiting prices",
+        "Rows",
+        gridRows,
+        columns,
+
+        // No antibiotic column and no unit override: these products already exist, and their
+        // classification and packing were settled when they were created. This screen has one
+        // job, and offering to change anything else would invite a wrong edit.
+        ShowAntibioticColumn: false,
+        AllowUnitOverride: false,
+        Model.RowErrors.ToDictionary(e => e.Key.ToString(), e => e.Value),
+        values)
+    {
+        KeyFieldName = "ProductId",
+    };
+}
+
+<div class="mb-2">
+    <a asp-page="/Medicines/Index">&larr; Back to medicines</a>
+</div>
+
+<div class="pms-page-header">
+    <div>
+        <h1>Complete product setup</h1>
+        <p class="pms-page-header__subtitle">
+            @Model.TotalIncomplete
+            @(Model.TotalIncomplete == 1 ? "product needs" : "products need") prices before
+            they can be sold.
+            @if (Model.TotalIncomplete > Model.Rows.Count)
+            {
+                <text>
+                    Showing the first @Model.Rows.Count — save these and the rest will follow.
+                </text>
+            }
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="post" id="complete-setup-form">
+    <partial name="_PriceGrid" model="grid" />
+
+    <div class="pms-card mt-3 mb-4">
+        <div class="pms-card__body">
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button type="submit" class="btn btn-primary" data-save-all
+                        disabled="@(Model.MissingPriceCount > 0)">
+                    Save all
+                </button>
+                <a class="btn btn-outline-secondary" asp-page="/Medicines/Index">Cancel</a>
+
+                <span class="pms-form-help ms-2" data-missing-hint
+                      data-noun-singular="product" data-noun-plural="products"
+                      data-hint-suffix="still missing prices."
+                      hidden="@(Model.MissingPriceCount == 0)">
+                    <strong data-missing-count>@Model.MissingPriceCount</strong>
+                    @Copy.Noun(Model.MissingPriceCount, "product")
+                    @Copy.Is(Model.MissingPriceCount) still missing prices.
+                </span>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="~/js/price-grid.js" asp-append-version="true"></script>
+}

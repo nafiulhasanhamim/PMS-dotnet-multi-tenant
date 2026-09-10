@@ -176,7 +176,7 @@ public sealed record ProductStockDto(
     bool IsAntibiotic,
     string BaseUnitName,
     string PackingSummary,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     int ReorderLevel,
     int TotalQuantityInBaseUnits,
     string FormattedQuantity,
@@ -233,7 +233,8 @@ public sealed record StockAdjustmentDto(
 public sealed record BatchCreatedDto(
     BatchDto Batch,
     bool SellsAtALoss,
-    decimal ProductPricePerBaseUnit,
+    decimal? ProductPricePerBaseUnit,
+    bool ProductIsSetupComplete,
     string? Warning);
 
 /// <summary>

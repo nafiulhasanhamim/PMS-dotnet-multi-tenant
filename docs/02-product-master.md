@@ -163,16 +163,26 @@ property, and the form's live-summary JavaScript carries the same rule with the 
 
 ### Uniqueness
 
-`BrandName` + `Strength`, unique **per pharmacy** — two pharmacies may both stock Napa 500.
+`BrandName` + `Strength` + `DosageForm`, unique **per pharmacy** — two pharmacies may both
+stock Napa 500.
 
-Two filtered indexes rather than one, because SQL Server treats NULLs as *equal* in a unique
-index: a single index over `(TenantId, BrandName, Strength)` would allow only **one** product
-with no strength per pharmacy, and every non-medicine has no strength.
+> **Changed by migration 010.** It was brand + strength until the bulk import showed that a
+> pharmacy could then hold only one of the six dosage forms of Nyclobate 0.05%. See
+> [6d](#6d-what-identifies-a-product) for the reasoning, and for why the three parts are
+> materialised as one persisted computed column rather than covered by four filtered indexes.
 
 ```sql
-UX_Products_Tenant_Brand_Strength    WHERE [Strength] IS NOT NULL
-UX_Products_Tenant_Brand_NoStrength  WHERE [Strength] IS NULL
+[IdentityKey] AS (CONCAT([BrandName], CHAR(31),
+                         ISNULL([Strength],   N''), CHAR(31),
+                         ISNULL([DosageForm], N''))) PERSISTED NOT NULL
+
+UX_Products_Tenant_Identity   UNIQUE ([TenantId], [IdentityKey])
 ```
+
+Script 007 originally needed *two* filtered indexes rather than one, because SQL Server treats
+NULLs as *equal* in a unique index: a single index over `(TenantId, BrandName, Strength)` would
+allow only **one** product with no strength per pharmacy, and every non-medicine has no
+strength. With two nullable parts in the key that approach needs four.
 
 ### Indexes
 
@@ -367,10 +377,246 @@ one click.
 
 ---
 
+## 6b. Bulk import from the reference catalogue
+
+Onboarding is the reason this exists. A pharmacy joining the platform has to enter two hundred
+or more products before the system is usable at all, and doing that one form at a time is the
+difference between an afternoon and a fortnight. The single-product path stays — it is the
+right one for adding one thing to an established catalogue.
+
+**`POST /api/products/bulk-import`**, Admin or Pharmacist, up to **200 rows** per request.
+The screens are `/medicines/import` (search, tick), `/medicines/import/setup` (shared units,
+review grid, save) and `/medicines/complete-setup` (fill in prices later).
+
+### All-or-nothing, and why
+
+Every row is validated independently. If **any** row fails, nothing is written and the response
+carries a result per row saying which.
+
+A partly imported catalogue is the outcome worth ruling out. The pharmacy would have no way to
+tell which of two hundred medicines arrived without checking each one, and a second attempt at
+the same selection would then collide with whatever the first attempt managed — turning one
+clear failure into a hunt. Refusing the batch leaves exactly one action: fix the named rows and
+send it again.
+
+The transaction is a single `SaveChanges` over all the inserts, which EF wraps in its own
+transaction. Not an explicit `BeginTransaction`: the context enables retry-on-failure and
+`SqlServerRetryingExecutionStrategy` refuses a user-initiated transaction — the same trap
+documented in [03-batches-and-stock.md](03-batches-and-stock.md).
+
+### `Succeeded` and `Errors` mean different things
+
+`Succeeded` on a row means *a product was created*. When the batch is refused, that is false
+for **every** row, including the ones that were perfectly fine. The rows to *fix* are the ones
+with `Errors`, and the review grid marks those — keying the markers off `Succeeded` would tell
+somebody to fix rows that need no fixing.
+
+### What is checked per row
+
+| Check | Why it cannot be a validator rule |
+|---|---|
+| The catalogue id exists | Needs the catalogue |
+| Not already imported by this pharmacy | Needs this tenant's products |
+| The identity — brand + strength + dosage form — does not collide | Same |
+| Not duplicated **within the batch** | Two rows would both pass the database check and then lose to the unique index, reporting a race that was really a duplicate selection |
+
+Unit pairing and the medicine-only field rules are **not** re-implemented: a small adapter
+presents each row as an `IProductWriteRequest` so `ProductWriteRules` — the same rules the
+single-product form uses — validates it. Two copies would drift.
+
+Three batch reads serve the whole request rather than three per row: the catalogue entries, the
+existing brand+strength keys, and the already-imported catalogue ids. Two hundred rows would
+otherwise be six hundred round trips.
+
+Identity fields come from the catalogue row, never from the request, so a caller cannot import
+under one catalogue id with another medicine's name. The **antibiotic flag is the exception**
+and is taken from the request: the catalogue's flag is machine-derived and provisional, and the
+grid pre-ticks it and tints those rows so a pharmacist confirms it. That is the moment a guess
+becomes a decision.
+
+---
+
+## 6c. `IsSetupComplete`, and "Save without prices"
+
+### The field
+
+`Product.IsSetupComplete` is true when every unit level the product defines has a price:
+
+```csharp
+IsSetupComplete =
+    PricePerBase is not null
+    && (!HasMidUnit || PricePerMid is not null)
+    && (!HasLargeUnit || PricePerLarge is not null);
+```
+
+A product sold only in bags needs one price, not three. Note it asks whether the price is
+**present**, not whether it is positive — zero is a legitimate price for a sample.
+
+**`PricePerBase` is nullable**, which it was not before this feature. The alternative was
+storing zero for "not priced yet", and that was rejected: zero is a real price, and a column
+that cannot tell "free" from "nobody has decided" will eventually be asked to. Sooner or later
+something sells for nothing. Migration `009_AddProductSetupComplete.sql` makes the column
+nullable, adds the flag, and backfills it with the rule above rather than assuming every
+existing row is complete.
+
+### Computed and stored, not derived on read
+
+It is a pure function of columns already in the row, so a computed property would always agree.
+It is stored because the medicines list **filters** on it, a banner **counts** it, and Module 5
+will **check** it — and none of those can put a C# expression in a `WHERE` clause. Stored, it is
+one predicate against a filtered index holding only the incomplete rows; derived, it means
+loading every product to ask.
+
+The cost of storing it is that it can go stale, so nothing outside the entity writes it:
+`RecomputeSetupComplete` runs in the constructor and after every change to a price **or a unit
+level**. That last part is the non-obvious half — adding a bulk pack to a priced product makes
+it incomplete again, so `SetUnits` recomputes too. `ProductSetupCompleteTests` pins all of it,
+including that the property has no public setter.
+
+### Forward dependency on Module 5
+
+**A product with `IsSetupComplete = false` must not be sellable, and nothing enforces that
+yet** — there is no sale path to enforce it in. Module 5 (Billing) is where the check belongs,
+at the point a sale line is added.
+
+Until then the flag is advisory, and the UI carries the weight: an amber "Setup incomplete"
+badge on every list row, a "Setup incomplete" option in the status filter, and a dismissible
+banner on the medicines list with the count and a link to `/medicines/complete-setup`. That is
+deliberately noisy. An unpriced product that looked ordinary would be sold at whatever price the
+till invented.
+
+### Why "Save without prices" is an option and not a validation failure
+
+The bulk setup screen offers two buttons: **Save all**, which requires every price, and **Save
+without prices**, which creates the products with `IsSetupComplete = false` after a confirmation
+naming the consequence.
+
+A pharmacy onboarding two hundred medicines frequently does not have its price list to hand —
+prices come from the supplier's invoice, which arrives with the stock, not with the decision to
+stock it. Refusing the import until every price is known leaves the catalogue **empty**, which
+is worse than a catalogue that is complete except for prices and says so on every screen. An
+empty catalogue means nothing can be received, nothing can be searched, and the pharmacy cannot
+start using the system at all.
+
+So the choice is offered explicitly rather than being reached by leaving fields blank and
+hoping. The confirmation says what it costs, the badge says it on every row afterwards, and the
+banner keeps saying it until the prices are in.
+
+One rule follows from this and is worth stating: **the pack prices are required only once a base
+price is given.** Either you are pricing a product — in which case every level it has needs a
+price, or it would be sellable at some levels and not others — or you are not pricing it at all.
+A half-priced product is the state genuinely worth forbidding, and that is what
+`ProductWriteRules` now forbids. The single-product form still requires the base price outright:
+somebody filling in one product knows what it sells for.
+
+### Completing setup later
+
+`/medicines/complete-setup` renders the same grid component as the bulk setup screen — the same
+copy-down affordance, the same keyboard order — because it is the same problem at a different
+moment. It posts to **`POST /api/products/prices`**, which touches prices and nothing else.
+
+Not `PUT /api/products/{id}` in a loop: that would be one request per row, each carrying the
+product's entire definition — every unit name, count, category and shelf location — round-tripped
+for the sake of one number, with any of them corruptible by a stale form. It is all-or-nothing
+too, for the same reason as the import: a half-applied grid is one nobody can read.
+
+---
+
+## 6d. What identifies a product
+
+**Brand name, strength and dosage form**, unique per pharmacy.
+
+Dosage form was not part of it until the bulk import made the consequence impossible to
+ignore. The reference catalogue holds **548 brand+strength groups with more than one entry**,
+differing only by dosage form. The extreme case is Nyclobate 0.05%, which exists six times:
+
+| Catalogue id | Brand | Strength | Dosage form |
+|---|---|---|---|
+| 13881 | Nyclobate | 0.05% | Lotion |
+| 13882 | Nyclobate | 0.05% | Topical Spray |
+| 13883 | Nyclobate | 0.05% | Shampoo |
+| 13884 | Nyclobate | 0.05% | Scalp Solution |
+| 13885 | Nyclobate | 0.05% | Ointment |
+| 13886 | Nyclobate | 0.05% | Cream |
+
+A pharmacy stocks several of those at different prices. Under the old identity it could hold
+exactly one, and a bulk import that included two of them was refused outright — which is how
+this surfaced. Importing one at a time hid it: you would hit it occasionally and blame the
+catalogue. Ticking twenty rows from one search made it near-certain.
+
+### One definition, two places that must agree
+
+`ProductKeys.Identity(brandName, strength, dosageForm)` lower-cases and trims each part and
+joins them with a unit separator. The database materialises the same expression as a
+**persisted computed column** and puts one unique index over it:
+
+```sql
+[IdentityKey] AS (CONCAT([BrandName], CHAR(31),
+                         ISNULL([Strength],   N''), CHAR(31),
+                         ISNULL([DosageForm], N''))) PERSISTED NOT NULL
+
+CREATE UNIQUE NONCLUSTERED INDEX [UX_Products_Tenant_Identity]
+    ON [dbo].[Products] ([TenantId], [IdentityKey])
+```
+
+The bulk import checks up to two hundred rows against a key set held in memory, so the two
+implementations have to reach the same verdict. Sharing one expression means they agree by
+construction rather than by coincidence — two copies would eventually differ over a trailing
+space and report a clash the constraint does not, or miss one it does.
+
+The separator is a unit separator, not a space or a pipe: all three parts can contain those,
+and without a distinct separator `"Napa" + "500 mg"` would collide with `"Napa 500" + "mg"`.
+Case-insensitivity comes from the database collation (`SQL_Latin1_General_CP1_CI_AS`), which is
+why the C# side calls `ToLowerInvariant` — invariant, because a Turkish locale lower-cases I
+differently and whether two products collide must not depend on where the server runs.
+
+### Why a computed column rather than more filtered indexes
+
+SQL Server treats NULLs as **equal** in a unique index. That is why script 007 needed *two*
+filtered indexes rather than one: an index over `(TenantId, BrandName, Strength)` would have
+allowed only one product with no strength per pharmacy, and every non-medicine has no strength.
+
+Adding a second nullable column to the key doubles that. Covering every combination without a
+hole takes **four** filtered indexes — both present, strength only, form only, neither — and a
+third nullable component later would need eight. The computed column collapses the absent parts
+with `ISNULL` and needs one index, with no combinations to enumerate and no hole possible.
+
+The column is deliberately **not mapped in the EF model**: nothing in the application reads it,
+and the duplicate check compares the three real columns instead, which keeps the query seekable
+on `IX_Products_Tenant_Brand_Strength`.
+
+### Migration 010
+
+`010_ProductIdentityIncludesDosageForm.sql` adds the column and the index, then drops the two
+from script 007 — in that order, so the table is never briefly unprotected. It also recreates
+the brand-name lookup as a **plain** index, because the unique index it dropped was what made a
+product search seekable.
+
+The new rule is strictly weaker than the old one: it permits everything the old one did plus
+rows differing by dosage form, so no existing data can violate it. The script checks anyway and
+raises rather than proceeding, because a migration that silently could not create its own index
+would leave the table with no uniqueness guarantee at all.
+
+### What the messages say now
+
+Every conflict names all three parts, through `ProductKeys.Describe`:
+
+> You already have 'Nyclobate' at 0.05% (Cream).
+
+The dosage form is in there because without it the message was actively misleading: somebody
+looking at a cream and a lotion could see they differed and had no way to learn why the second
+was refused. The bulk import's batch-duplicate message got simpler for the same reason — two
+rows now collide only when they are genuinely the same product, which does happen (Milk of
+Magnesia 400 mg/5 ml appears four times, all Oral Suspension).
+
+---
+
 ## 7. Out of scope
 
 - Batches, stock quantities, expiry dates, purchase prices — **Module 3**.
-- Bulk CSV import of products.
+- Bulk import from a **CSV file**. Bulk import from the reference catalogue is
+  built — see 6b — but reading a spreadsheet is a different problem: it has no
+  catalogue ids to trust and would need column mapping and its own error report.
 - Barcode scanning.
 - Product images.
 - `Category` as a managed table with CRUD — free text for now.

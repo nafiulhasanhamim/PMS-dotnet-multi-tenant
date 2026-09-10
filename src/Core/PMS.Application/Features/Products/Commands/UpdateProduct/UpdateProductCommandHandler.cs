@@ -47,22 +47,22 @@ public sealed class UpdateProductCommandHandler
             return Result.Failure<ProductDto>(Error.NotFound("Product", request.Id));
         }
 
-        var clash = await _products.ExistsWithBrandAndStrengthAsync(
-            request.BrandName, request.Strength, excludingId: request.Id, cancellationToken);
+        var clash = await _products.ExistsWithIdentityAsync(
+            request.BrandName, request.Strength, request.DosageForm,
+            excludingId: request.Id, cancellationToken: cancellationToken);
 
         if (clash)
         {
+            var identity = ProductKeys.Describe(
+                request.BrandName, request.Strength, request.DosageForm);
+
             _logger.LogWarning(
-                "Product {ProductId} not updated: '{BrandName}' at {Strength} would collide "
-                + "with another product in this pharmacy",
-                request.Id,
-                request.BrandName.Trim(),
-                string.IsNullOrWhiteSpace(request.Strength) ? "(no strength)" : request.Strength.Trim());
+                "Product {ProductId} not updated: {Identity} would collide with another "
+                + "product in this pharmacy",
+                request.Id, identity);
 
             return Result.Failure<ProductDto>(Error.Conflict(
-                string.IsNullOrWhiteSpace(request.Strength)
-                    ? $"You already have another product called '{request.BrandName.Trim()}'."
-                    : $"You already have '{request.BrandName.Trim()}' at {request.Strength.Trim()}."));
+                $"You already have another product that is {identity}."));
         }
 
         product.Update(

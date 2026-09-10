@@ -9,7 +9,8 @@
     <div>
         <h1>Import from catalog</h1>
         <p class="pms-page-header__subtitle">
-            Add a medicine from the shared reference catalog, then set your own prices.
+            Add one medicine at a time, or tick several and set them up together. Your
+            selection is kept while you search for more.
         </p>
     </div>
     <div class="pms-page-header__actions">
@@ -18,6 +19,7 @@
 </div>
 
 <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+<partial name="_Alert" model="@AlertModel.Info(Model.SelectionMessage)" />
 
 <section class="pms-card mb-3">
     <div class="pms-card__body">
@@ -77,6 +79,22 @@
                     <caption class="visually-hidden">Reference catalog search results</caption>
                     <thead>
                         <tr>
+                            <th scope="col" class="pms-col-select">
+                                @* Ticks every selectable row on this page. Its own form, so
+                                   the row forms stay independent - a page of twenty rows is
+                                   twenty separate posts, and nesting them would be invalid
+                                   HTML with unpredictable behaviour. *@
+                                <form method="post" asp-page-handler="ToggleAll" class="d-inline">
+                                    <input type="hidden" name="q" value="@Model.Term" />
+                                    <input type="hidden" name="p" value="@Model.PageNumber" />
+                                    <input type="hidden" name="selected"
+                                           value="@((!Model.AllOnPageSelected).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="btn btn-sm btn-link p-0"
+                                            title="@(Model.AllOnPageSelected ? "Clear this page" : "Select all on this page")">
+                                        @(Model.AllOnPageSelected ? "None" : "All")
+                                    </button>
+                                </form>
+                            </th>
                             <th scope="col">Brand name</th>
                             <th scope="col">Generic</th>
                             <th scope="col">Manufacturer</th>
@@ -88,7 +106,39 @@
                     <tbody>
                         @foreach (var item in items)
                         {
-                            <tr class="@(item.AlreadyImported ? "pms-row-inactive" : null)">
+                            @* Plain C#, no @{ }: the body of a foreach is already code
+                               context, and Razor rejects a nested code block here. *@
+                            var isSelected = Model.Selection.Contains(item.Id);
+                            <tr class="@(item.AlreadyImported ? "pms-row-inactive" : null) @(isSelected ? "pms-row-selected" : null)">
+                                <td class="pms-col-select">
+                                    @if (item.AlreadyImported)
+                                    {
+                                        @* Not selectable. Importing it again is precisely what
+                                           the "already in your catalog" flag warns against, and
+                                           the API would refuse it. *@
+                                        <span class="text-muted" aria-label="Already imported">—</span>
+                                    }
+                                    else
+                                    {
+                                        @* A form per row rather than one big form with a
+                                           submit: each tick is a POST-redirect, so the state
+                                           survives a refresh and the back button behaves. *@
+                                        <form method="post" asp-page-handler="Toggle">
+                                            <input type="hidden" name="q" value="@Model.Term" />
+                                            <input type="hidden" name="p" value="@Model.PageNumber" />
+                                            <input type="hidden" name="catalogMedicineId" value="@item.Id" />
+                                            <input type="hidden" name="brandName" value="@item.BrandName" />
+                                            <input type="hidden" name="selected"
+                                                   value="@((!isSelected).ToString().ToLowerInvariant())" />
+                                            <button type="submit"
+                                                    class="pms-tick @(isSelected ? "pms-tick--on" : null)"
+                                                    aria-pressed="@isSelected.ToString().ToLowerInvariant()"
+                                                    aria-label="@(isSelected ? $"Deselect {item.BrandName}" : $"Select {item.BrandName}")">
+                                                <span aria-hidden="true">@(isSelected ? "✓" : "")</span>
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
                                 <td>
                                     @item.BrandName
                                     @if (item.IsAntibiotic)
@@ -132,6 +182,31 @@
                     </tbody>
                 </table>
             </div>
+            @if (Model.Results is { } results && results.TotalPages > 1)
+            {
+                <nav class="pms-table-footer" aria-label="Catalogue result pages">
+                    <span class="pms-form-help">
+                        Showing @results.FirstRow–@results.LastRow of @results.Total
+                        @if (results.Capped)
+                        {
+                            @* Said plainly: the search gathers to a ceiling because the fuzzy
+                               stage scores in memory and cannot be offset. Implying a complete
+                               count would be a lie. *@
+                            <text>(the first @results.Total matches — narrow the search for more)</text>
+                        }
+                    </span>
+                    <ul class="pagination mb-0">
+                        @for (var n = 1; n <= results.TotalPages; n++)
+                        {
+                            <li class="page-item @(n == results.Page ? "active" : null)">
+                                <a class="page-link" asp-page="/Medicines/Import"
+                                   asp-route-q="@Model.Term" asp-route-p="@n">@n</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+
             <div class="pms-table-footer">
                 <span>Showing @items.Count result@(items.Count == 1 ? "" : "s")</span>
                 @* Kept visible even when there are results: the medicine the person actually
@@ -144,3 +219,5 @@
         </div>
     }
 }
+
+<partial name="_SelectionFooter" model="Model.Selection" />

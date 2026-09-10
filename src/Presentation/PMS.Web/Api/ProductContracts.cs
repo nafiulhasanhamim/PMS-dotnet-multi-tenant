@@ -36,6 +36,9 @@ public enum ProductStatusFilter
     Active = 0,
     Inactive = 1,
     All = 2,
+
+    /// <summary>Active products still missing a price for one of their unit levels.</summary>
+    SetupIncomplete = 3,
 }
 
 /// <summary>How a set of catalogue results was arrived at. Drives the heading, not just a hint.</summary>
@@ -90,7 +93,8 @@ public sealed record ProductListItem(
     bool IsActive,
     string BaseUnitName,
     decimal? PricePerBase,
-    bool ImportedFromCatalog);
+    bool ImportedFromCatalog,
+    bool IsSetupComplete);
 
 public sealed record ProductModel(
     Guid Id,
@@ -111,14 +115,19 @@ public sealed record ProductModel(
     int? MidPerLarge,
     int? BaseUnitsPerLarge,
     string PackingSummary,
-    decimal PricePerBase,
+
+    // Nullable, and it must stay nullable here. Declared as decimal, a missing price would
+    // deserialise to 0 and render as a product that sells for nothing - the exact sentinel
+    // confusion the nullable column exists to prevent, reappearing on the client.
+    decimal? PricePerBase,
     decimal? PricePerMid,
     decimal? PricePerLarge,
     int ReorderLevel,
     string? ShelfLocation,
     DateTime CreatedOnUtc,
     DateTime? ModifiedOnUtc,
-    bool ImportedFromCatalog);
+    bool ImportedFromCatalog,
+    bool IsSetupComplete);
 
 /// <param name="AlreadyImported">
 /// True when this pharmacy already has a product from this catalogue row. Flagged rather than
@@ -138,10 +147,30 @@ public sealed record CatalogMedicineSearchItem(
     Guid? ExistingProductId,
     int Score);
 
+/// <param name="Total">
+/// Matches found up to the search ceiling, not the size of the catalogue. The page says so:
+/// stage 2 of the search scores candidates in memory and cannot be offset, so results are
+/// gathered to a cap and paged from there.
+/// </param>
 public sealed record CatalogSearchResult(
     CatalogMatchType MatchType,
     string Term,
-    IReadOnlyList<CatalogMedicineSearchItem> Items);
+    IReadOnlyList<CatalogMedicineSearchItem> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    bool Capped)
+{
+    public int TotalPages => PageSize > 0 ? (int)Math.Ceiling((double)Total / PageSize) : 1;
+
+    public bool HasPreviousPage => Page > 1;
+
+    public bool HasNextPage => Page < TotalPages;
+
+    public int FirstRow => Total == 0 ? 0 : ((Page - 1) * PageSize) + 1;
+
+    public int LastRow => Math.Min(Page * PageSize, Total);
+}
 
 // --- requests ---
 
@@ -159,7 +188,7 @@ public sealed record CreateProductRequest(
     string? LargeUnitName,
     int? BasePerMid,
     int? MidPerLarge,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     decimal? PricePerMid,
     decimal? PricePerLarge,
     int ReorderLevel,
@@ -184,7 +213,7 @@ public sealed record UpdateProductRequest(
     string? LargeUnitName,
     int? BasePerMid,
     int? MidPerLarge,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     decimal? PricePerMid,
     decimal? PricePerLarge,
     int ReorderLevel,

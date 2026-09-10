@@ -111,7 +111,15 @@ public abstract class ProductWritePageModel : PmsPageModel
             }
         }
 
-        if (Input.PricePerBase < 0)
+        if (Input.PricePerBase is null)
+        {
+            // Required on this form even though the column is nullable: somebody filling in
+            // one product knows what it sells for. The unpriced path is bulk import, where
+            // deferring the price across two hundred rows is the point.
+            ModelState.AddModelError(
+                "Input.PricePerBase", "Enter what one unit sells for.");
+        }
+        else if (Input.PricePerBase < 0)
         {
             ModelState.AddModelError("Input.PricePerBase", "A price cannot be negative.");
         }

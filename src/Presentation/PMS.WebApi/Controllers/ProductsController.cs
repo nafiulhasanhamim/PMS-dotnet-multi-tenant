@@ -1,6 +1,8 @@
 using PMS.Application.Common.DTOs;
 using PMS.Application.Common.Security;
+using PMS.Application.Features.Products.Commands.BulkImportProducts;
 using PMS.Application.Features.Products.Commands.CreateProduct;
+using PMS.Application.Features.Products.Commands.SetProductPrices;
 using PMS.Application.Features.Products.Commands.SetProductActive;
 using PMS.Application.Features.Products.Commands.UpdateProduct;
 using PMS.Application.Features.Products.Queries.GetProduct;
@@ -99,6 +101,65 @@ public class ProductsController : ApiControllerBase
         return HandleCreatedResult(result, nameof(GetProduct), p => new { id = p.Id });
     }
 
+    /// <summary>
+    /// Imports many catalogue medicines at once. Admin or Pharmacist.
+    ///
+    /// <para><b>All or nothing.</b> Every row is validated independently and, if any fails,
+    /// nothing is written — the response carries a result per row so a review grid can say
+    /// which ones to fix. A half-imported catalogue is the outcome this rules out: the
+    /// pharmacy would have no way to tell which of two hundred medicines arrived, and a second
+    /// attempt would collide with whatever the first one managed.</para>
+    ///
+    /// <para>Rows may omit prices, which creates the product with <c>IsSetupComplete</c>
+    /// false. That is a deliberate offer for onboarding, not a validation gap — such a product
+    /// cannot be sold until its prices are set.</para>
+    ///
+    /// <para>200 rows per request. Over that is a 400 naming the cap.</para>
+    /// </summary>
+    [HttpPost("bulk-import")]
+    [Authorize(Policy = AuthenticationExtensions.TenantWriterPolicy)]
+    [ProducesResponseType(typeof(BulkImportResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> BulkImport(
+        [FromBody] BulkImportProductsCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await Mediator.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return HandleResult(result);
+        }
+
+        // 200 rather than 201 even on success, and 200 with Succeeded=false when rows failed.
+        //
+        // A 201 would have to name a location, and there is no single resource here - two
+        // hundred were created. And a per-row failure is not a malformed request: the client
+        // sent something well-formed that the pharmacy's own data refused, and the body is the
+        // useful part of the answer. A 400 would invite clients to discard it.
+        return Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Sets prices on products that already exist, several at a time. Admin or Pharmacist.
+    ///
+    /// <para>Behind the complete-setup screen. Touches prices and nothing else — see the
+    /// command for why this is not UpdateProduct in a loop.</para>
+    /// </summary>
+    [HttpPost("prices")]
+    [Authorize(Policy = AuthenticationExtensions.TenantWriterPolicy)]
+    [ProducesResponseType(typeof(BulkImportResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetPrices(
+        [FromBody] SetProductPricesCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await Mediator.Send(command, cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : HandleResult(result);
+    }
+
     /// <summary>Edits a product. Admin or Pharmacist.</summary>
     [HttpPut("{id:guid}")]
     [Authorize(Policy = AuthenticationExtensions.TenantWriterPolicy)]
@@ -178,7 +239,7 @@ public sealed record UpdateProductRequest(
     string? LargeUnitName,
     int? BasePerMid,
     int? MidPerLarge,
-    decimal PricePerBase,
+    decimal? PricePerBase,
     decimal? PricePerMid,
     decimal? PricePerLarge,
     int ReorderLevel,

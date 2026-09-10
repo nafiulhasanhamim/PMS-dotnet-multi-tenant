@@ -54,6 +54,16 @@ public sealed class SearchCatalogMedicinesQueryHandler
     /// </summary>
     private const int MaxFuzzyCandidates = 800;
 
+    /// <summary>
+    /// The most matches gathered before paging, across both stages.
+    ///
+    /// <para>Two hundred, which is also the import cap — so a person can page through
+    /// everything a single import could carry and no further. Higher would mean holding more
+    /// rows per request to serve pages almost nobody visits; lower would mean a common search
+    /// like "cef" running out of pages before it ran out of relevance.</para>
+    /// </summary>
+    private const int SearchCeiling = 200;
+
     private readonly ICatalogSearchQueries _catalog;
     private readonly ILogger<SearchCatalogMedicinesQueryHandler> _logger;
 
@@ -69,15 +79,18 @@ public sealed class SearchCatalogMedicinesQueryHandler
         SearchCatalogMedicinesQuery request, CancellationToken cancellationToken)
     {
         var term = (request.Term ?? string.Empty).Trim();
-        var take = request.Take is < 1 or > 50 ? 20 : request.Take;
+        var page = request.Page < 1 ? 1 : request.Page;
+        var pageSize = request.PageSize is < 1 or > 50 ? 20 : request.PageSize;
 
         if (term.Length < 2)
         {
             // One character matches thousands of things and helps nobody.
-            return new CatalogSearchResultDto(CatalogMatchType.Exact, term, []);
+            return Empty(term, page, pageSize);
         }
 
-        var direct = await _catalog.DirectMatchAsync(term, take, cancellationToken);
+        // Gathered to the ceiling rather than to the page size, because stage 2 scores in
+        // memory and cannot be offset — see the query. One page of twenty is then a slice.
+        var direct = await _catalog.DirectMatchAsync(term, SearchCeiling, cancellationToken);
 
         if (direct.Count >= DirectResultsConsideredEnough)
         {
@@ -90,7 +103,7 @@ public sealed class SearchCatalogMedicinesQueryHandler
                 term,
                 direct.Count);
 
-            return new CatalogSearchResultDto(CatalogMatchType.Exact, term, direct);
+            return Paged(CatalogMatchType.Exact, term, direct, page, pageSize);
         }
 
         var suggestions = await FindSuggestionsAsync(term, cancellationToken);
@@ -100,7 +113,7 @@ public sealed class SearchCatalogMedicinesQueryHandler
         var directIds = direct.Select(d => d.Id).ToHashSet();
         var combined = direct
             .Concat(suggestions.Where(s => !directIds.Contains(s.Id)))
-            .Take(10)
+            .Take(SearchCeiling)
             .ToList();
 
         if (combined.Count == 0)
@@ -117,7 +130,7 @@ public sealed class SearchCatalogMedicinesQueryHandler
                 suggestions.Count,
                 SimilarityThreshold);
 
-            return new CatalogSearchResultDto(CatalogMatchType.Exact, term, []);
+            return Empty(term, page, pageSize);
         }
 
         // Labelled a suggestion whenever a guess contributed, so the UI can say "did you
@@ -140,8 +153,33 @@ public sealed class SearchCatalogMedicinesQueryHandler
                 SimilarityThreshold);
         }
 
-        return new CatalogSearchResultDto(matchType, term, combined);
+        return Paged(matchType, term, combined, page, pageSize);
     }
+
+    private static CatalogSearchResultDto Empty(string term, int page, int pageSize) =>
+        new(CatalogMatchType.Exact, term, [], Total: 0, page, pageSize, Capped: false);
+
+    /// <summary>
+    /// Slices the gathered matches into one page.
+    ///
+    /// <para>A page beyond the end returns no items rather than an error: a stale link to
+    /// page 7 of a search that now finds two things is a mildly confusing empty list, not
+    /// something worth a failure.</para>
+    /// </summary>
+    private static CatalogSearchResultDto Paged(
+        CatalogMatchType matchType,
+        string term,
+        IReadOnlyList<CatalogMedicineSearchItemDto> all,
+        int page,
+        int pageSize) =>
+        new(
+            matchType,
+            term,
+            all.Skip((page - 1) * pageSize).Take(pageSize).ToList(),
+            all.Count,
+            page,
+            pageSize,
+            Capped: all.Count >= SearchCeiling);
 
     private async Task<List<CatalogMedicineSearchItemDto>> FindSuggestionsAsync(
         string term, CancellationToken cancellationToken)
