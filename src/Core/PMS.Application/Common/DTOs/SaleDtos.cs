@@ -284,12 +284,32 @@ public sealed record SalesReturnedDto(
 /// <c>BillingPolicy</c> that produced it refuses the sale server-side.</para>
 /// </summary>
 /// <param name="MaxDiscountPercent">Null means no limit (an Admin).</param>
+/// <param name="MaySellAntibiotics">
+/// Role <b>and</b> mode. Module 7 made the Employee block conditional: under Off and Optional an
+/// Employee dispenses an antibiotic like anything else, and only under Required is it refused.
+/// </param>
+/// <param name="AntibioticMode">
+/// The pharmacy's prescription mode, so the billing screen knows whether to render the
+/// prescription panel and whether its fields are required.
+///
+/// <para>Carried here rather than fetched separately because the billing screen already makes
+/// this call, and a second round trip for one enum on the busiest screen in the product is a cost
+/// with no benefit. <c>GET /api/settings/antibiotic-mode</c> exists for the settings page and
+/// reads the same <c>ITenantSettings</c>, so the two cannot disagree.</para>
+/// </param>
 public sealed record BillingLimitsDto(
     decimal? MaxDiscountPercent,
     string CapDescription,
     bool MaySellAntibiotics,
     bool MayReturn,
-    bool MayCancel);
+    bool MayCancel,
+    AntibioticPrescriptionMode AntibioticMode);
+
+/// <summary>
+/// One option in a cashier filter. Shared by the sales list and Module 7's register, which is
+/// why it lives with the DTOs rather than beside either query interface.
+/// </summary>
+public sealed record CashierOptionDto(Guid UserId, string Name, int SaleCount);
 
 // ── Filters ──────────────────────────────────────────────────────────────────────────────
 

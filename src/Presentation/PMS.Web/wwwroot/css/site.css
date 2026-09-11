@@ -1513,3 +1513,166 @@ a:hover {
 .pms-cell-link:hover .pms-cart__name {
     text-decoration: underline;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Module 7 — antibiotic register and its setting
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── The mode indicator ─────────────────────────────────────────────────────────────────── */
+
+.pms-mode-notice {
+    padding: var(--pms-space-3) var(--pms-space-4);
+    margin-bottom: var(--pms-space-3);
+    border-left: 3px solid var(--pms-border-strong);
+    background: var(--pms-table-head);
+}
+
+.pms-mode-notice__line {
+    display: flex;
+    gap: var(--pms-space-3);
+    align-items: baseline;
+}
+
+/* ── The register table ─────────────────────────────────────────────────────────────────── */
+
+/*
+   Styled as a record rather than a dashboard. No zebra striping, no status colours, nothing
+   decorative: this page may be printed and handed to an inspector, and every bit of colour that
+   is not carrying information competes with the one bit that is - the red flag, which appears
+   only under Required.
+
+   Dense but legible: tighter padding than the other grids because there are nine columns and a
+   reader is scanning down one of them, but the font floor is untouched.
+*/
+.pms-register {
+    font-size: var(--pms-font-sm);
+}
+
+.pms-register th,
+.pms-register td {
+    padding: var(--pms-space-2) var(--pms-space-3);
+    vertical-align: top;
+}
+
+.pms-register tbody tr:hover > td {
+    background: var(--pms-row-hover);
+}
+
+.pms-register-summary {
+    color: var(--pms-text-muted);
+    margin-bottom: var(--pms-space-3);
+}
+
+/* ── The settings page ──────────────────────────────────────────────────────────────────── */
+
+.pms-mode-option {
+    padding: var(--pms-space-3) 0;
+    border-bottom: 1px solid var(--pms-border);
+}
+
+.pms-mode-option:last-child {
+    border-bottom: 0;
+}
+
+.pms-mode-option .pms-form-help {
+    margin: var(--pms-space-1) 0 0 1.65rem;
+}
+
+/* ── The dashboard figure ───────────────────────────────────────────────────────────────── */
+
+/*
+   Neutral on purpose. A pharmacy dispensing antibiotics is a pharmacy doing its job; the figure
+   is something an owner wants to know and a regulator may ask about, not a problem to fix.
+   Colouring it amber would file it alongside expired stock.
+*/
+.pms-info-card {
+    display: inline-flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    padding: var(--pms-space-4);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    background: var(--pms-surface);
+    color: var(--pms-text);
+    text-decoration: none;
+}
+
+.pms-info-card:hover {
+    border-color: var(--pms-border-strong);
+    text-decoration: none;
+}
+
+.pms-info-card__label {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-info-card__value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-info-card__hint {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* ── Print ──────────────────────────────────────────────────────────────────────────────── */
+
+/* Shown only on paper. The screen has the filter bar and the summary line; the printed page
+   needs a header that says whose register this is, because a sheet on a desk has no address bar
+   and no navigation to infer it from. */
+.pms-print-only {
+    display: none;
+}
+
+@media print {
+    .pms-print-only {
+        display: block;
+    }
+
+    .pms-print-header {
+        margin-bottom: 6mm;
+        padding-bottom: 3mm;
+        border-bottom: 2px solid #000;
+    }
+
+    .pms-print-header h1 {
+        font-size: 14pt;
+        margin-bottom: 2mm;
+    }
+
+    /* The mode indicator stays, without its tint: an inspector reading a page of dashes in the
+       prescription columns needs the line that explains why they are dashes. */
+    .pms-mode-notice {
+        background: #fff !important;
+        border-left: 0;
+        border-bottom: 1px solid #000;
+        padding-left: 0;
+        margin-bottom: 4mm;
+    }
+
+    .pms-register {
+        font-size: 8pt;
+        width: 100%;
+    }
+
+    .pms-register th,
+    .pms-register td {
+        padding: 1mm 2mm;
+        border-bottom: 1px solid #999;
+    }
+
+    /* A flagged row still has to read as flagged on a monochrome printer, so it keeps a rule
+       rather than relying on the tint surviving. */
+    .pms-register .pms-row-danger > td {
+        background: #fff !important;
+        border-left: 2px solid #000;
+    }
+
+    .pms-table-wrap {
+        overflow: visible !important;
+    }
+}

@@ -50,7 +50,7 @@ never a pricing one.
 | Action | Admin | Pharmacist | Employee |
 |---|---|---|---|
 | Complete a sale | ✓ | ✓ | ✓ |
-| Sell an antibiotic | ✓ | ✓ | ✗ (403) |
+| Sell an antibiotic | ✓ | ✓ | **depends on the pharmacy's mode** — see §8 |
 | Discount | unlimited | ≤ 10% | ≤ 5% |
 | List sales | all | all | **own only** |
 | Open an invoice | any | any | **own only** (403) |
@@ -62,8 +62,9 @@ Three of these are policies on the endpoints (`TenantUserPolicy`, `TenantWriterP
 cart or whose sale is being read:
 
 - **Antibiotics** — `CompleteSaleCommandHandler.Blocked` returns `Error.Forbidden` for each
-  antibiotic product when the caller is an Employee. The till itself is open to every role; it
-  is the cart that gets refused.
+  antibiotic product when `BillingPolicy.MaySellAntibiotics` says no. **Since Module 7 that is
+  conditional on the pharmacy's `AntibioticPrescriptionMode`** and applies only under `Required`.
+  The till itself is open to every role; it is the cart that gets refused.
 - **Discount caps** — `BillingPolicy.IsDiscountAllowed`, checked in the completion handler
   before the discount is applied.
 - **Own sales only** — `GetSalesQueryHandler` passes a `restrictTo` user id into the query, and
@@ -393,27 +394,41 @@ which is stated on the interface.
 
 ## 8. Prescription capture for antibiotics
 
-When the cart contains any product with `IsAntibiotic = true`, six fields become required:
-`PatientName`, `PatientPhone`, `DoctorName`, `PrescriptionNumber`, `PrescriptionDate`, and
-`PrescriptionVerified` must be `true`.
+> **This section changed in Module 7.** What follows was unconditional when Module 5 shipped and
+> is now driven by a per-pharmacy setting. See
+> [`docs/07-antibiotic-register.md`](07-antibiotic-register.md) for why.
 
-**Client.** The panel appears below the cart only when an antibiotic is in it, amber-tinted so it
-reads as a different kind of thing from the rest of the form, and *Complete sale* stays disabled
-until every field is filled and the box is ticked. Removing the antibiotic hides the panel again
-and leaves the typed values alone — a cashier who removed the wrong row should not have to retype
-them.
+The pharmacy's `Tenant.AntibioticPrescriptionMode` decides all of it. **It defaults to `Off`**,
+and both of Module 5's antibiotic rules are read from it on every sale — never assumed.
 
-**Server.** `CompleteSaleCommandHandler.ValidatePrescription` refuses the sale regardless of what
-the client sent, naming each missing field individually so the form can put the message under the
-input rather than in a banner. An unticked verification box is its own refusal with its own
-message.
+| | `Off` (default) | `Optional` | `Required` |
+|---|---|---|---|
+| Prescription panel rendered | No | Yes, all fields optional | Yes, all fields required |
+| Employee may sell antibiotics | Yes | Yes | **No** (403) |
+| Sale blocked without a prescription | No | No | **Yes** |
+| Recorded in the antibiotic register | Yes | Yes | Yes |
 
-In practice only an Admin or a Pharmacist ever sees the panel, because an Employee cannot add an
-antibiotic to a cart at all. The server-side check does not rely on that: the two rules are
-independent, and a direct API call with an antibiotic and no prescription is rejected whoever
-sends it.
+**Client.** `GET /api/sales/limits` carries the mode alongside the discount caps, so the billing
+screen gets it in a call it already makes. Under `Off` the panel is not rendered at all — not
+hidden, absent: a pharmacy that does not record prescriptions should not have a prescription form
+on its till screen. Under `Optional` it renders with every field optional and does not gate
+*Complete sale*; gating it would make "optional" a lie. Under `Required` it behaves as originally
+specified: every field required, the verification box required, and the button disabled until
+both.
 
----
+**Server.** `CompleteSaleCommandHandler` reads the mode through `ITenantSettings` once per
+request, and:
+
+- validates prescription completeness **only** under `Required`, through `ValidatePrescription`;
+- stores whatever arrived under `Optional`, partial or not — a doctor's name with nothing else is
+  worth more to a later inspection than a blank row;
+- stores nothing under `Off`;
+- refuses an Employee's antibiotic **only** under `Required`.
+
+`Sale.SetPrescription` was loosened to accept nulls as part of this. The completeness rule depends
+on a per-tenant setting, and a `Sale` cannot know which mode its pharmacy is on — so the entity
+records and the handler judges. Nothing is lost: the guard it used to carry only ever fired on a
+path the handler had already closed.
 
 ## 9. How cancellation and return both restore stock, and how they differ
 
@@ -510,9 +525,11 @@ Nothing new is required of it, but note that a sale is the only quantity change 
 `StockAdjustment` behind it, so an alert that reconstructed quantity history from adjustments
 alone would be wrong.
 
-**Module 7 — Antibiotic register.** Filters sales whose prescription columns are populated.
-`Sale.HasPrescription` is the predicate; the six prescription columns and `SaleLine.ProductId`
-joined to `Product.IsAntibiotic` are the data. Cancelled sales must be excluded.
+**Module 7 — Antibiotic register.** Built, and it changed this module rather than only reading
+it — see §8. The register lists one row per `SaleLine` where `Product.IsAntibiotic`, joined to the
+six prescription columns on `Sale`, with cancelled sales excluded and returns shown as
+indicators. The dependency runs both ways now: Module 5 reads
+`Tenant.AntibioticPrescriptionMode` on every sale, and Module 7 owns the setting.
 
 **Module 8 — Reports.**
 

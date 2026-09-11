@@ -61,13 +61,41 @@ public static class WithheldFieldCatalog
 
         new WithheldFieldDto(
             "Sales",
-            "Selling any product marked as an antibiotic",
+            "Selling an antibiotic — only while the pharmacy is in Required mode",
             "Employee",
-            "Dispensing an antibiotic needs a pharmacist. A policy cannot express it because "
-            + "it depends on what is in the cart, not on the endpoint — so the till is open to "
-            + "every role and the cart is what gets refused, with 403 and a message telling "
-            + "them to call a pharmacist over.",
-            "CompleteSaleCommandHandler.Blocked (Error.Forbidden per antibiotic product)",
+            "Conditional since Module 7, and the condition matters: this restriction applies "
+            + "ONLY when the pharmacy's AntibioticPrescriptionMode is Required. Under Off (the "
+            + "default) and Optional an Employee dispenses an antibiotic like any other "
+            + "product. A policy could not express it either way, because it depends on the "
+            + "cart and on a per-tenant setting rather than on the endpoint — so the till is "
+            + "open to every role and the cart is what gets refused, with 403.",
+            "BillingPolicy.MaySellAntibiotics, called by CompleteSaleCommandHandler.Blocked",
+            WithheldKind.Action),
+
+        // ── Module 7 ─────────────────────────────────────────────────────────────────────
+
+        new WithheldFieldDto(
+            "Antibiotic register",
+            "The register and its CSV export",
+            "Employee",
+            "The deliberate asymmetry of the module: an Employee may be able to SELL an "
+            + "antibiotic — that depends on the pharmacy's mode, see above — but never to read "
+            + "the register. Selling is counter work; the register is the regulatory record of "
+            + "what colleagues dispensed and to which named patients, which is oversight. This "
+            + "one is a policy rather than a projection, so it also appears in the derived "
+            + "matrix; it is declared here because the asymmetry is the thing somebody "
+            + "reviewing access would otherwise read as a mistake.",
+            "AntibioticsController [Authorize(TenantWriterPolicy)]",
+            WithheldKind.Action),
+
+        new WithheldFieldDto(
+            "Pharmacy settings",
+            "Changing the antibiotic prescription mode",
+            "Employee, Pharmacist",
+            "Reading the mode is open to every role — the till needs it on every load to know "
+            + "whether to draw the prescription panel. Changing it alters what staff may sell "
+            + "and what the pharmacy records against the law, which is an owner's decision.",
+            "SettingsController.SetAntibioticMode [Authorize(TenantAdminPolicy)]",
             WithheldKind.Action),
 
         new WithheldFieldDto(

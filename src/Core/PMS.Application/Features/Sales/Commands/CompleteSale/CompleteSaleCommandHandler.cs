@@ -38,6 +38,7 @@ public sealed class CompleteSaleCommandHandler
     private readonly IRepository<Product, IApplicationDbContext> _products;
     private readonly IRepository<Sale, IApplicationDbContext> _sales;
     private readonly IStockQueries _stock;
+    private readonly ITenantSettings _settings;
     private readonly IInvoiceNumberGenerator _invoiceNumbers;
     private readonly IUnitOfWork<IApplicationDbContext> _unitOfWork;
     private readonly ICurrentUserService _currentUser;
@@ -48,6 +49,7 @@ public sealed class CompleteSaleCommandHandler
         IRepository<Product, IApplicationDbContext> products,
         IRepository<Sale, IApplicationDbContext> sales,
         IStockQueries stock,
+        ITenantSettings settings,
         IInvoiceNumberGenerator invoiceNumbers,
         IUnitOfWork<IApplicationDbContext> unitOfWork,
         ICurrentUserService currentUser,
@@ -57,6 +59,7 @@ public sealed class CompleteSaleCommandHandler
         _products = products;
         _sales = sales;
         _stock = stock;
+        _settings = settings;
         _invoiceNumbers = invoiceNumbers;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
@@ -93,6 +96,15 @@ public sealed class CompleteSaleCommandHandler
     private async Task<Result<SaleCompletedDto>> CompleteAsync(
         CompleteSaleCommand request, Guid cashierUserId, UserRole role, CancellationToken ct)
     {
+        // ── 0. How strictly this pharmacy handles antibiotics ───────────────────────────
+        //
+        // Read from the pharmacy, once, and never assumed. Module 7 made both antibiotic rules
+        // below conditional on it, and a handler that defaulted to Required would block a
+        // pharmacy that had deliberately chosen otherwise; one that defaulted to Off would
+        // quietly let an Employee dispense at a Model Pharmacy. ITenantSettings caches it for
+        // the life of the request, so asking per cart item costs one query.
+        var mode = await _settings.GetAntibioticModeAsync(ct);
+
         // ── 1. The products, and every reason one cannot be sold ────────────────────────
         var productIds = request.Items.Select(item => item.ProductId).Distinct().ToList();
         var products = await _products.ListAsync(
@@ -113,16 +125,20 @@ public sealed class CompleteSaleCommandHandler
                     Error.NotFound(nameof(Product), id));
             }
 
-            if (Blocked(product, role, cashierUserId) is { } failure)
+            if (Blocked(product, role, cashierUserId, mode) is { } failure)
             {
                 return failure;
             }
         }
 
-        // ── 2. Prescription, if any antibiotic is in the cart ───────────────────────────
+        // ── 2. Prescription, if the mode asks for one ───────────────────────────────────
+        //
+        // Only Required validates. Under Optional whatever arrived is kept as-is and nothing is
+        // refused; under Off nothing is sent and nothing is stored. See
+        // AntibioticPrescriptionMode for why the loosest setting is the default.
         var antibiotics = byId.Values.Where(product => product.IsAntibiotic).ToList();
 
-        if (antibiotics.Count > 0)
+        if (antibiotics.Count > 0 && mode == AntibioticPrescriptionMode.Required)
         {
             var prescriptionFailure = ValidatePrescription(request.Prescription, antibiotics);
 
@@ -283,14 +299,20 @@ public sealed class CompleteSaleCommandHandler
                 $"Cash received is less than the {owed:0.00} owed."));
         }
 
-        if (antibiotics.Count > 0 && request.Prescription is { } prescription)
+        // Stored whenever there is an antibiotic and the mode collects details at all. Under
+        // Optional the fields may be partly filled, and a doctor's name with nothing else is
+        // still worth more to a later inspection than a blank row — see Sale.SetPrescription,
+        // which records rather than judges for exactly this reason.
+        if (antibiotics.Count > 0
+            && mode != AntibioticPrescriptionMode.Off
+            && request.Prescription is { } prescription)
         {
             sale.SetPrescription(
-                prescription.PatientName!,
-                prescription.PatientPhone ?? string.Empty,
-                prescription.DoctorName!,
-                prescription.PrescriptionNumber!,
-                prescription.PrescriptionDate!.Value,
+                prescription.PatientName,
+                prescription.PatientPhone,
+                prescription.DoctorName,
+                prescription.PrescriptionNumber,
+                prescription.PrescriptionDate,
                 prescription.PrescriptionVerified);
         }
 
@@ -309,8 +331,11 @@ public sealed class CompleteSaleCommandHandler
             request.Items.Count, sale.Lines.Count, sale.Subtotal, sale.DiscountAmount,
             sale.NetTotal, sale.CashReceived, sale.ChangeGiven,
             antibiotics.Count > 0
-                ? $", including {antibiotics.Count} antibiotic(s) against prescription "
-                  + sale.PrescriptionNumber
+                ? $", including {antibiotics.Count} antibiotic(s) under prescription mode "
+                  + $"{mode}"
+                  + (sale.PrescriptionNumber is { } number
+                      ? $" against prescription {number}"
+                      : " with no prescription recorded")
                 : string.Empty);
 
         foreach (var planned in plan)
@@ -348,8 +373,15 @@ public sealed class CompleteSaleCommandHandler
     /// wall, which is why this is here and not only there. The fifth rule — an inactive product
     /// never appearing in search at all — is in the query rather than here, because the point of
     /// it is absence; this is the backstop for an id somebody kept from before.</para>
+    ///
+    /// <para><b>One of the five is now conditional.</b> Module 7 made the Employee antibiotic
+    /// block apply only under <see cref="AntibioticPrescriptionMode.Required"/>. Under Off and
+    /// Optional an Employee dispenses an antibiotic like anything else — which is what most
+    /// retail pharmacies actually do, and pretending otherwise produced invented patient names
+    /// rather than compliance.</para>
     /// </summary>
-    private Result<SaleCompletedDto>? Blocked(Product product, UserRole role, Guid cashierUserId)
+    private Result<SaleCompletedDto>? Blocked(
+        Product product, UserRole role, Guid cashierUserId, AntibioticPrescriptionMode mode)
     {
         if (!product.IsActive)
         {
@@ -373,12 +405,15 @@ public sealed class CompleteSaleCommandHandler
                 $"'{product.BrandName}' needs prices set before it can be sold."));
         }
 
-        if (product.IsAntibiotic && role == UserRole.Employee)
+        // The rule lives in BillingPolicy, read by this handler, the sellable search and the
+        // limits endpoint. Three inline copies of a rule with legal consequences would be three
+        // chances to get it wrong differently.
+        if (product.IsAntibiotic && !BillingPolicy.MaySellAntibiotics(role, mode))
         {
             _logger.LogWarning(
                 "Sale refused: Employee {UserId} attempted to dispense the antibiotic "
-                + "{BrandName} ({ProductId})",
-                cashierUserId, product.BrandName, product.Id);
+                + "{BrandName} ({ProductId}) while the pharmacy is in {Mode} mode",
+                cashierUserId, product.BrandName, product.Id, mode);
 
             // Forbidden rather than a validation error: a direct API call has to come back 403,
             // and the reason is the caller's role, not anything about the request.
@@ -397,10 +432,11 @@ public sealed class CompleteSaleCommandHandler
     /// <summary>
     /// Refuses an antibiotic sale whose prescription is missing or unverified.
     ///
-    /// <para>Server-side and unconditional. The billing screen hides the panel when there is no
-    /// antibiotic and requires every field when there is, but a client is a suggestion — this is
-    /// the rule. Each field is named individually so the form can put the message under the
-    /// input rather than in a banner.</para>
+    /// <para><b>Called only under Required mode</b> — the caller checks, because the rule is
+    /// the pharmacy's rather than this method's. What is unconditional is that it runs
+    /// server-side when it does run: the billing screen requires the same fields, but a client
+    /// is a suggestion. Each field is named individually so the form can put the message under
+    /// the input rather than in a banner.</para>
     /// </summary>
     private Result<SaleCompletedDto>? ValidatePrescription(
         PrescriptionRequest? prescription, IReadOnlyList<Product> antibiotics)

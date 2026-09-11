@@ -281,9 +281,25 @@ public sealed record BillingLimits(
     string CapDescription,
     bool MaySellAntibiotics,
     bool MayReturn,
-    bool MayCancel)
+    bool MayCancel,
+    AntibioticPrescriptionMode AntibioticMode)
 {
-    /// <summary>A safe default when the call fails: no discount allowed, nothing permitted.</summary>
+    /// <summary>
+    /// A safe default when the call fails: no discount allowed, nothing permitted — and the
+    /// loosest antibiotic mode.
+    ///
+    /// <para>The asymmetry is deliberate. Falling back to no permissions is safe because it only
+    /// hides controls the server would refuse anyway. Falling back to <c>Required</c> would be
+    /// the opposite: it would render a mandatory prescription panel at a pharmacy that does not
+    /// collect one, and the cashier would have to invent data to get past a screen that was wrong
+    /// about the rules.</para>
+    /// </summary>
     public static BillingLimits None { get; } =
-        new(0m, "Max discount: 0%", false, false, false);
+        new(0m, "Max discount: 0%", false, false, false, AntibioticPrescriptionMode.Off);
+
+    /// <summary>Whether the billing screen should render a prescription panel at all.</summary>
+    public bool CapturesPrescriptions => AntibioticMode != AntibioticPrescriptionMode.Off;
+
+    /// <summary>Whether every prescription field has to be filled before the sale can complete.</summary>
+    public bool RequiresPrescription => AntibioticMode == AntibioticPrescriptionMode.Required;
 }

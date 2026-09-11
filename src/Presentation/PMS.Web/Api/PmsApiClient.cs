@@ -382,6 +382,149 @@ public sealed class PmsApiClient
             HttpMethod.Get, $"api/alerts/low-stock?{string.Join('&', query)}", null, ct);
     }
 
+    // ── antibiotic register and settings (Module 7) ──────────────────────────────────────
+
+    public Task<ApiResult<AntibioticMode>> GetAntibioticModeAsync(
+        CancellationToken ct = default) =>
+        SendAsync<AntibioticMode>(HttpMethod.Get, "api/settings/antibiotic-mode", null, ct);
+
+    public Task<ApiResult<AntibioticMode>> SetAntibioticModeAsync(
+        AntibioticPrescriptionMode mode, CancellationToken ct = default) =>
+        SendAsync<AntibioticMode>(
+            HttpMethod.Put, "api/settings/antibiotic-mode",
+            new SetAntibioticModePayload(mode), ct);
+
+    public Task<ApiResult<AntibioticRegisterPage>> GetAntibioticRegisterAsync(
+        DateOnly? from = null,
+        DateOnly? to = null,
+        Guid? productId = null,
+        string? doctorName = null,
+        Guid? cashierUserId = null,
+        PrescriptionStatusFilter prescriptionStatus = PrescriptionStatusFilter.All,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default) =>
+        SendAsync<AntibioticRegisterPage>(
+            HttpMethod.Get,
+            "api/antibiotics/register?" + RegisterQuery(
+                from, to, productId, doctorName, cashierUserId, prescriptionStatus)
+                + $"&page={page}&pageSize={pageSize}",
+            null, ct);
+
+    public Task<ApiResult<AntibioticMonthlySummary>> GetAntibioticMonthlySummaryAsync(
+        int? month = null, int? year = null, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+
+        if (month is { } m)
+        {
+            query.Add($"month={m}");
+        }
+
+        if (year is { } y)
+        {
+            query.Add($"year={y}");
+        }
+
+        var suffix = query.Count > 0 ? "?" + string.Join('&', query) : string.Empty;
+
+        return SendAsync<AntibioticMonthlySummary>(
+            HttpMethod.Get, $"api/antibiotics/summary{suffix}", null, ct);
+    }
+
+    /// <summary>
+    /// The register as CSV, passed through from the API to the browser without being read into
+    /// memory here.
+    ///
+    /// <para><b>HttpCompletionOption.ResponseHeadersRead is the whole point.</b> Without it the
+    /// handler buffers the entire body before returning, which would undo the streaming the API
+    /// went to the trouble of doing — a year of antibiotic sales would be held in this app's
+    /// memory on its way to a file the browser is already writing to disk.</para>
+    ///
+    /// <para>The response is deliberately not disposed here: the returned stream is still live,
+    /// and ASP.NET Core disposes it when the FileStreamResult finishes writing.</para>
+    /// </summary>
+    public async Task<ApiResult<ApiFile>> ExportAntibioticRegisterAsync(
+        DateOnly? from = null,
+        DateOnly? to = null,
+        Guid? productId = null,
+        string? doctorName = null,
+        Guid? cashierUserId = null,
+        PrescriptionStatusFilter prescriptionStatus = PrescriptionStatusFilter.All,
+        CancellationToken ct = default)
+    {
+        var url = "api/antibiotics/register/export?" + RegisterQuery(
+            from, to, productId, doctorName, cashierUserId, prescriptionStatus);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+
+        var response = await _http.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await ReadProblemAsync(response, ct);
+            response.Dispose();
+
+            _logger.LogWarning(
+                "Antibiotic register export failed: {Status} {Message}",
+                (int)response.StatusCode, problem.Message);
+
+            return ApiResult<ApiFile>.Fail(problem);
+        }
+
+        var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
+            ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+            ?? "antibiotic-register.csv";
+
+        var content = await response.Content.ReadAsStreamAsync(ct);
+
+        return ApiResult<ApiFile>.Ok(
+            new ApiFile(content, "text/csv", fileName));
+    }
+
+    /// <summary>
+    /// The filter half of a register URL, shared by the page and the export so a CSV covers
+    /// exactly what was on screen.
+    /// </summary>
+    private static string RegisterQuery(
+        DateOnly? from,
+        DateOnly? to,
+        Guid? productId,
+        string? doctorName,
+        Guid? cashierUserId,
+        PrescriptionStatusFilter prescriptionStatus)
+    {
+        var query = new List<string> { $"prescriptionStatus={prescriptionStatus}" };
+
+        if (from is { } start)
+        {
+            query.Add($"dateFrom={start:yyyy-MM-dd}");
+        }
+
+        if (to is { } end)
+        {
+            query.Add($"dateTo={end:yyyy-MM-dd}");
+        }
+
+        if (productId is { } product)
+        {
+            query.Add($"productId={product}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(doctorName))
+        {
+            query.Add($"doctorName={Uri.EscapeDataString(doctorName.Trim())}");
+        }
+
+        if (cashierUserId is { } cashier)
+        {
+            query.Add($"cashierUserId={cashier}");
+        }
+
+        return string.Join('&', query);
+    }
+
     // ── plumbing ─────────────────────────────────────────────────────────────────────────
 
     private async Task<ApiResult<T>> SendAsync<T>(

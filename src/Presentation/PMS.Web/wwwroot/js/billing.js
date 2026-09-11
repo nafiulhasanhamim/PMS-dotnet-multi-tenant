@@ -539,8 +539,23 @@
         blockedNote.hidden = reason === '';
     }
 
+    /*
+        Whether the prescription panel is satisfied.
+
+        Trivially true unless the pharmacy is in Required mode. Under Off there is no panel in
+        the DOM at all; under Optional there is one, and gating the Complete button on it would
+        make "optional" a lie — the point of that mode is that a cashier records what they have
+        and the sale goes through either way.
+
+        The flag comes from the server on the panel itself, so the screen and the sale agree
+        about which rules are in force.
+    */
     function prescriptionComplete() {
         if (!prescription) {
+            return true;
+        }
+
+        if (prescription.dataset.prescriptionRequired !== 'true') {
             return true;
         }
 

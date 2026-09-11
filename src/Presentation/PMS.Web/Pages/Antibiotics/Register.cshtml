@@ -1,0 +1,249 @@
+@page "/antibiotics/register"
+@model PMS.Web.Pages.Antibiotics.RegisterModel
+@inject DisplayTimeZone Clock
+@{
+    ViewData["Title"] = "Antibiotic sales register";
+
+    var register = Model.Register;
+    var mode = register.Summary.Mode;
+    var notice = AntibioticModeNoticeModel.For(mode, Model.CanChangeMode);
+    var flaggedRows = register.Rows.Data.Count(row => row.IsFlagged(mode));
+}
+
+@* ── Screen header ───────────────────────────────────────────────────────────────────── *@
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Antibiotic sales register</h1>
+        <p class="pms-page-header__subtitle">
+            One row per antibiotic dispensed. Cancelled sales are excluded.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-all-route-data="Model.RouteValues">Export CSV</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+@*
+    ── Printed header ──────────────────────────────────────────────────────────────────────
+
+    Only visible in print, and it exists so a printed page is self-describing. A sheet handed to
+    an inspector has to say whose register it is, what range it covers, what the pharmacy's
+    prescription policy is and what the totals are — none of which is obvious from a table of
+    rows on its own.
+*@
+<div class="pms-print-only pms-print-header">
+    <h1>Antibiotic sales register</h1>
+    <p class="mb-1"><strong>@Model.PharmacyName</strong></p>
+    <p class="mb-1">
+        @register.From.ToString("d MMM yyyy") &ndash; @register.To.ToString("d MMM yyyy")
+    </p>
+    <p class="mb-1">Prescription capture: @notice.Label</p>
+    <p class="mb-0">
+        @Copy.Count(register.Summary.RowCount, "antibiotic sale").
+        Total dispensed: @register.Summary.TotalDispensedInBaseUnits.ToString("N0")
+        @register.Summary.UnitLabel.
+    </p>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+<partial name="_Alert" model="@AlertModel.Danger(TempData["ExportFailed"] as string)" />
+
+<partial name="_AntibioticModeNotice" model="@notice" />
+
+@* ── Filters ─────────────────────────────────────────────────────────────────────────── *@
+<form method="get" class="pms-card mb-3 pms-no-print">
+    <div class="pms-card__body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label class="pms-form-label" for="from">From</label>
+                <input class="form-control" type="date" id="from" name="from"
+                       value="@register.From.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="to">To</label>
+                <input class="form-control" type="date" id="to" name="to"
+                       value="@register.To.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="product">Product</label>
+                <select class="form-select" id="product" name="product">
+                    <option value="">All antibiotics</option>
+                    @foreach (var option in register.Options.Products)
+                    {
+                        <option value="@option.ProductId"
+                                selected="@(Model.ProductId == option.ProductId)">
+                            @option.BrandName
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="doctor">Doctor</label>
+                <input class="form-control" id="doctor" name="doctor" value="@Model.DoctorName"
+                       placeholder="Part of a name" autocomplete="off" />
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="cashier">Sold by</label>
+                <select class="form-select" id="cashier" name="cashier">
+                    <option value="">Everyone</option>
+                    @foreach (var option in register.Options.Cashiers)
+                    {
+                        <option value="@option.UserId"
+                                selected="@(Model.CashierUserId == option.UserId)">
+                            @option.Name
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="rx">Prescription</label>
+                <select class="form-select" id="rx" name="rx">
+                    <option value="@PrescriptionStatusFilter.All"
+                            selected="@(Model.PrescriptionStatus == PrescriptionStatusFilter.All)">All</option>
+                    <option value="@PrescriptionStatusFilter.WithPrescription"
+                            selected="@(Model.PrescriptionStatus == PrescriptionStatusFilter.WithPrescription)">With prescription</option>
+                    <option value="@PrescriptionStatusFilter.WithoutPrescription"
+                            selected="@(Model.PrescriptionStatus == PrescriptionStatusFilter.WithoutPrescription)">Without prescription</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-outline-primary">Apply filters</button>
+                <a class="btn btn-link" asp-page="/Antibiotics/Register">Reset</a>
+            </div>
+        </div>
+    </div>
+</form>
+
+@* ── Summary line ────────────────────────────────────────────────────────────────────── *@
+<p class="pms-register-summary pms-no-print">
+    Showing @Copy.Count(register.Summary.RowCount, "antibiotic sale")
+    from @register.From.ToString("d MMM yyyy") to @register.To.ToString("d MMM yyyy").
+    Total dispensed:
+    <strong>
+        @register.Summary.TotalDispensedInBaseUnits.ToString("N0")
+        @register.Summary.UnitLabel
+    </strong>.
+</p>
+
+<div class="pms-table-wrap">
+    @if (register.Rows.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No antibiotic sales recorded in this date range",
+            Model.HasFilters
+                ? "Try a wider date range, or clear the filters."
+                : null))" />
+    }
+    else
+    {
+        @* Dense and plain. This is a record rather than a dashboard: no zebra striping, no
+           status colours, nothing decorative competing with the data. The only colour on the
+           page is the red flag, and only under Required. *@
+        <table class="pms-table pms-register">
+            <caption class="visually-hidden">
+                Antibiotic sales from @register.From.ToString("d MMM yyyy")
+                to @register.To.ToString("d MMM yyyy"), most recent first.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Invoice</th>
+                    <th scope="col">Product</th>
+                    <th scope="col" class="text-end">Quantity</th>
+                    <th scope="col">Patient</th>
+                    <th scope="col">Phone</th>
+                    <th scope="col">Doctor</th>
+                    <th scope="col">Prescription</th>
+                    <th scope="col">Sold by</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in register.Rows.Data)
+                {
+                    <tr class="@(row.IsFlagged(mode) ? "pms-row-danger" : null)">
+                        <td>@Clock.Format(row.SaleDate)</td>
+                        <td>
+                            <a class="pms-mono" asp-page="/Sales/Detail" asp-route-id="@row.SaleId">
+                                @row.InvoiceNumber
+                            </a>
+                        </td>
+                        <td>
+                            <span class="pms-cart__name">@row.BrandName</span>
+                            @if (!string.IsNullOrWhiteSpace(row.GenericName))
+                            {
+                                <span class="pms-form-help">@row.GenericName</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            @row.FormattedQuantity
+
+                            @* A returned row stays in the register - it happened - with the
+                               return shown so the net dispensed is visible. *@
+                            @if (row.HasReturns)
+                            {
+                                <span class="pms-form-help">
+                                    Returned: @row.FormattedQuantityReturned
+                                </span>
+                            }
+                        </td>
+                        <td>@if (row.PatientName is { } patient) { @patient } else { <text>&mdash;</text> }</td>
+                        <td>@if (row.PatientPhone is { } phone) { @phone } else { <text>&mdash;</text> }</td>
+                        <td>@if (row.DoctorName is { } doctor) { @doctor } else { <text>&mdash;</text> }</td>
+                        <td>
+                            @if (row.PrescriptionNumber is { } number)
+                            {
+                                @number
+                            }
+                            else
+                            {
+                                <text>&mdash;</text>
+                            }
+
+                            @*
+                                Flagged only under Required. Under Off nothing was captured by
+                                design, and under Optional it was captured when somebody had it -
+                                a red badge on every such row would be crying wolf, and the first
+                                thing anybody learns from that is to ignore the badge.
+                            *@
+                            @if (row.IsFlagged(mode))
+                            {
+                                <span class="pms-badge pms-badge--danger">
+                                    @(row.HasPrescription ? "Unverified" : "Missing")
+                                </span>
+                            }
+                        </td>
+                        <td>@(row.CashierName ?? "(unknown user)")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (flaggedRows > 0)
+{
+    @*
+        Said once, beneath the table, rather than as a warning banner at the top. A pharmacy that
+        has just switched to Required will see every older row flagged, and that is history rather
+        than a fault - but a reader who does not know that would reasonably conclude the system is
+        broken or the pharmacy is in breach.
+    *@
+    <p class="pms-form-help mt-2">
+        @Copy.Count(flaggedRows, "row") on this page @Copy.Is(flaggedRows) flagged because
+        prescription capture is set to Required and no verified prescription was recorded.
+        Sales made while this pharmacy was set to Off or Optional will always appear this way:
+        they were recorded correctly under the rules in force at the time.
+    </p>
+}
+
+@if (!register.Rows.IsEmpty)
+{
+    <div class="pms-no-print">
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            register.Rows, "/Antibiotics/Register", Model.RouteValues))" />
+    </div>
+}

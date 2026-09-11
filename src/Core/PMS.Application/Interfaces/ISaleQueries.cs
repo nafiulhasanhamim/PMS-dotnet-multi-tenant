@@ -77,6 +77,3 @@ public interface ISaleQueries
     Task<SaleStatus?> FindStatusAsync(
         Guid saleId, CancellationToken cancellationToken = default);
 }
-
-/// <summary>One option in the cashier filter.</summary>
-public sealed record CashierOptionDto(Guid UserId, string Name, int SaleCount);

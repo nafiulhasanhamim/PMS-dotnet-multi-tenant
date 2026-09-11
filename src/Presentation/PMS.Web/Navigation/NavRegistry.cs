@@ -116,6 +116,14 @@ public static class NavRegistry
         new NavItem("Alerts", "/Alerts/Index", "alert", MatchPrefix: "/alerts",
             BadgeKey: NavBadges.Alerts),
 
+        // Module 7. Admin and Pharmacist, and the asymmetry with the till is deliberate: an
+        // Employee may be able to *sell* an antibiotic depending on the pharmacy's mode, but the
+        // register is the regulatory record of what colleagues dispensed and to which named
+        // patients. Selling is counter work; reading that back is oversight.
+        new NavItem("Antibiotic register", "/Antibiotics/Register", "clipboard",
+            Roles: new[] { UserRole.Admin, UserRole.Pharmacist },
+            MatchPrefix: "/antibiotics"),
+
         new NavItem("Users", "/Users/Index", "people",
             Roles: new[] { UserRole.Admin }),
 

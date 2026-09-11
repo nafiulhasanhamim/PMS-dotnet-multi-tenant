@@ -260,23 +260,32 @@ public sealed class Sale : BaseAuditableAggregateRoot<Guid>, ITenantEntity
         ChangeGiven = SaleMath.Round(cashReceived - NetTotal);
     }
 
-    /// <summary>Attaches the prescription a dispensed antibiotic requires.</summary>
+    /// <summary>
+    /// Records whatever prescription detail was captured for this sale.
+    ///
+    /// <para><b>Every field is optional here, and that is a deliberate loosening.</b> How much
+    /// detail is required depends on the pharmacy's
+    /// <see cref="Domain.Enums.AntibioticPrescriptionMode"/>: none under Off, whatever the
+    /// cashier happened to have under Optional, all of it under Required. A sale cannot know
+    /// which mode its pharmacy is on, so it is not the thing that should be refusing an
+    /// incomplete one — <c>CompleteSaleCommandHandler</c> reads the mode and refuses before
+    /// reaching this method.</para>
+    ///
+    /// <para>Under Optional this is how a partial record survives: a doctor's name and nothing
+    /// else is worth more to a later inspection than a blank row.</para>
+    /// </summary>
     public void SetPrescription(
-        string patientName,
-        string patientPhone,
-        string doctorName,
-        string prescriptionNumber,
-        DateOnly prescriptionDate,
+        string? patientName,
+        string? patientPhone,
+        string? doctorName,
+        string? prescriptionNumber,
+        DateOnly? prescriptionDate,
         bool verified)
     {
-        Guard.Against.NullOrWhiteSpace(patientName, nameof(patientName));
-        Guard.Against.NullOrWhiteSpace(doctorName, nameof(doctorName));
-        Guard.Against.NullOrWhiteSpace(prescriptionNumber, nameof(prescriptionNumber));
-
-        PatientName = patientName.Trim();
+        PatientName = Blank(patientName);
         PatientPhone = Blank(patientPhone);
-        DoctorName = doctorName.Trim();
-        PrescriptionNumber = prescriptionNumber.Trim();
+        DoctorName = Blank(doctorName);
+        PrescriptionNumber = Blank(prescriptionNumber);
         PrescriptionDate = prescriptionDate;
         PrescriptionVerified = verified;
     }

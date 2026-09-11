@@ -1,0 +1,121 @@
+@page "/settings/antibiotics"
+@model PMS.Web.Pages.Settings.AntibioticsModel
+@{
+    ViewData["Title"] = "Antibiotic prescriptions";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Antibiotic prescriptions</h1>
+        <p class="pms-page-header__subtitle">
+            How this pharmacy records prescriptions when it dispenses an antibiotic. Antibiotic
+            sales are recorded in the register on every setting.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Antibiotics/Register">
+            Antibiotic register
+        </a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@*
+    Plain-language descriptions, and they are longer than the labels on any other setting in the
+    application deliberately. This one has legal consequences in both directions: Required stops
+    Employees dispensing mid-shift, Off stops prescriptions being recorded at all. Nobody should
+    have to infer that from three one-word names, and an owner choosing under time pressure
+    before an inspection least of all.
+*@
+<form method="post" id="antibiotic-mode-form" class="pms-card" style="max-width: 46rem;">
+    <div class="pms-card__body">
+        <fieldset>
+            <legend class="pms-form-label">Prescription capture</legend>
+
+            <div class="pms-mode-option">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" asp-for="Mode"
+                           value="@AntibioticPrescriptionMode.Off" id="mode-off"
+                           data-mode="Off" />
+                    <label class="form-check-label" for="mode-off">
+                        <strong>Off</strong>
+                        @if (Model.CurrentMode == AntibioticPrescriptionMode.Off)
+                        {
+                            <span class="pms-badge pms-badge--neutral">Current</span>
+                        }
+                    </label>
+                </div>
+                <p class="pms-form-help">
+                    Antibiotics are sold like any other product. No prescription details are
+                    recorded. All antibiotic sales are still tracked in the register.
+                </p>
+            </div>
+
+            <div class="pms-mode-option">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" asp-for="Mode"
+                           value="@AntibioticPrescriptionMode.Optional" id="mode-optional"
+                           data-mode="Optional" />
+                    <label class="form-check-label" for="mode-optional">
+                        <strong>Optional</strong>
+                        @if (Model.CurrentMode == AntibioticPrescriptionMode.Optional)
+                        {
+                            <span class="pms-badge pms-badge--neutral">Current</span>
+                        }
+                    </label>
+                </div>
+                <p class="pms-form-help">
+                    Staff can record prescription details when available, but sales are not
+                    blocked if they don&rsquo;t.
+                </p>
+            </div>
+
+            <div class="pms-mode-option">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" asp-for="Mode"
+                           value="@AntibioticPrescriptionMode.Required" id="mode-required"
+                           data-mode="Required" />
+                    <label class="form-check-label" for="mode-required">
+                        <strong>Required</strong>
+                        @if (Model.CurrentMode == AntibioticPrescriptionMode.Required)
+                        {
+                            <span class="pms-badge pms-badge--neutral">Current</span>
+                        }
+                    </label>
+                </div>
+                <p class="pms-form-help">
+                    Prescription details must be recorded for every antibiotic sale, and only
+                    pharmacists or admins can sell antibiotics. Use this if your pharmacy is
+                    under Model Pharmacy rules or preparing for inspection.
+                </p>
+            </div>
+        </fieldset>
+
+        <span class="pms-field-error" asp-validation-for="Mode"></span>
+    </div>
+
+    <div class="pms-card__footer">
+        @*
+            The confirmation fires only for Required, and only when that is a change. Switching
+            to it takes a capability away from staff who are mid-shift, so somebody has to be
+            told before it happens - and asking on every save, including Off to Off, would train
+            them to click through it.
+        *@
+        <button type="button" class="btn btn-primary" id="save-mode"
+                data-pms-confirm-form="antibiotic-mode-form"
+                data-pms-confirm-title="Require prescriptions for antibiotics?"
+                data-pms-confirm="This will prevent employees from selling antibiotics and require prescription details on every antibiotic sale. Staff will need to be informed. Continue?"
+                data-pms-confirm-ok="Require prescriptions"
+                data-current-mode="@Model.CurrentMode">
+            Save
+        </button>
+        <a class="btn btn-outline-secondary" asp-page="/Index">Cancel</a>
+    </div>
+</form>
+
+<partial name="_ConfirmModal" />
+
+@section Scripts {
+    <script src="~/js/antibiotic-settings.js" asp-append-version="true"></script>
+}

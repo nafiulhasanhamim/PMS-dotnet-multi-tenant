@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using PMS.Web.Api;
+using PMS.Web.Auth;
 using PMS.Web.ViewModels;
 
 namespace PMS.Web.Pages;
@@ -16,6 +17,12 @@ public class IndexModel : PmsPageModel
     public MyProfile? Profile { get; private set; }
 
     public AlertSummary Summary { get; private set; } = AlertSummary.Empty;
+
+    /// <summary>
+    /// Antibiotics dispensed this month. Admin and Pharmacist only — an Employee does not see the
+    /// register, so a card summarising it would be a number they cannot open.
+    /// </summary>
+    public AntibioticMonthlySummary? Antibiotics { get; private set; }
 
     public IReadOnlyList<AlertCardModel> Cards { get; private set; } = [];
 
@@ -52,6 +59,21 @@ public class IndexModel : PmsPageModel
         else
         {
             AlertsUnavailable = true;
+        }
+
+        // Module 7. Informational rather than an alert: a pharmacy dispensing antibiotics is a
+        // pharmacy doing its job, and colouring the figure as a warning would imply otherwise.
+        // Fetched only for the roles that can act on it.
+        if (User.IsTenantAdmin() || User.Role() == UserRole.Pharmacist)
+        {
+            var antibiotics = await _api.GetAntibioticMonthlySummaryAsync(ct: ct);
+
+            // A failure here is silent for the same reason the alert panels tolerate one: a
+            // dashboard should not fall over because one card could not be filled in.
+            if (antibiotics.IsSuccess)
+            {
+                Antibiotics = antibiotics.Value;
+            }
         }
 
         return Page();

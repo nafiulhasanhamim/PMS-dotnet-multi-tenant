@@ -47,6 +47,24 @@
         </section>
     }
 
+    @if (Model.Antibiotics is { } antibiotics)
+    {
+        @*
+            Neutral styling, deliberately. This is a figure an owner wants to know and a
+            regulator may ask about; it is not a problem to be fixed, and colouring it amber
+            would put it in the same visual category as expired stock.
+        *@
+        <a class="pms-info-card mb-4" asp-page="/Antibiotics/Register">
+            <span class="pms-info-card__label">Antibiotics dispensed this month</span>
+            <span class="pms-info-card__value">
+                @antibiotics.TotalDispensedInBaseUnits.ToString("N0") @antibiotics.UnitLabel
+            </span>
+            <span class="pms-info-card__hint">
+                @Copy.Count(antibiotics.SaleLineCount, "sale") &middot; view the register
+            </span>
+        </a>
+    }
+
     <div class="row g-3">
         <div class="col-lg-5">
             <section class="pms-card h-100">

@@ -147,6 +147,8 @@ public sealed class AccessMatrixBuilder
         "Stock" => "Stock and batches",
         "Sales" => "Sales",
         "Alerts" => "Alerts",
+        "Antibiotics" => "Antibiotic register",
+        "Settings" => "Pharmacy settings",
         _ => Humanise(controller),
     };
 
@@ -161,6 +163,8 @@ public sealed class AccessMatrixBuilder
         "Stock and batches" => 6,
         "Sales" => 7,
         "Alerts" => 8,
+        "Antibiotic register" => 9,
+        "Pharmacy settings" => 10,
         _ => 9,
     };
 

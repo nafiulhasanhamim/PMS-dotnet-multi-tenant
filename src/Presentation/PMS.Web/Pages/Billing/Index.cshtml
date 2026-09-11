@@ -3,6 +3,14 @@
 @{
     ViewData["Title"] = "New sale";
     var cart = Model.Input.Items ?? new List<PMS.Web.Pages.Billing.CartRowInput>();
+
+    // Module 7. Off renders no panel at all; Optional renders one whose fields are all optional;
+    // Required renders the one Module 5 shipped. The mode comes from the API with the rest of
+    // the caller's limits, and the server refuses the sale on its own reading of it regardless
+    // of what this draws.
+    var capturesPrescriptions = Model.Limits.CapturesPrescriptions;
+    var prescriptionRequired = Model.Limits.RequiresPrescription;
+    var requiredClass = prescriptionRequired ? "pms-required" : null;
 }
 
 <div class="pms-page-header">
@@ -138,46 +146,61 @@
             </div>
         </div>
 
-        @* ── Prescription: only while the cart holds an antibiotic ───────────────────── *@
+        @*
+            ── Prescription: only while the cart holds an antibiotic, and only if this pharmacy
+               collects prescription details at all ─────────────────────────────────────────
+
+            Absent entirely under Off. Not hidden with CSS, not rendered-and-ignored: a pharmacy
+            that does not record prescriptions should not have a prescription form on its till
+            screen, and one that appears with every field optional and no consequence is a form
+            people learn to scroll past.
+        *@
+        @if (capturesPrescriptions)
+        {
         <div class="pms-card pms-card--prescription mb-3" id="prescription-panel"
+             data-prescription-required="@(prescriptionRequired ? "true" : "false")"
              hidden="@(!cart.Any(row => row.IsAntibiotic))">
             <div class="pms-card__body">
                 <h2 class="pms-card__title">
                     Prescription details
-                    <span class="pms-form-help">(required for antibiotics)</span>
+                    <span class="pms-form-help">
+                        @(prescriptionRequired
+                            ? "(required for antibiotics)"
+                            : "(optional — record what you have)")
+                    </span>
                 </h2>
 
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="pms-form-label pms-required" asp-for="Input.PatientName">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PatientName">
                             Patient name
                         </label>
                         <input class="form-control" asp-for="Input.PatientName" autocomplete="off" />
                         <span class="pms-field-error" asp-validation-for="Input.PatientName"></span>
                     </div>
                     <div class="col-md-6">
-                        <label class="pms-form-label pms-required" asp-for="Input.PatientPhone">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PatientPhone">
                             Patient phone
                         </label>
                         <input class="form-control" asp-for="Input.PatientPhone" autocomplete="off" />
                         <span class="pms-field-error" asp-validation-for="Input.PatientPhone"></span>
                     </div>
                     <div class="col-md-6">
-                        <label class="pms-form-label pms-required" asp-for="Input.DoctorName">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.DoctorName">
                             Doctor name
                         </label>
                         <input class="form-control" asp-for="Input.DoctorName" autocomplete="off" />
                         <span class="pms-field-error" asp-validation-for="Input.DoctorName"></span>
                     </div>
                     <div class="col-md-6">
-                        <label class="pms-form-label pms-required" asp-for="Input.PrescriptionNumber">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PrescriptionNumber">
                             Prescription number
                         </label>
                         <input class="form-control" asp-for="Input.PrescriptionNumber" autocomplete="off" />
                         <span class="pms-field-error" asp-validation-for="Input.PrescriptionNumber"></span>
                     </div>
                     <div class="col-md-6">
-                        <label class="pms-form-label pms-required" asp-for="Input.PrescriptionDate">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PrescriptionDate">
                             Prescription date
                         </label>
                         <input class="form-control" type="date" asp-for="Input.PrescriptionDate" />
@@ -187,7 +210,7 @@
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox"
                                    asp-for="Input.PrescriptionVerified" id="verified" />
-                            <label class="form-check-label pms-required" for="verified">
+                            <label class="form-check-label @requiredClass" for="verified">
                                 I have verified the prescription
                             </label>
                         </div>
@@ -196,6 +219,7 @@
                 </div>
             </div>
         </div>
+        }
 
         @* ── Customer: collapsed, because it is usually skipped ──────────────────────── *@
         <details class="pms-card mb-3" @(string.IsNullOrWhiteSpace(Model.Input.CustomerName)

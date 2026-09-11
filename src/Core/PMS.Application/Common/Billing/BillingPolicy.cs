@@ -96,6 +96,21 @@ public static class BillingPolicy
             + $"{cap.Value:0.00} on a subtotal of {subtotal:0.00}.";
     }
 
+    /// <summary>
+    /// Whether this role may dispense an antibiotic at a pharmacy on this mode.
+    ///
+    /// <para>Here rather than inline in two handlers, because it is read by the completion
+    /// handler, by the sellable-product search and by the limits endpoint — and three copies of
+    /// a rule with legal consequences is three chances to get it wrong differently.</para>
+    ///
+    /// <para><b>Only Required restricts it.</b> Under Off and Optional an Employee sells an
+    /// antibiotic like any other product. See <see cref="AntibioticPrescriptionMode"/> for why
+    /// the default is the loose end of that.</para>
+    /// </summary>
+    public static bool MaySellAntibiotics(UserRole role, AntibioticPrescriptionMode mode) =>
+        mode != AntibioticPrescriptionMode.Required
+        || role is UserRole.Admin or UserRole.Pharmacist;
+
     /// <summary>The cap as helper text for the billing screen — "Max discount: 10%".</summary>
     public static string DescribeCap(UserRole role)
     {

@@ -14,23 +14,32 @@ public sealed class GetSellableProductsQueryHandler
 {
     private readonly ISaleQueries _sales;
     private readonly ICurrentUserService _currentUser;
+    private readonly ITenantSettings _settings;
 
     public GetSellableProductsQueryHandler(
-        ISaleQueries sales, ICurrentUserService currentUser)
+        ISaleQueries sales, ICurrentUserService currentUser, ITenantSettings settings)
     {
         _sales = sales;
         _currentUser = currentUser;
+        _settings = settings;
     }
 
     public async Task<Result<IReadOnlyList<SellableProductDto>>> Handle(
         GetSellableProductsQuery request, CancellationToken cancellationToken)
     {
-        // An Employee still sees antibiotics in the list, flagged with the reason they cannot
-        // sell them. Hiding them would have a cashier telling a customer the pharmacy does not
+        // An Employee who cannot sell antibiotics still sees them in the list, flagged with the
+        // reason. Hiding them would have a cashier telling a customer the pharmacy does not
         // stock something that is on the shelf behind them; showing the reason has them fetch
         // the pharmacist, which is the outcome the rule is for.
+        //
+        // Whether they can sell them at all is now the pharmacy's decision rather than a fixed
+        // rule — Module 7. Under Off and Optional this is true for every role, so nothing is
+        // greyed and nobody is fetched.
+        var role = _currentUser.TenantRole();
+        var mode = await _settings.GetAntibioticModeAsync(cancellationToken);
+
         var mayDispenseAntibiotics =
-            _currentUser.TenantRole() is UserRole.Admin or UserRole.Pharmacist;
+            role is not null && BillingPolicy.MaySellAntibiotics(role.Value, mode);
 
         var limit = request.Limit > 0
             ? Math.Min(request.Limit, BillingPolicy.SellableSearchLimit)

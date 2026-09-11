@@ -73,6 +73,12 @@ public static class DependencyInjection
         // Module 6: expiry and low-stock alerts. Reads only - no entity of its own.
         services.AddScoped<IAlertQueries, AlertQueries>();
 
+        // Module 7: the antibiotic register, and the per-tenant setting behind it. TenantSettings
+        // is scoped because its lifetime IS its cache - one read per request, so a change is in
+        // force on the very next one. See that class.
+        services.AddScoped<IAntibioticQueries, AntibioticQueries>();
+        services.AddScoped<ITenantSettings, TenantSettings>();
+
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)
