@@ -1366,3 +1366,150 @@ a:hover {
         border-bottom: 0;
     }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Module 6 — expiry and low-stock alerts
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* The sidebar badge. Small, and only present when the count is non-zero — a nav item wearing a
+   permanent "0" is noise that teaches people to stop looking at the number. */
+.pms-sidebar__badge {
+    margin-left: auto;
+    min-width: 1.5rem;
+    padding: 0 var(--pms-space-2);
+    border-radius: 999px;
+    background: var(--pms-danger);
+    color: #fff;
+    font-size: var(--pms-font-sm);
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: center;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────────────────────── */
+
+.pms-alert-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--pms-space-3);
+}
+
+@media (max-width: 991.98px) {
+    .pms-alert-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .pms-alert-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.pms-alert-hub {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--pms-space-4);
+}
+
+@media (max-width: 767.98px) {
+    .pms-alert-hub {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.pms-alert-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    padding: var(--pms-space-4);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    background: var(--pms-surface);
+    color: var(--pms-text);
+    text-decoration: none;
+}
+
+.pms-alert-card:hover {
+    border-color: var(--pms-border-strong);
+    text-decoration: none;
+}
+
+.pms-alert-card__count {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-alert-card__title {
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-alert-card__preview {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* A card with nothing to report is plain. This is the rule the whole set of colours depends on:
+   four coloured boxes that are always coloured carry no information, and the first thing anyone
+   learns from them is to stop looking. */
+.pms-alert-card--quiet .pms-alert-card__count {
+    color: var(--pms-text-faint);
+    font-weight: 500;
+}
+
+.pms-alert-card--warning {
+    border-color: #e8c88a;
+    background: var(--pms-warning-bg);
+}
+
+.pms-alert-card--warning .pms-alert-card__count {
+    color: var(--pms-warning);
+}
+
+.pms-alert-card--danger {
+    border-color: #e9b3af;
+    background: var(--pms-danger-bg);
+}
+
+.pms-alert-card--danger .pms-alert-card__count {
+    color: var(--pms-danger);
+}
+
+/* The hub renders the same card larger, inside a section that carries the description. */
+.pms-alert-card--large {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--pms-space-3);
+}
+
+.pms-alert-card--large .pms-alert-card__count {
+    font-size: 2.25rem;
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────────────────────────── */
+
+/* Tinted rows rather than a coloured dot in one cell: the severity is a property of the whole
+   row, and a pharmacist scanning the list is reading down it rather than across. Colour is
+   never the only signal - the days column says the same thing in words. */
+.pms-row-warning > td {
+    background: var(--pms-warning-bg);
+}
+
+.pms-row-danger > td {
+    background: var(--pms-danger-bg);
+}
+
+/* A link that fills its cell, so the product name and the generic beneath it are one target
+   rather than two. */
+.pms-cell-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.pms-cell-link:hover .pms-cart__name {
+    text-decoration: underline;
+}

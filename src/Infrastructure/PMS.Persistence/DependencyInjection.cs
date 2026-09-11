@@ -70,6 +70,9 @@ public static class DependencyInjection
         services.AddScoped<ISaleQueries, SaleQueries>();
         services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
 
+        // Module 6: expiry and low-stock alerts. Reads only - no entity of its own.
+        services.AddScoped<IAlertQueries, AlertQueries>();
+
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

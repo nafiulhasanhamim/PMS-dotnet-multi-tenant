@@ -6,12 +6,18 @@
     and "which pharmacy am I in" is not a question anyone should answer by reading a URL.
 *@
 @using PMS.Web.Navigation
+@inject AlertBadgeProvider AlertBadges
 @{
     var role = User.Role();
     var tenantName = User.TenantName();
     var tenantDomain = User.TenantDomain();
     var roleText = role is null ? null : StatusPresentation.ForRole(role.Value).Text;
     var successMessage = (Model as PmsPageModel)?.SuccessMessage;
+
+    // Cached for a minute per pharmacy, and silently empty if the API is unreachable — a badge
+    // is a decoration, and a layout that threw because it could not draw one would take every
+    // page in the application down with it. See AlertBadgeProvider.
+    var navBadges = await AlertBadges.GetAsync(Context.RequestAborted);
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -29,7 +35,8 @@
             <span>PMS</span>
         </a>
         <p class="pms-sidebar__area mb-0">Pharmacy</p>
-        <partial name="_SidebarNav" model="@NavRegistry.ForTenantRole(role)" />
+        <partial name="_SidebarNav"
+                 model="@(new SidebarModel(NavRegistry.ForTenantRole(role), navBadges))" />
     </nav>
 
     <div class="pms-backdrop"></div>

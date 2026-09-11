@@ -1,0 +1,99 @@
+@page "/alerts/expired"
+@model PMS.Web.Pages.Alerts.ExpiredModel
+@{
+    ViewData["Title"] = "Expired stock";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Expired stock</h1>
+        <p class="pms-page-header__subtitle">
+            These batches have passed their expiry date and are blocked from sale. Consider a
+            purchase return or a stock adjustment to remove them from inventory.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="pms-table-wrap">
+    @if (Model.Batches.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No expired stock",
+            "Nothing on the shelves has passed its expiry date."))" />
+    }
+    else
+    {
+        <table class="pms-table">
+            <caption class="visually-hidden">
+                Batches past their expiry date, most overdue first.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col">Batch</th>
+                    <th scope="col">Expiry date</th>
+                    <th scope="col">Days overdue</th>
+                    <th scope="col" class="text-end">Quantity</th>
+                    @if (Model.CanAct)
+                    {
+                        <th scope="col"><span class="visually-hidden">Action</span></th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @* Every row is red. There is no gradation here - the question on this page is
+                   not how bad a row is but how long it has been ignored. *@
+                @foreach (var batch in Model.Batches.Data)
+                {
+                    <tr class="pms-row-danger">
+                        <td>
+                            <a asp-page="/Stock/Detail" asp-route-productId="@batch.ProductId"
+                               class="pms-cell-link">
+                                <span class="pms-cart__name">@batch.BrandName</span>
+                                @if (!string.IsNullOrWhiteSpace(batch.GenericName))
+                                {
+                                    <span class="pms-form-help">@batch.GenericName</span>
+                                }
+                            </a>
+                        </td>
+                        <td class="pms-mono">@batch.BatchNumber</td>
+                        <td>@batch.ExpiryDate.ToString("d MMM yyyy")</td>
+                        <td>@AlertPresentation.DaysOverdue(batch.DaysOverdue)</td>
+                        <td class="text-end">@batch.FormattedQuantity</td>
+                        @if (Model.CanAct)
+                        {
+                            <td class="text-end">
+                                @{
+                                    var action = AlertPresentation.ActionFor(batch);
+                                }
+                                @* Both branches land on Adjust stock today. The
+                                   return-to-supplier screen is Module 4's, which is not built -
+                                   see AlertPresentation.ActionFor and the frontend doc. The
+                                   supplier name is shown where there is one, so the person can
+                                   at least see who to ring. *@
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   asp-page="/Stock/AdjustBatch" asp-route-id="@batch.BatchId">
+                                    Adjust stock
+                                </a>
+                                @if (action == ExpiredAction.ReturnToSupplier)
+                                {
+                                    <span class="pms-form-help d-block">
+                                        Supplied by @(batch.SupplierNameText ?? "a recorded supplier")
+                                    </span>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (!Model.Batches.IsEmpty)
+{
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        Model.Batches, "/Alerts/Expired"))" />
+}

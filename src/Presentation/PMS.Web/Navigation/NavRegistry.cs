@@ -15,12 +15,21 @@ namespace PMS.Web.Navigation;
 /// Route prefix that marks this entry active, so a child page such as <c>/users/create</c>
 /// still highlights "Users". Defaults to the page's own folder.
 /// </param>
+/// <param name="BadgeKey">
+/// Names a count the layout may render beside this entry, or null for no badge.
+///
+/// <para>A key rather than a number, because <see cref="NavRegistry"/> is static and a count is
+/// per request. The layout looks the key up in a dictionary it builds once per page; an entry
+/// whose key is absent simply renders no badge, so a module can add the item before it has
+/// anything to count.</para>
+/// </param>
 public sealed record NavItem(
     string Title,
     string Page,
     string Icon,
     UserRole[]? Roles = null,
-    string? MatchPrefix = null)
+    string? MatchPrefix = null,
+    string? BadgeKey = null)
 {
     public bool IsVisibleTo(UserRole? role) =>
         Roles is null || Roles.Length == 0 || (role is not null && Roles.Contains(role.Value));
@@ -62,6 +71,15 @@ public sealed record NavItem(
 /// person does not see, not a page they cannot reach — every page carries its own
 /// <c>[Authorize]</c>, and that is what actually stops them.
 /// </summary>
+/// <summary>
+/// The badge keys a nav item may carry. Constants rather than loose strings, so a typo is a
+/// build error instead of a badge that silently never appears.
+/// </summary>
+public static class NavBadges
+{
+    public const string Alerts = "alerts";
+}
+
 public static class NavRegistry
 {
     /// <summary>Sidebar for a signed-in pharmacy user, filtered by their role there.</summary>
@@ -91,13 +109,19 @@ public static class NavRegistry
         // what the stock cost, and the API withholds that rather than the page hiding it.
         new NavItem("Stock", "/Stock/Index", "layers", MatchPrefix: "/stock"),
 
+        // Module 6. Every role sees it: an Employee cannot clear expired stock, but knowing
+        // not to reach for it is exactly what counter staff should be told. The badge is what
+        // makes the feature get used rather than remembered — a number beside the word is
+        // noticed, and a page nobody opens is a page that may as well not exist.
+        new NavItem("Alerts", "/Alerts/Index", "alert", MatchPrefix: "/alerts",
+            BadgeKey: NavBadges.Alerts),
+
         new NavItem("Users", "/Users/Index", "people",
             Roles: new[] { UserRole.Admin }),
 
         new NavItem("My profile", "/Account", "person"),
 
-        // Module 4, 6 onwards: suppliers and purchases, alerts, the antibiotic register,
-        // reports.
+        // Module 4, 7 onwards: suppliers and purchases, the antibiotic register, reports.
     };
 
     /// <summary>Sidebar for a platform operator. An entirely separate list — no overlap.</summary>

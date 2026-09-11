@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using PMS.Web.Api;
+using PMS.Web.Navigation;
 using PMS.Web.Auth;
 using PMS.Web.Tenancy;
 using PMS.Web.Time;
@@ -48,6 +49,12 @@ builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITokenAccessor, CookieTokenAccessor>();
+
+// Module 6's sidebar badge. The layout renders on every page, so the counts behind it are
+// cached per pharmacy for a minute rather than fetched on each request — see
+// AlertBadgeProvider for why a slightly stale badge is the right trade.
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<AlertBadgeProvider>();
 
 // Which pharmacy a request is for, read from the address rather than typed by the person.
 var tenancy = new TenancyOptions();

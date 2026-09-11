@@ -335,6 +335,53 @@ public sealed class PmsApiClient
         SendAsync<CancelledSale>(
             HttpMethod.Post, $"api/sales/{saleId}/cancel", new CancelSalePayload(reason), ct);
 
+    // ── alerts (Module 6) ────────────────────────────────────────────────────────────────
+
+    public Task<ApiResult<AlertSummary>> GetAlertSummaryAsync(CancellationToken ct = default) =>
+        SendAsync<AlertSummary>(HttpMethod.Get, "api/alerts/summary", null, ct);
+
+    public Task<ApiResult<ApiPage<ExpiringBatch>>> GetExpiringAsync(
+        int? days = null, int page = 1, int pageSize = 25, CancellationToken ct = default)
+    {
+        var query = new List<string> { $"page={page}", $"pageSize={pageSize}" };
+
+        if (days is { } window)
+        {
+            query.Add($"days={window}");
+        }
+
+        return SendAsync<ApiPage<ExpiringBatch>>(
+            HttpMethod.Get, $"api/alerts/expiring?{string.Join('&', query)}", null, ct);
+    }
+
+    public Task<ApiResult<ApiPage<ExpiringBatch>>> GetExpiredAsync(
+        int page = 1, int pageSize = 25, CancellationToken ct = default) =>
+        SendAsync<ApiPage<ExpiringBatch>>(
+            HttpMethod.Get, $"api/alerts/expired?page={page}&pageSize={pageSize}", null, ct);
+
+    public Task<ApiResult<ApiPage<LowStockProduct>>> GetLowStockAsync(
+        ProductType? productType = null,
+        LowStockStatusFilter status = LowStockStatusFilter.All,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string>
+        {
+            $"status={status}",
+            $"page={page}",
+            $"pageSize={pageSize}",
+        };
+
+        if (productType is { } type)
+        {
+            query.Add($"productType={type}");
+        }
+
+        return SendAsync<ApiPage<LowStockProduct>>(
+            HttpMethod.Get, $"api/alerts/low-stock?{string.Join('&', query)}", null, ct);
+    }
+
     // ── plumbing ─────────────────────────────────────────────────────────────────────────
 
     private async Task<ApiResult<T>> SendAsync<T>(

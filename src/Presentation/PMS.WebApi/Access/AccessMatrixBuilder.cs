@@ -146,6 +146,7 @@ public sealed class AccessMatrixBuilder
         "CatalogMedicines" => "Reference catalogue",
         "Stock" => "Stock and batches",
         "Sales" => "Sales",
+        "Alerts" => "Alerts",
         _ => Humanise(controller),
     };
 
@@ -159,6 +160,7 @@ public sealed class AccessMatrixBuilder
         "Reference catalogue" => 5,
         "Stock and batches" => 6,
         "Sales" => 7,
+        "Alerts" => 8,
         _ => 9,
     };
 

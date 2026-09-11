@@ -14,7 +14,38 @@
                 as @StatusPresentation.ForRole(profile.Role).Text.ToLowerInvariant().
             </p>
         </div>
+        <div class="pms-page-header__actions">
+            <a class="btn btn-primary" asp-page="/Billing/Index">New sale</a>
+        </div>
     </div>
+
+    @* ── Module 6: what needs attention ──────────────────────────────────────────────── *@
+    @if (Model.AlertsUnavailable)
+    {
+        <partial name="_Alert" model="@AlertModel.Warning(
+            "Stock alerts could not be loaded just now. Everything else on this page is "
+            + "current.")" />
+    }
+    else
+    {
+        <section aria-label="Stock alerts" class="mb-4">
+            <div class="pms-alert-grid">
+                @foreach (var card in Model.Cards)
+                {
+                    <partial name="_AlertCard" model="@card" />
+                }
+            </div>
+
+            @if (!Model.Summary.HasAnything)
+            {
+                @* Said once, quietly, instead of four green ticks. *@
+                <p class="pms-form-help mt-2 mb-0">
+                    Nothing needs attention: every product is above its reorder level and
+                    nothing is within @Model.Summary.ExpiryWindowDays days of expiry.
+                </p>
+            }
+        </section>
+    }
 
     <div class="row g-3">
         <div class="col-lg-5">
@@ -53,13 +84,12 @@
                 <div class="pms-card__body">
                     <div class="pms-placeholder">
                         <p class="mb-2">
-                            <strong>This is where the working panels will go.</strong>
+                            <strong>More panels arrive with their modules.</strong>
                         </p>
                         <p class="mb-0">
-                            Stock levels, expiring batches, low-stock alerts, today&rsquo;s sales and
-                            outstanding purchase orders each arrive with their own module. For now
-                            this page exists to confirm that a signed-in session, the stored API
-                            token and the role-aware layout all work end to end.
+                            Stock alerts are above. Today&rsquo;s takings, outstanding purchase
+                            orders and the antibiotic register each arrive with Modules 4, 7
+                            and 8.
                         </p>
                     </div>
                 </div>
