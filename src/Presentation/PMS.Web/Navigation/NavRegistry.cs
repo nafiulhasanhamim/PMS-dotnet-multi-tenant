@@ -109,6 +109,20 @@ public static class NavRegistry
         // what the stock cost, and the API withholds that rather than the page hiding it.
         new NavItem("Stock", "/Stock/Index", "layers", MatchPrefix: "/stock"),
 
+        // Module 4. Admin and Pharmacist; an Employee sees neither. What the pharmacy pays for
+        // its goods, and to whom it owes money, is not counter information — which makes this
+        // area stricter than Stock, where an Employee can at least answer "have we got any?".
+        //
+        // Purchases first: recording a delivery is the daily act, and a supplier is usually
+        // reached by following a link from one.
+        new NavItem("Purchases", "/Purchases/Index", "truck",
+            Roles: new[] { UserRole.Admin, UserRole.Pharmacist },
+            MatchPrefix: "/purchases"),
+
+        new NavItem("Suppliers", "/Suppliers/Index", "handshake",
+            Roles: new[] { UserRole.Admin, UserRole.Pharmacist },
+            MatchPrefix: "/suppliers"),
+
         // Module 6. Every role sees it: an Employee cannot clear expired stock, but knowing
         // not to reach for it is exactly what counter staff should be told. The badge is what
         // makes the feature get used rather than remembered — a number beside the word is
@@ -138,7 +152,7 @@ public static class NavRegistry
 
         new NavItem("My profile", "/Account", "person"),
 
-        // Module 4 onwards: suppliers and purchases, then salary.
+        // Module 9 onwards: salary.
     };
 
     /// <summary>Sidebar for a platform operator. An entirely separate list — no overlap.</summary>

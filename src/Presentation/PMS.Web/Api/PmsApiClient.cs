@@ -815,4 +815,171 @@ public sealed class PmsApiClient
 
         return query.Count == 0 ? string.Empty : "?" + string.Join('&', query);
     }
+
+    // ── suppliers and purchases (Module 4) ───────────────────────────────────────────────
+    //
+    // Every endpoint here is Admin-or-Pharmacist, and payments are Admin-only. The pages do not
+    // check the role before calling: the API is the authority, a 403 comes back as an ordinary
+    // failed ApiResult, and the navigation simply does not offer the links. Duplicating the rule
+    // in this client would give it two places to drift.
+
+    public Task<ApiResult<ApiPage<SupplierListItem>>> GetSuppliersAsync(
+        string? search = null,
+        SupplierStatusFilter status = SupplierStatusFilter.Active,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string> { $"status={status}", $"page={page}", $"pageSize={pageSize}" };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+
+        return SendAsync<ApiPage<SupplierListItem>>(
+            HttpMethod.Get, "api/suppliers?" + string.Join('&', query), null, ct);
+    }
+
+    public Task<ApiResult<SupplierDetail>> GetSupplierAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<SupplierDetail>(HttpMethod.Get, $"api/suppliers/{id}", null, ct);
+
+    public Task<ApiResult<IReadOnlyList<SupplierOption>>> GetSupplierOptionsAsync(
+        CancellationToken ct = default) =>
+        SendAsync<IReadOnlyList<SupplierOption>>(
+            HttpMethod.Get, "api/suppliers/options", null, ct);
+
+    public Task<ApiResult<ApiPage<SupplierPurchaseRow>>> GetSupplierPurchasesAsync(
+        Guid id, int page = 1, int pageSize = 20, CancellationToken ct = default) =>
+        SendAsync<ApiPage<SupplierPurchaseRow>>(
+            HttpMethod.Get, $"api/suppliers/{id}/purchases?page={page}&pageSize={pageSize}",
+            null, ct);
+
+    public Task<ApiResult<ApiPage<SupplierPaymentRow>>> GetSupplierPaymentsAsync(
+        Guid id, int page = 1, int pageSize = 20, CancellationToken ct = default) =>
+        SendAsync<ApiPage<SupplierPaymentRow>>(
+            HttpMethod.Get, $"api/suppliers/{id}/payments?page={page}&pageSize={pageSize}",
+            null, ct);
+
+    public Task<ApiResult<IReadOnlyList<SupplierPurchaseRow>>> GetUnsettledPurchasesAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<IReadOnlyList<SupplierPurchaseRow>>(
+            HttpMethod.Get, $"api/suppliers/{id}/unsettled-purchases", null, ct);
+
+    public Task<ApiResult<SupplierDetail>> CreateSupplierAsync(
+        CreateSupplierPayload payload, CancellationToken ct = default) =>
+        SendAsync<SupplierDetail>(HttpMethod.Post, "api/suppliers", payload, ct);
+
+    public Task<ApiResult<SupplierDetail>> UpdateSupplierAsync(
+        Guid id, CreateSupplierPayload payload, CancellationToken ct = default) =>
+        SendAsync<SupplierDetail>(HttpMethod.Put, $"api/suppliers/{id}", payload, ct);
+
+    public Task<ApiResult<SupplierDetail>> SetSupplierActiveAsync(
+        Guid id, bool active, CancellationToken ct = default) =>
+        SendAsync<SupplierDetail>(
+            HttpMethod.Patch,
+            $"api/suppliers/{id}/" + (active ? "reactivate" : "deactivate"),
+            null, ct);
+
+    public Task<ApiResult<PaymentRecorded>> RecordPaymentAsync(
+        Guid supplierId, RecordPaymentPayload payload, CancellationToken ct = default) =>
+        SendAsync<PaymentRecorded>(
+            HttpMethod.Post, $"api/suppliers/{supplierId}/payments", payload, ct);
+
+    public Task<ApiResult<ApiPage<PurchaseListItem>>> GetPurchasesAsync(
+        Guid? supplierId = null,
+        DateOnly? from = null,
+        DateOnly? to = null,
+        PurchaseStatusFilter status = PurchaseStatusFilter.All,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string>
+        {
+            $"status={status}", $"page={page}", $"pageSize={pageSize}",
+        };
+
+        if (supplierId is { } supplier)
+        {
+            query.Add($"supplierId={supplier}");
+        }
+
+        var range = RangeQuery(from, to);
+
+        if (range.Length > 0)
+        {
+            query.Add(range);
+        }
+
+        return SendAsync<ApiPage<PurchaseListItem>>(
+            HttpMethod.Get, "api/purchases?" + string.Join('&', query), null, ct);
+    }
+
+    public Task<ApiResult<PurchaseDetail>> GetPurchaseAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<PurchaseDetail>(HttpMethod.Get, $"api/purchases/{id}", null, ct);
+
+    /// <summary>
+    /// Named for purchases explicitly: Module 5 already has a GetReturnableLinesAsync for sales,
+    /// and two methods a letter apart returning different shapes is a call site waiting to be
+    /// written wrongly.
+    /// </summary>
+    public Task<ApiResult<ReturnablePurchase>> GetPurchaseReturnableLinesAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<ReturnablePurchase>(
+            HttpMethod.Get, $"api/purchases/{id}/returnable-lines", null, ct);
+
+    /// <summary>
+    /// Which of these batches came from a recorded purchase. One request for a whole page of
+    /// batches, because per row is twenty-five round-trips on a screen that shows twenty-five.
+    /// </summary>
+    public Task<ApiResult<Dictionary<Guid, PurchaseOrigin>>> GetPurchaseOriginsAsync(
+        IReadOnlyCollection<Guid> batchIds, CancellationToken ct = default)
+    {
+        if (batchIds.Count == 0)
+        {
+            return Task.FromResult(ApiResult<Dictionary<Guid, PurchaseOrigin>>.Ok([]));
+        }
+
+        var query = string.Join('&', batchIds.Distinct().Select(id => $"batchId={id}"));
+
+        return SendAsync<Dictionary<Guid, PurchaseOrigin>>(
+            HttpMethod.Get, "api/purchases/origins?" + query, null, ct);
+    }
+
+    public Task<ApiResult<PurchaseCreated>> CreatePurchaseAsync(
+        CreatePurchasePayload payload, CancellationToken ct = default) =>
+        SendAsync<PurchaseCreated>(HttpMethod.Post, "api/purchases", payload, ct);
+
+    public Task<ApiResult<PurchaseReturned>> CreatePurchaseReturnAsync(
+        Guid purchaseId, CreatePurchaseReturnPayload payload, CancellationToken ct = default) =>
+        SendAsync<PurchaseReturned>(
+            HttpMethod.Post, $"api/purchases/{purchaseId}/returns", payload, ct);
+
+    /// <summary>
+    /// The supplier dues report. Module 8's page, completed by Module 4.
+    ///
+    /// <para>All time by default: "who do we owe" has no date range, and defaulting to a rolling
+    /// window would put a windowed figure under a column headed "outstanding".</para>
+    /// </summary>
+    public Task<ApiResult<SupplierDuesReport>> GetSupplierDuesAsync(
+        DateOnly? from = null,
+        DateOnly? to = null,
+        bool allTime = true,
+        CancellationToken ct = default)
+    {
+        var query = new List<string> { $"allTime={allTime.ToString().ToLowerInvariant()}" };
+
+        var range = RangeQuery(from, to);
+
+        if (range.Length > 0)
+        {
+            query.Add(range);
+        }
+
+        return SendAsync<SupplierDuesReport>(
+            HttpMethod.Get, "api/reports/supplier-dues?" + string.Join('&', query), null, ct);
+    }
 }

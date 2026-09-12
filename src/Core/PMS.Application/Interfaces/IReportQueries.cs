@@ -126,6 +126,30 @@ public interface IReportQueries
     Task<StockValuationSummaryDto> GetStockValuationSummaryAsync(
         ProductType? productType, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// What each supplier is owed. <b>Module 4's retrofit</b> — this report was specified with
+    /// Module 8 and could not be built until suppliers existed.
+    ///
+    /// <para><b>The outstanding figure comes from <c>ISupplierBalanceQueries</c> and is not
+    /// recomputed here.</b> That is the whole point: the supplier detail page reads the same
+    /// service, so the two agree by construction. A second implementation of the subtraction
+    /// would drift, and a pharmacy paying money against one of two disagreeing figures is the
+    /// worst outcome this module has available.</para>
+    ///
+    /// <para>Sorted by outstanding balance descending — biggest debt first, which is what the
+    /// report is opened for. Suppliers in credit sort last, below the ones owed nothing.</para>
+    /// </summary>
+    /// <param name="allTime">
+    /// True ignores the dates entirely. When a range IS applied it narrows the purchased, paid
+    /// and returned columns only; the outstanding column always covers all time, because a debt
+    /// is a fact about now rather than about a window.
+    /// </param>
+    Task<SupplierDuesReportDto> GetSupplierDuesAsync(
+        DateOnly? from,
+        DateOnly? to,
+        bool allTime,
+        CancellationToken cancellationToken = default);
+
     // ── Streamed exports ─────────────────────────────────────────────────────────────────
     //
     // The paginated reports export their whole filtered set rather than one page, streamed for

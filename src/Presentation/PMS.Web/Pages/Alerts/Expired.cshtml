@@ -66,22 +66,47 @@
                         {
                             <td class="text-end">
                                 @{
-                                    var action = AlertPresentation.ActionFor(batch);
+                                    Model.Origins.TryGetValue(batch.BatchId, out var origin);
+                                    var action = AlertPresentation.ActionFor(origin);
                                 }
-                                @* Both branches land on Adjust stock today. The
-                                   return-to-supplier screen is Module 4's, which is not built -
-                                   see AlertPresentation.ActionFor and the frontend doc. The
-                                   supplier name is shown where there is one, so the person can
-                                   at least see who to ring. *@
-                                <a class="btn btn-sm btn-outline-secondary"
-                                   asp-page="/Stock/AdjustBatch" asp-route-id="@batch.BatchId">
-                                    Adjust stock
-                                </a>
-                                @if (action == ExpiredAction.ReturnToSupplier)
+                                @*
+                                    Module 4's retrofit. A batch that arrived on a recorded
+                                    purchase can go back to the supplier on that bill; one entered
+                                    through Add Stock has no bill to send it on, so the only
+                                    honest option is to write it off.
+
+                                    Both are offered where both apply - returning is the better
+                                    outcome, but a supplier who refuses the return still leaves
+                                    somebody needing to clear the shelf.
+                                *@
+                                @if (action == ExpiredAction.ReturnToSupplier && origin is not null)
                                 {
-                                    <span class="pms-form-help d-block">
-                                        Supplied by @(batch.SupplierNameText ?? "a recorded supplier")
+                                    <a class="btn btn-sm btn-primary"
+                                       asp-page="/Purchases/Return" asp-route-id="@origin.PurchaseId"
+                                       asp-route-line="@origin.PurchaseLineId">
+                                        Return to supplier
+                                    </a>
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       asp-page="/Stock/AdjustBatch" asp-route-id="@batch.BatchId">
+                                        Adjust stock
+                                    </a>
+                                    <span class="pms-help d-block">
+                                        Arrived on @origin.PurchaseNumber from @origin.SupplierName
                                     </span>
+                                }
+                                else
+                                {
+                                    <a class="btn btn-sm btn-outline-secondary"
+                                       asp-page="/Stock/AdjustBatch" asp-route-id="@batch.BatchId">
+                                        Adjust stock
+                                    </a>
+                                    @if (!string.IsNullOrWhiteSpace(batch.SupplierNameText))
+                                    {
+                                        <span class="pms-help d-block">
+                                            Supplied by @batch.SupplierNameText &mdash; entered
+                                            without a purchase, so there is no bill to return it on
+                                        </span>
+                                    }
                                 }
                             </td>
                         }

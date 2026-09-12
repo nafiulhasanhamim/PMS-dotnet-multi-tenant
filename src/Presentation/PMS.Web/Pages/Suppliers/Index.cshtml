@@ -1,0 +1,154 @@
+@page "/suppliers"
+@model PMS.Web.Pages.Suppliers.IndexModel
+@{
+    ViewData["Title"] = "Suppliers";
+    var suppliers = Model.Suppliers;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Suppliers</h1>
+        <p class="pms-page-header__subtitle">
+            The distributors you buy from, and what is still owed to each.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Suppliers/Edit">Add supplier</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="report-filters">
+    <div class="report-filter">
+        <label class="pms-form-label" for="q">Search</label>
+        <input type="search" class="form-control" id="q" name="q" value="@Model.Search"
+               placeholder="Name or phone" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="status">Status</label>
+        <select class="form-select" id="status" name="status">
+            <option value="Active" selected="@(Model.Status == SupplierStatusFilter.Active)">
+                Active
+            </option>
+            <option value="Inactive" selected="@(Model.Status == SupplierStatusFilter.Inactive)">
+                Inactive
+            </option>
+            <option value="All" selected="@(Model.Status == SupplierStatusFilter.All)">All</option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Search</button>
+        @if (Model.HasFilters)
+        {
+            <a class="btn btn-link" asp-page="/Suppliers/Index">Clear</a>
+        }
+    </div>
+</form>
+
+@if (suppliers.IsEmpty)
+{
+    @if (Model.HasFilters)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No suppliers match",
+            "Try a different name or phone number, or clear the filters."))" />
+    }
+    else
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No suppliers yet",
+            "Add the distributors you buy from.",
+            "Add supplier",
+            "/Suppliers/Edit"))" />
+    }
+}
+else
+{
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <caption class="visually-hidden">
+                Suppliers with their outstanding balances.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Contact person</th>
+                    <th scope="col">Phone</th>
+                    <th scope="col">Company</th>
+                    <th scope="col" class="text-end">Outstanding</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var supplier in suppliers.Data)
+                {
+                    <tr class="@(supplier.IsActive ? null : "pms-row-inactive")">
+                        <td>
+                            <a asp-page="/Suppliers/Detail" asp-route-id="@supplier.Id"
+                               class="pms-cell-link">
+                                <span class="pms-cart__name">@supplier.Name</span>
+                            </a>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(supplier.ContactPerson))
+                            {
+                                @supplier.ContactPerson
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        <td>@supplier.Phone</td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(supplier.Company))
+                            {
+                                @supplier.Company
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        @*
+                            Red when money is owed, muted when nothing is. An overpayment shows
+                            as a negative with its own label rather than being clamped to zero:
+                            the supplier owes the pharmacy, and hiding that would lose a real
+                            credit.
+                        *@
+                        <td class="text-end">
+                            @if (supplier.Balance.IsOwing)
+                            {
+                                <span class="figure-negative">
+                                    @Money.Format(supplier.Balance.Outstanding)
+                                </span>
+                            }
+                            else if (supplier.Balance.IsOverpaid)
+                            {
+                                <span class="figure-positive">
+                                    @Money.Signed(supplier.Balance.Outstanding)
+                                </span>
+                                @* "In credit", not "overpaid": returning goods after paying
+                                   produces the same state without anybody overpaying. *@
+                                <span class="pms-help">in credit</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">@Money.Format(0m)</span>
+                            }
+                        </td>
+                        <td>
+                            @{ var status = StatusPresentation.ForMembership(supplier.IsActive); }
+                            <span class="pms-badge @status.Css">@status.Text</span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        suppliers, "/Suppliers/Index", Model.RouteValues))" />
+}

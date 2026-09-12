@@ -38,6 +38,9 @@ PRINT ''
 -- 10. 010_ProductIdentityIncludesDosageForm.sql   (identity gains dosage form; needs 007)
 -- 11. 011_CreateSalesTables.sql   (sales, lines, returns, invoice counter; needs 002, 003, 007, 008)
 -- 12. 012_AddAntibioticPrescriptionMode.sql   (per-tenant antibiotic mode; needs 002)
+-- 13. 013_CreateSupplierAndPurchaseTables.sql   (suppliers, purchases, payments, returns,
+--     purchase counter, and the Batches.SupplierId FK Module 3 left room for; needs 002, 003, 007, 008)
+-- 14. 014_AddSupplierPaymentDirection.sql   (supplier refunds and write-offs; needs 013)
 
 PRINT ''
 PRINT '============================================'
@@ -55,6 +58,8 @@ PRINT '9. Run 009_AddProductSetupComplete.sql   (product setup completeness)'
 PRINT '10. Run 010_ProductIdentityIncludesDosageForm.sql   (identity + dosage form)'
 PRINT '11. Run 011_CreateSalesTables.sql   (billing: sales, lines, returns)'
 PRINT '12. Run 012_AddAntibioticPrescriptionMode.sql   (antibiotic mode setting)'
+PRINT '13. Run 013_CreateSupplierAndPurchaseTables.sql   (suppliers, purchases, payments, returns)'
+PRINT '14. Run 014_AddSupplierPaymentDirection.sql   (supplier refunds and write-offs)'
 PRINT ''
 PRINT 'Or enable SQLCMD mode in SSMS (Query > SQLCMD Mode)'
 PRINT 'and uncomment the :r commands above to run all at once.'

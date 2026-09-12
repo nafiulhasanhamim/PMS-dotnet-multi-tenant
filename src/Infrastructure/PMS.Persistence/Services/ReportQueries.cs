@@ -40,13 +40,18 @@ public sealed class ReportQueries : IReportQueries
 {
     private readonly ApplicationDbContext _context;
     private readonly IOperatingExpenses _expenses;
+    private readonly ISupplierBalanceQueries _supplierBalances;
     private readonly IDateTime _clock;
 
     public ReportQueries(
-        ApplicationDbContext context, IOperatingExpenses expenses, IDateTime clock)
+        ApplicationDbContext context,
+        IOperatingExpenses expenses,
+        ISupplierBalanceQueries supplierBalances,
+        IDateTime clock)
     {
         _context = context;
         _expenses = expenses;
+        _supplierBalances = supplierBalances;
         _clock = clock;
     }
 
@@ -938,6 +943,54 @@ public sealed class ReportQueries : IReportQueries
             row.Value,
             row.ExpiredQuantity,
             row.ExpiredValue);
+
+    // ── Supplier dues (Module 4 retrofit) ────────────────────────────────────────────────
+
+    /// <inheritdoc />
+    public async Task<SupplierDuesReportDto> GetSupplierDuesAsync(
+        DateOnly? from,
+        DateOnly? to,
+        bool allTime,
+        CancellationToken cancellationToken = default)
+    {
+        var suppliers = await _context.Suppliers
+            .AsNoTracking()
+            .Select(s => new { s.Id, s.Name, s.Company, s.Phone, s.IsActive })
+            .ToListAsync(cancellationToken);
+
+        if (suppliers.Count == 0)
+        {
+            return SupplierDuesReportDto.Empty;
+        }
+
+        var ids = suppliers.Select(s => s.Id).ToList();
+
+        // THE outstanding balance, from the one service that computes it. Not reimplemented here
+        // — see IReportQueries. This is also why the figures on this report and on a supplier's
+        // own page cannot disagree: they are literally the same call.
+        var balances = await _supplierBalances.GetBalancesAsync(ids, cancellationToken);
+
+        // Activity inside the requested window. When the report covers all time these ARE the
+        // balances, so the second round-trip is skipped rather than asking for the same numbers
+        // a second time.
+        var activity = allTime || (from is null && to is null)
+            ? balances
+            : await _supplierBalances.GetActivityAsync(from, to, cancellationToken);
+
+        var rows = suppliers
+            .Select(s => new SupplierDuesRowDto(
+                s.Id, s.Name, s.Company, s.Phone, s.IsActive,
+                balances.TryGetValue(s.Id, out var b) ? b : SupplierBalance.Zero,
+                activity.TryGetValue(s.Id, out var a) ? a : SupplierBalance.Zero))
+            // Biggest debt first, which is what somebody opens this for. Suppliers in credit sort
+            // below those owed nothing, where a negative belongs.
+            .OrderByDescending(r => r.Balance.Outstanding)
+            .ThenBy(r => r.SupplierName)
+            .ToList();
+
+        return new SupplierDuesReportDto(
+            allTime ? null : from, allTime ? null : to, allTime, rows);
+    }
 
     // ── Projection shapes ────────────────────────────────────────────────────────────────
 

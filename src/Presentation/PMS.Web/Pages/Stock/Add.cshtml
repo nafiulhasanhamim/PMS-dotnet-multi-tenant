@@ -238,12 +238,29 @@ else
                 <h2 class="h6 mb-3">Where it came from</h2>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="pms-form-label" asp-for="Input.SupplierNameText">
+                        <label class="pms-form-label" asp-for="Input.SupplierId">
                             Supplier
                         </label>
-                        <input class="form-control" asp-for="Input.SupplierNameText" />
-                        <div class="pms-form-help">
-                            Free text for now — becomes a supplier record in the Purchase module.
+                        @*
+                            A dropdown since Module 4, where it was free text before. Still
+                            optional: this screen exists for opening inventory, free samples and
+                            corrections, none of which has a bill behind it. A delivery that DOES
+                            have one belongs on New purchase, which records what is owed.
+                        *@
+                        <select class="form-select" asp-for="Input.SupplierId">
+                            <option value="">No supplier recorded</option>
+                            @foreach (var supplier in Model.Suppliers)
+                            {
+                                <option value="@supplier.Id"
+                                        selected="@(Model.Input.SupplierId == supplier.Id)">
+                                    @supplier.Label
+                                </option>
+                            }
+                        </select>
+                        <div class="pms-help">
+                            Buying against a bill?
+                            <a asp-page="/Purchases/Create">Record a purchase</a> instead &mdash;
+                            it creates the batch and tracks what you owe.
                         </div>
                     </div>
                     <div class="col-md-6">

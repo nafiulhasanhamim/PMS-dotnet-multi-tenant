@@ -47,8 +47,17 @@ public static class AlertPresentation
     /// supplier id either. The branch is written out so that wiring it up is a one-line change
     /// rather than an archaeology exercise; see the frontend doc.</para>
     /// </summary>
-    public static ExpiredAction ActionFor(ExpiringBatch batch) =>
-        batch.CameFromARecordedPurchase
+    /// <summary>
+    /// What the expired-stock page offers for a batch.
+    ///
+    /// <para><b>Takes the purchase origin rather than reading the batch's supplier id.</b> Those
+    /// were the same question until Module 4: now Add Stock can name a supplier on a batch entered
+    /// by hand, and such a batch has a supplier but no bill to send anything back against. Asking
+    /// whether a purchase line references the batch is the only version of this that stays
+    /// true.</para>
+    /// </summary>
+    public static ExpiredAction ActionFor(PurchaseOrigin? origin) =>
+        origin is not null
             ? ExpiredAction.ReturnToSupplier
             : ExpiredAction.AdjustStock;
 }
@@ -59,6 +68,6 @@ public enum ExpiredAction
     /// <summary>Write it off through a stock adjustment.</summary>
     AdjustStock = 0,
 
-    /// <summary>Hand it back on the purchase it arrived on. Awaiting Module 4.</summary>
+    /// <summary>Hand it back on the purchase it arrived on.</summary>
     ReturnToSupplier = 1,
 }

@@ -1,0 +1,240 @@
+@page "/purchases/{id:guid}"
+@model PMS.Web.Pages.Purchases.DetailModel
+@inject DisplayTimeZone Clock
+@{
+    var purchase = Model.Purchase;
+    ViewData["Title"] = purchase.PurchaseNumber;
+    var status = StatusPresentation.ForPurchase(purchase.Status);
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>
+            @purchase.PurchaseNumber
+            <span class="pms-badge @status.Css">@status.Text</span>
+        </h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Suppliers/Detail" asp-route-id="@purchase.SupplierId">
+                @purchase.SupplierName
+            </a>
+            &middot; @purchase.PurchaseDate.ToString("d MMMM yyyy")
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        @if (Model.IsAdmin && purchase.Due > 0)
+        {
+            <a class="btn btn-primary" asp-page="/Suppliers/RecordPayment"
+               asp-route-id="@purchase.SupplierId" asp-route-purchase="@purchase.Id">
+                Record payment
+            </a>
+        }
+        @if (Model.CanReturn)
+        {
+            <a class="btn btn-outline-secondary" asp-page="/Purchases/Return"
+               asp-route-id="@purchase.Id">Return items</a>
+        }
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+@if (TempData["PurchaseWarnings"] is string warnings)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(warnings)" />
+}
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="stat-cards">
+    <div class="stat-card">
+        <span class="stat-card__label">Total</span>
+        <span class="stat-card__value">@Money.Format(purchase.TotalAmount)</span>
+        <span class="stat-card__note">
+            @Money.Count(purchase.Lines.Count) item@(purchase.Lines.Count == 1 ? "" : "s")
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Paid</span>
+        <span class="stat-card__value">@Money.Format(purchase.AmountPaid)</span>
+        <span class="stat-card__note">against this bill</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Returned</span>
+        <span class="stat-card__value">@Money.Format(purchase.ReturnedAmount)</span>
+        <span class="stat-card__note">goods sent back</span>
+    </div>
+    <div class="stat-card @(purchase.Due > 0 ? "stat-card--danger" : "stat-card--emphasis")">
+        <span class="stat-card__label">Due</span>
+        <span class="stat-card__value @Money.Tone(purchase.Due)">
+            @Money.Signed(purchase.Due)
+        </span>
+        <span class="stat-card__note">
+            @if (purchase.HasGeneralPayment)
+            {
+                <text>
+                    after @Money.Format(purchase.GeneralPaymentApplied) from general payments
+                </text>
+            }
+            else if (purchase.HasCreditSettled)
+            {
+                <text>
+                    after @Money.Format(purchase.CreditSettled) of credit settled
+                </text>
+            }
+            else if (purchase.IsOverpaid)
+            {
+                <text>in credit on this bill</text>
+            }
+            else
+            {
+                <text>total less paid less returned</text>
+            }
+        </span>
+    </div>
+</div>
+
+<section class="report-section">
+    <h2 class="h6">Items delivered</h2>
+
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <thead>
+                <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col">Batch</th>
+                    <th scope="col">Expiry</th>
+                    <th scope="col" class="text-end">Quantity</th>
+                    <th scope="col" class="text-end">Cost per unit</th>
+                    <th scope="col" class="text-end">Line total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in purchase.Lines)
+                {
+                    <tr>
+                        <td>
+                            <a asp-page="/Stock/Detail" asp-route-productId="@line.ProductId"
+                               class="pms-cell-link">
+                                <span class="pms-cart__name">@line.BrandName</span>
+                                @if (!string.IsNullOrWhiteSpace(line.GenericName))
+                                {
+                                    <span class="pms-help">@line.GenericName</span>
+                                }
+                            </a>
+                        </td>
+                        <td>@line.BatchNumber</td>
+                        <td>
+                            @if (line.ExpiryDate is { } expiry)
+                            {
+                                @expiry.ToString("d MMM yyyy")
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            @line.FormattedQuantity
+                            @*
+                                What went back, shown beside the delivered figure rather than
+                                subtracted from it: the quantity column is what the BILL said,
+                                and it must not move.
+                            *@
+                            @if (line.HasReturns)
+                            {
+                                <span class="pms-help figure-negative">
+                                    Returned: @line.FormattedReturned
+                                </span>
+                            }
+                        </td>
+                        <td class="text-end text-muted">
+                            @Money.PerUnit(line.PurchasePricePerBaseUnit)
+                            <span class="pms-help">per @line.BaseUnitName</span>
+                        </td>
+                        <td class="text-end">@Money.Format(line.LineTotal)</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th scope="row" colspan="5">Total</th>
+                    <td class="text-end">@Money.Format(purchase.TotalAmount)</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</section>
+
+<section class="report-section">
+    <h2 class="h6">Payments against this purchase</h2>
+
+    @if (purchase.HasGeneralPayment)
+    {
+        @*
+            Why this bill can read as covered while the table below is empty. Said here rather
+            than left to be inferred from two figures that appear to disagree.
+        *@
+        <partial name="_Alert" model="@AlertModel.Info(
+            Money.Format(purchase.GeneralPaymentApplied)
+            + " of this bill is covered by payments recorded against the supplier's account "
+            + "rather than against this purchase, and those are listed on the supplier's page. "
+            + "Nothing is stored saying they settled this bill \u2014 it is how unallocated "
+            + "payments are shown against the oldest bills still owing.")" />
+    }
+
+    @if (purchase.Payments.Count == 0)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "Nothing paid against this bill directly",
+            "General payments to this supplier reduce their overall balance and are listed on "
+            + "their own page rather than here."))" />
+    }
+    else
+    {
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col" class="text-end">Amount</th>
+                        <th scope="col">Method</th>
+                        <th scope="col">Recorded by</th>
+                        <th scope="col">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var payment in purchase.Payments)
+                    {
+                        <tr>
+                            <td>@payment.PaymentDate.ToString("d MMM yyyy")</td>
+                            <td class="text-end">@Money.Format(payment.Amount)</td>
+                            <td>@payment.PaymentMethod</td>
+                            <td>@(payment.RecordedByName ?? string.Empty)</td>
+                            <td>@(payment.Notes ?? string.Empty)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<div class="report-note">
+    <h2 class="h6">About this record</h2>
+    <p class="mb-2">
+        Recorded by @(purchase.CreatedByName ?? "someone no longer listed")
+        on @Clock.ToLocal(purchase.CreatedOnUtc).ToString("d MMM yyyy, HH:mm").
+        @if (!string.IsNullOrWhiteSpace(purchase.Notes))
+        {
+            <text>Notes: @purchase.Notes</text>
+        }
+    </p>
+    <p class="mb-0">
+        <strong>A recorded purchase cannot be edited or deleted.</strong> It states what the
+        supplier delivered and invoiced, and both the stock and the balance have moved on that
+        basis. To correct it: send goods back with <em>Return items</em>, or fix a counting error
+        with a stock adjustment on the batch. Either leaves a record of the correction.
+    </p>
+</div>

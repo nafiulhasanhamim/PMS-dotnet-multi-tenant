@@ -10,6 +10,7 @@ using PMS.Application.Features.Reports.Queries.GetMonthlySalesReport;
 using PMS.Application.Features.Reports.Queries.GetSalesByProductType;
 using PMS.Application.Features.Reports.Queries.GetSalesPerUser;
 using PMS.Application.Features.Reports.Queries.GetStockValuation;
+using PMS.Application.Features.Reports.Queries.GetSupplierDues;
 using PMS.Application.Features.Reports.Queries.GetTopSellingProducts;
 using PMS.Application.Interfaces;
 using PMS.Domain.Enums;
@@ -473,6 +474,95 @@ public class ReportsController : ApiControllerBase
                 CsvField.Money(row.TotalValueAtCost),
                 CsvField.Number(row.ExpiredQuantityInBaseUnits),
                 CsvField.Money(row.ExpiredValueAtCost)));
+        }
+
+        await writer.FlushAsync(cancellationToken);
+    }
+
+    // ── Supplier dues (Module 4 retrofit) ────────────────────────────────────────────────
+
+    /// <summary>
+    /// What each supplier is owed: purchased, paid, returned and outstanding.
+    ///
+    /// <para><b>This report shipped disabled with Module 8</b> and is completed here, because it
+    /// needs purchases and supplier payments — which did not exist until Module 4. It was left as
+    /// a visibly disabled card rather than a page returning zeros, on the grounds that a money
+    /// report confidently saying "0.00 owed" is one somebody would pay a supplier on.</para>
+    ///
+    /// <para><b>Defaults to all time</b>, unlike every other report here. "Who do we owe" has no
+    /// date range; supplying one narrows the purchased, paid and returned columns while the
+    /// outstanding column continues to cover everything, because a debt is a fact about now.</para>
+    ///
+    /// <para>The outstanding figure is read from <c>ISupplierBalanceQueries</c> — the same service
+    /// the supplier detail page calls — so the two cannot disagree.</para>
+    /// </summary>
+    [HttpGet("supplier-dues")]
+    [ProducesResponseType(typeof(SupplierDuesReportDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSupplierDues(
+        [FromQuery] DateOnly? dateFrom = null,
+        [FromQuery] DateOnly? dateTo = null,
+        [FromQuery] bool allTime = true,
+        CancellationToken cancellationToken = default)
+        => HandleResult(await Mediator.Send(
+            new GetSupplierDuesQuery(dateFrom, dateTo, allTime), cancellationToken));
+
+    /// <summary>
+    /// The dues report as CSV. One row per supplier — bounded by how many a pharmacy buys from,
+    /// so it exports from the same method the page uses rather than streaming.
+    /// </summary>
+    [HttpGet("supplier-dues/export")]
+    [Produces("text/csv")]
+    public async Task ExportSupplierDues(
+        [FromQuery] DateOnly? dateFrom = null,
+        [FromQuery] DateOnly? dateTo = null,
+        [FromQuery] bool allTime = true,
+        CancellationToken cancellationToken = default)
+    {
+        var report = await _reports.GetSupplierDuesAsync(
+            allTime ? null : dateFrom, allTime ? null : dateTo, allTime, cancellationToken);
+
+        await using var writer = await BeginCsvAsync(
+            "supplier-dues-" + (report.AllTime
+                ? $"all-time-{_clock.UtcDateToday():yyyy-MM-dd}"
+                : $"{report.From:yyyy-MM-dd}-to-{report.To:yyyy-MM-dd}"),
+            "Supplier dues",
+            report.AllTime
+                ? "Period,All time"
+                : $"Period,{report.From:yyyy-MM-dd} to {report.To:yyyy-MM-dd}",
+            cancellationToken);
+
+        await writer.WriteLineAsync(
+            "Supplier,Company,Phone,Status,Purchased,Paid,Returned,Outstanding");
+
+        foreach (var row in report.Rows)
+        {
+            await writer.WriteLineAsync(string.Join(',',
+                CsvField.Text(row.SupplierName),
+                CsvField.Text(row.Company),
+                CsvField.Text(row.Phone),
+                row.IsActive ? "Active" : "Inactive",
+                CsvField.Money(row.PeriodActivity.TotalPurchased),
+                CsvField.Money(row.PeriodActivity.TotalPaid),
+                CsvField.Money(row.PeriodActivity.TotalReturned),
+                CsvField.Money(row.Balance.Outstanding)));
+        }
+
+        await writer.WriteLineAsync();
+        await writer.WriteLineAsync(string.Join(',',
+            "Total", string.Empty, string.Empty, string.Empty,
+            CsvField.Money(report.TotalPurchased),
+            CsvField.Money(report.TotalPaid),
+            CsvField.Money(report.TotalReturned),
+            CsvField.Money(report.TotalOutstanding)));
+
+        if (!report.AllTime)
+        {
+            // The caveat travels with the file, because a CSV that has been emailed on is read
+            // without the screen that explained it.
+            await writer.WriteLineAsync();
+            await writer.WriteLineAsync(CsvField.Text(
+                "Note: purchased, paid and returned cover the selected period. Outstanding is "
+                + "the full amount owed as at today, which is what is actually payable."));
         }
 
         await writer.FlushAsync(cancellationToken);

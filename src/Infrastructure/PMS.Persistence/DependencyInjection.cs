@@ -79,6 +79,15 @@ public static class DependencyInjection
         services.AddScoped<IAntibioticQueries, AntibioticQueries>();
         services.AddScoped<ITenantSettings, TenantSettings>();
 
+        // Module 4: suppliers and purchases. The balance service is registered before the two
+        // query services because both depend on it — and it is the only place the outstanding
+        // formula exists, which is what stops the supplier page and Module 8's dues report
+        // drifting apart.
+        services.AddScoped<ISupplierBalanceQueries, SupplierBalanceQueries>();
+        services.AddScoped<ISupplierQueries, SupplierQueries>();
+        services.AddScoped<IPurchaseQueries, PurchaseQueries>();
+        services.AddScoped<IPurchaseNumberGenerator, PurchaseNumberGenerator>();
+
         // Module 8: the reports. OperatingExpenses is the Module 9 seam - it returns zero today,
         // and is registered and called for real so that finishing Module 9 means replacing this
         // one class rather than editing eight reports.

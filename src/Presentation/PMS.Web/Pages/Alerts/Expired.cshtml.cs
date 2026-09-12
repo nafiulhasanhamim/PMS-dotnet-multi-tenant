@@ -32,6 +32,15 @@ public class ExpiredModel : PmsPageModel
     /// reach for expired stock is the point — but the actions go to screens they cannot use, so
     /// offering them would be an invitation to an access-denied page.
     /// </summary>
+    /// <summary>
+    /// Which batches on this page came from a recorded purchase, keyed by batch id.
+    ///
+    /// <para>Module 4's retrofit. One request for the whole page rather than one per row, and
+    /// absent means "entered by hand" rather than "unknown".</para>
+    /// </summary>
+    public IReadOnlyDictionary<Guid, PurchaseOrigin> Origins { get; private set; }
+        = new Dictionary<Guid, PurchaseOrigin>();
+
     public bool CanAct { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken ct)
@@ -46,6 +55,21 @@ public class ExpiredModel : PmsPageModel
         }
 
         Batches = result.Value ?? ApiPage<ExpiringBatch>.Empty;
+
+        // Module 4's retrofit: a batch that arrived on a recorded purchase can be handed back on
+        // that bill; one entered through Add Stock can only be written off. Asked for the whole
+        // page at once, and a failure here leaves every row offering "Adjust stock", which is
+        // the correct fallback rather than a broken page.
+        if (CanAct && Batches.Data.Count > 0)
+        {
+            var origins = await _api.GetPurchaseOriginsAsync(
+                Batches.Data.Select(b => b.BatchId).ToList(), ct);
+
+            if (origins.IsSuccess && origins.Value is { } map)
+            {
+                Origins = map;
+            }
+        }
 
         return Page();
     }

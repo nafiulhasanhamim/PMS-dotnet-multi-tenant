@@ -1,3 +1,4 @@
+using PMS.Application.Interfaces;
 using PMS.Domain.Enums;
 using PMS.SharedKernel.Grid;
 
@@ -199,3 +200,55 @@ public sealed record DeadStockPageDto(
 public sealed record StockValuationPageDto(
     GridResult<StockValuationRowDto> Rows,
     StockValuationSummaryDto Summary);
+
+// ── Supplier dues (Module 4 retrofit) ────────────────────────────────────────────────────
+//
+// This report could not exist until Module 4 did. It was specified with Module 8 and shipped as
+// a deliberately disabled card on the reports landing page rather than as a page returning
+// zeros — a money report that says "0.00 owed" is one somebody would act on.
+
+/// <param name="Balance">
+/// Straight from <c>ISupplierBalanceQueries</c>, the same service the supplier detail page reads.
+/// Not recomputed here: two implementations of this subtraction would eventually disagree, and at
+/// that point neither figure can be trusted.
+/// </param>
+/// <param name="PeriodActivity">
+/// Purchases, payments and returns falling inside the requested date range. Equal to
+/// <paramref name="Balance"/> when the report covers all time, which is the default.
+/// </param>
+public sealed record SupplierDuesRowDto(
+    Guid SupplierId,
+    string SupplierName,
+    string? Company,
+    string Phone,
+    bool IsActive,
+    SupplierBalance Balance,
+    SupplierBalance PeriodActivity);
+
+/// <param name="AllTime">
+/// Whether the activity columns cover everything. <b>The outstanding column always does</b> — what
+/// a supplier is owed is a fact about now, not about a window, and a "balance" computed from one
+/// month's purchases against one month's payments is not money anybody owes anybody. The page
+/// labels the two differently when a range is applied.
+/// </param>
+public sealed record SupplierDuesReportDto(
+    DateOnly? From,
+    DateOnly? To,
+    bool AllTime,
+    IReadOnlyList<SupplierDuesRowDto> Rows)
+{
+    public static SupplierDuesReportDto Empty { get; } = new(null, null, true, []);
+
+    public decimal TotalPurchased => Rows.Sum(r => r.PeriodActivity.TotalPurchased);
+
+    public decimal TotalPaid => Rows.Sum(r => r.PeriodActivity.TotalPaid);
+
+    public decimal TotalReturned => Rows.Sum(r => r.PeriodActivity.TotalReturned);
+
+    /// <summary>The sum of what is owed. Suppliers in credit reduce it, which is correct.</summary>
+    public decimal TotalOutstanding => Rows.Sum(r => r.Balance.Outstanding);
+
+    public int OwingCount => Rows.Count(r => r.Balance.IsOwing);
+
+    public int OverpaidCount => Rows.Count(r => r.Balance.IsOverpaid);
+}

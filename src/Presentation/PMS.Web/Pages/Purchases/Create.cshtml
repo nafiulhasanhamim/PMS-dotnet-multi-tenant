@@ -1,0 +1,304 @@
+@page "/purchases/create"
+@model PMS.Web.Pages.Purchases.CreateModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "New purchase";
+
+    // The product catalogue goes to the browser once, as JSON, so each row can rebuild its own
+    // two unit dropdowns from the product's factors. Camel-cased because the script reads it.
+    var productsJson = JsonSerializer.Serialize(
+        Model.Products,
+        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>New purchase</h1>
+        <p class="pms-page-header__subtitle">
+            One row per product that arrived. Each row becomes a batch, so every row needs its own
+            batch number.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="post" data-pms-guard novalidate id="purchase-form"
+      data-products="@productsJson">
+    <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+    <section class="pms-card mb-4">
+        <div class="pms-card__body">
+            <div class="row">
+                <div class="col-md-5 mb-4">
+                    <label class="pms-form-label" asp-for="Input.SupplierId">
+                        Supplier<span class="pms-required" aria-hidden="true">*</span>
+                    </label>
+                    @*
+                        A plain select with a text filter above it rather than a JS combo box:
+                        a pharmacy has tens of suppliers, not thousands, and a native select
+                        keeps keyboard and screen-reader behaviour for free.
+                    *@
+                    <input type="search" class="form-control mb-2" id="supplier-filter"
+                           placeholder="Filter suppliers" aria-label="Filter suppliers" />
+                    <select class="form-select" asp-for="Input.SupplierId" id="supplier-select"
+                            required>
+                        <option value="">Choose a supplier</option>
+                        @foreach (var supplier in Model.Suppliers)
+                        {
+                            <option value="@supplier.Id"
+                                    selected="@(Model.Input.SupplierId == supplier.Id)">
+                                @supplier.Label
+                            </option>
+                        }
+                    </select>
+                    <span class="pms-field-error" asp-validation-for="Input.SupplierId"></span>
+
+                    @if (Model.Suppliers.Count == 0)
+                    {
+                        <span class="pms-help">
+                            No active suppliers yet &mdash;
+                            <a asp-page="/Suppliers/Edit">add one first</a>.
+                        </span>
+                    }
+                </div>
+
+                <div class="col-md-3 mb-4">
+                    <label class="pms-form-label" asp-for="Input.PurchaseDate">Purchase date</label>
+                    <input class="form-control" asp-for="Input.PurchaseDate" type="date" />
+                    <span class="pms-help">The date on the supplier's bill.</span>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <label class="pms-form-label" asp-for="Input.Notes">Notes</label>
+                    <input class="form-control" asp-for="Input.Notes" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="pms-card mb-4">
+        <div class="pms-card__body">
+            <div class="pms-page-header">
+                <div>
+                    <h2 class="h6">Items</h2>
+                </div>
+                <div class="pms-page-header__actions">
+                    <button type="button" class="btn btn-outline-secondary" id="add-line">
+                        Add item
+                    </button>
+                </div>
+            </div>
+
+            <span class="pms-field-error" asp-validation-for="Input.Lines"></span>
+
+            <div id="purchase-lines" class="purchase-lines">
+                @* Rows are cloned from the template below; the server renders whatever came back
+                   on a failed post so nothing typed is lost. *@
+                @for (var i = 0; i < Model.Input.Lines.Count; i++)
+                {
+                    var line = Model.Input.Lines[i];
+                    <div class="purchase-line" data-index="@i">
+                        <div class="row">
+                            <div class="col-lg-4 mb-3">
+                                <label class="pms-form-label" for="line-product-@i">Product</label>
+                                <input type="search" class="form-control mb-2 line-product-filter"
+                                       placeholder="Search by brand or generic"
+                                       aria-label="Search products" />
+                                <select class="form-select line-product" id="line-product-@i"
+                                        name="Input.Lines[@i].ProductId">
+                                    <option value="">Choose a product</option>
+                                    @foreach (var product in Model.Products)
+                                    {
+                                        <option value="@product.Id"
+                                                selected="@(line.ProductId == product.Id)">
+                                            @product.BrandName@(string.IsNullOrWhiteSpace(
+                                                product.GenericName)
+                                                    ? "" : $" ({product.GenericName})")
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-lg-2 mb-3">
+                                <label class="pms-form-label" for="line-batch-@i">Batch number</label>
+                                <input class="form-control" id="line-batch-@i"
+                                       name="Input.Lines[@i].BatchNumber" value="@line.BatchNumber" />
+                            </div>
+
+                            <div class="col-lg-2 mb-3">
+                                <label class="pms-form-label" for="line-expiry-@i">
+                                    Expiry
+                                    <span class="line-expiry-required pms-required" hidden
+                                          aria-hidden="true">*</span>
+                                </label>
+                                <input class="form-control line-expiry" type="date"
+                                       id="line-expiry-@i" name="Input.Lines[@i].ExpiryDate"
+                                       value="@line.ExpiryDate?.ToString("yyyy-MM-dd")" />
+                                <span class="pms-help line-expiry-help"></span>
+                            </div>
+
+                            <div class="col-lg-2 mb-3">
+                                <label class="pms-form-label" for="line-mfg-@i">Manufactured</label>
+                                <input class="form-control" type="date" id="line-mfg-@i"
+                                       name="Input.Lines[@i].ManufactureDate"
+                                       value="@line.ManufactureDate?.ToString("yyyy-MM-dd")" />
+                            </div>
+
+                            <div class="col-lg-2 mb-3 text-lg-end">
+                                <label class="pms-form-label">&nbsp;</label>
+                                <button type="button" class="btn btn-outline-secondary remove-line"
+                                        aria-label="Remove this item">Remove</button>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-3 mb-3">
+                                <label class="pms-form-label" for="line-qty-@i">Quantity</label>
+                                <div class="input-group">
+                                    <input class="form-control line-quantity" type="number"
+                                           step="0.01" min="0" id="line-qty-@i"
+                                           name="Input.Lines[@i].Quantity"
+                                           value="@(line.Quantity == 0 ? "" : line.Quantity.ToString())" />
+                                    <select class="form-select line-quantity-unit"
+                                            name="Input.Lines[@i].QuantityUnit"
+                                            aria-label="Quantity unit"></select>
+                                </div>
+                                <span class="pms-help line-quantity-help"></span>
+                            </div>
+
+                            <div class="col-lg-3 mb-3">
+                                <label class="pms-form-label" for="line-price-@i">Purchase price</label>
+                                <div class="input-group">
+                                    <input class="form-control line-price" type="number"
+                                           step="0.0001" min="0" id="line-price-@i"
+                                           name="Input.Lines[@i].PurchasePrice"
+                                           value="@(line.PurchasePrice == 0 ? "" : line.PurchasePrice.ToString())" />
+                                    <select class="form-select line-price-unit"
+                                            name="Input.Lines[@i].PurchasePriceUnit"
+                                            aria-label="Price unit"></select>
+                                </div>
+                                <span class="pms-help line-price-help"></span>
+                            </div>
+
+                            <div class="col-lg-3 mb-3">
+                                <label class="pms-form-label">Line total</label>
+                                <output class="form-control-plaintext line-total">0.00</output>
+                            </div>
+
+                            <div class="col-lg-3 mb-3">
+                                @* Non-blocking: bought above list price is a real decision, and
+                                   the pharmacy may simply be about to reprice. *@
+                                <span class="pms-help line-loss-warning figure-negative" hidden></span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="purchase-total">
+                <span>Purchase total</span>
+                <strong id="purchase-total">0.00</strong>
+            </div>
+        </div>
+    </section>
+
+    <div class="pms-form-actions">
+        <button type="submit" class="btn btn-primary">
+            <span class="pms-spinner" aria-hidden="true"></span>Record purchase
+        </button>
+        <a class="btn btn-outline-secondary" asp-page="/Purchases/Index">Cancel</a>
+    </div>
+</form>
+
+@* The row template. Kept out of the form so its inputs are never posted, and index-substituted
+   by the script when a row is added. *@
+<template id="purchase-line-template">
+    <div class="purchase-line" data-index="__INDEX__">
+        <div class="row">
+            <div class="col-lg-4 mb-3">
+                <label class="pms-form-label" for="line-product-__INDEX__">Product</label>
+                <input type="search" class="form-control mb-2 line-product-filter"
+                       placeholder="Search by brand or generic" aria-label="Search products" />
+                <select class="form-select line-product" id="line-product-__INDEX__"
+                        name="Input.Lines[__INDEX__].ProductId">
+                    <option value="">Choose a product</option>
+                    @foreach (var product in Model.Products)
+                    {
+                        <option value="@product.Id">
+                            @product.BrandName@(string.IsNullOrWhiteSpace(product.GenericName)
+                                ? "" : $" ({product.GenericName})")
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-lg-2 mb-3">
+                <label class="pms-form-label" for="line-batch-__INDEX__">Batch number</label>
+                <input class="form-control" id="line-batch-__INDEX__"
+                       name="Input.Lines[__INDEX__].BatchNumber" />
+            </div>
+
+            <div class="col-lg-2 mb-3">
+                <label class="pms-form-label" for="line-expiry-__INDEX__">
+                    Expiry
+                    <span class="line-expiry-required pms-required" hidden aria-hidden="true">*</span>
+                </label>
+                <input class="form-control line-expiry" type="date" id="line-expiry-__INDEX__"
+                       name="Input.Lines[__INDEX__].ExpiryDate" />
+                <span class="pms-help line-expiry-help"></span>
+            </div>
+
+            <div class="col-lg-2 mb-3">
+                <label class="pms-form-label" for="line-mfg-__INDEX__">Manufactured</label>
+                <input class="form-control" type="date" id="line-mfg-__INDEX__"
+                       name="Input.Lines[__INDEX__].ManufactureDate" />
+            </div>
+
+            <div class="col-lg-2 mb-3 text-lg-end">
+                <label class="pms-form-label">&nbsp;</label>
+                <button type="button" class="btn btn-outline-secondary remove-line"
+                        aria-label="Remove this item">Remove</button>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-3 mb-3">
+                <label class="pms-form-label" for="line-qty-__INDEX__">Quantity</label>
+                <div class="input-group">
+                    <input class="form-control line-quantity" type="number" step="0.01" min="0"
+                           id="line-qty-__INDEX__" name="Input.Lines[__INDEX__].Quantity" />
+                    <select class="form-select line-quantity-unit"
+                            name="Input.Lines[__INDEX__].QuantityUnit"
+                            aria-label="Quantity unit"></select>
+                </div>
+                <span class="pms-help line-quantity-help"></span>
+            </div>
+
+            <div class="col-lg-3 mb-3">
+                <label class="pms-form-label" for="line-price-__INDEX__">Purchase price</label>
+                <div class="input-group">
+                    <input class="form-control line-price" type="number" step="0.0001" min="0"
+                           id="line-price-__INDEX__" name="Input.Lines[__INDEX__].PurchasePrice" />
+                    <select class="form-select line-price-unit"
+                            name="Input.Lines[__INDEX__].PurchasePriceUnit"
+                            aria-label="Price unit"></select>
+                </div>
+                <span class="pms-help line-price-help"></span>
+            </div>
+
+            <div class="col-lg-3 mb-3">
+                <label class="pms-form-label">Line total</label>
+                <output class="form-control-plaintext line-total">0.00</output>
+            </div>
+
+            <div class="col-lg-3 mb-3">
+                <span class="pms-help line-loss-warning figure-negative" hidden></span>
+            </div>
+        </div>
+    </div>
+</template>
+
+@section Scripts {
+    <script src="~/js/purchase-form.js" asp-append-version="true"></script>
+}

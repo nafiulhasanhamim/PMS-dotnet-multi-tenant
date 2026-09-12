@@ -135,17 +135,30 @@ with the column above it would read as an arithmetic error.
 | Dead stock | Paginated, streamed export | See §5 |
 | Sales per user | One row per cashier | Unpaginated — bounded by headcount |
 | Stock valuation | Paginated, streamed export | Snapshot, no date range |
+| Supplier dues | One row per supplier | Added by Module 4 — see §4.1 |
 
-### 4.1 Why there is no supplier dues report
+### 4.1 Supplier dues
 
-**Module 4 (Suppliers & Purchases) does not exist.** There is no `Supplier` entity, no `Purchase`,
-no `SupplierPayment`, and no outstanding-balance service to call.
+**Shipped disabled with this module, completed by Module 4.**
 
-The report is therefore not built, and — deliberately — **no endpoint and no page returns zeros
-for it**. A money report that confidently says "0.00 owed" is worse than an absent one: somebody
-would pay a supplier on the strength of it, or fail to. The reports landing page shows a visibly
-disabled card saying the report needs the Suppliers module, which is a gap a person notices and
-asks about rather than one they never learn exists.
+When Module 8 was built there was no `Supplier`, no `Purchase` and no `SupplierPayment`, so the
+report could not exist. It was deliberately left as a **visibly disabled card** on the landing
+page rather than a page returning zeros: a money report confidently saying "0.00 owed" is worse
+than an absent one, because somebody would pay a supplier on the strength of it. A gap a person
+notices and asks about beats one they never learn exists.
+
+Module 4 filled it in. `GET /api/reports/supplier-dues` and `/reports/supplier-dues` now work, and
+the landing card is an ordinary link.
+
+**The outstanding figure is read from `ISupplierBalanceQueries`** — the same service a supplier's
+own page calls — and is not reimplemented here. `acceptance_purchases.py` asserts that every
+supplier's balance on the report matches their detail page exactly; a discrepancy would mean the
+formula had been duplicated.
+
+One difference from every other report in this module: **it defaults to all time.** "Who do we owe"
+is a question about now, not about a window. A date range narrows the purchased, paid and returned
+columns while the outstanding column continues to cover everything, and the page says so in a
+banner when a range is applied. See `docs/04-suppliers-and-purchase.md` §9.1.
 
 ### 4.2 Dates are bounded in UTC
 

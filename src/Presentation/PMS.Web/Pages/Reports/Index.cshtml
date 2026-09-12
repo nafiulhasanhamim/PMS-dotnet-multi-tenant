@@ -67,22 +67,12 @@
         </p>
     </a>
 
-    @*
-        Not a link, and not a page returning zeros.
-
-        Supplier dues needs purchases and supplier payments, which are Module 4 and do not exist -
-        there is no Supplier entity, no Purchase, and no outstanding balance to read. A report
-        that rendered "0.00 owed" would be a money figure that is confidently wrong, and somebody
-        would pay a supplier on the strength of it. Saying plainly that it is not built yet is the
-        only honest option available.
-    *@
-    <div class="report-card report-card--disabled" aria-disabled="true">
+    <a class="report-card" asp-page="/Reports/SupplierDues">
         <h2>Supplier dues</h2>
         <p>
-            What is owed to each supplier. <strong>Not available yet</strong> &mdash; it needs
-            purchases and supplier payments, which the Suppliers &amp; Purchases module will add.
+            What is owed to each supplier, with what has been purchased, paid and returned.
         </p>
-    </div>
+    </a>
 </div>
 
 <div class="report-note">

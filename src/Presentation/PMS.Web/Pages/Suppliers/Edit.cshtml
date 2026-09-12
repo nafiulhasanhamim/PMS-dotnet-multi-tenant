@@ -1,0 +1,88 @@
+@page "/suppliers/edit/{id:guid?}"
+@model PMS.Web.Pages.Suppliers.EditModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>@Model.Title</h1>
+        <p class="pms-page-header__subtitle">
+            Only a name and a phone number are required. Plenty of local distributors have
+            neither an email nor a postal address.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="row">
+    <div class="col-lg-7">
+        <section class="pms-card">
+            <div class="pms-card__body">
+                <form method="post" data-pms-guard novalidate>
+    <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.Name">Name <span class="pms-required" aria-hidden="true">*</span></label>
+        <input class="form-control" asp-for="Input.Name" autofocus />
+        <span class="pms-field-error" asp-validation-for="Input.Name"></span>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.Phone">Phone <span class="pms-required" aria-hidden="true">*</span></label>
+        <input class="form-control" asp-for="Input.Phone" inputmode="tel" />
+        <span class="pms-help">
+            How a pharmacy usually looks a distributor up when the name on the delivery note is
+            not the one you filed them under.
+        </span>
+        <span class="pms-field-error" asp-validation-for="Input.Phone"></span>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.ContactPerson">Contact person</label>
+        <input class="form-control" asp-for="Input.ContactPerson" />
+        <span class="pms-field-error" asp-validation-for="Input.ContactPerson"></span>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.Company">Company</label>
+        <input class="form-control" asp-for="Input.Company" />
+        <span class="pms-help">
+            The trading name, where it differs from what you call them.
+        </span>
+        <span class="pms-field-error" asp-validation-for="Input.Company"></span>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.Email">Email</label>
+        <input class="form-control" asp-for="Input.Email" inputmode="email" />
+        <span class="pms-field-error" asp-validation-for="Input.Email"></span>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.Address">Address</label>
+        <textarea class="form-control" asp-for="Input.Address" rows="2"></textarea>
+        <span class="pms-field-error" asp-validation-for="Input.Address"></span>
+    </div>
+
+    <div class="pms-form-actions">
+        <button type="submit" class="btn btn-primary">
+            @(Model.IsEdit ? "Save changes" : "Add supplier")
+        </button>
+        @if (Model.IsEdit)
+        {
+            <a class="btn btn-link" asp-page="/Suppliers/Detail" asp-route-id="@Model.SupplierId">
+                Cancel
+            </a>
+        }
+        else
+        {
+            <a class="btn btn-link" asp-page="/Suppliers/Index">Cancel</a>
+        }
+    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>

@@ -1,0 +1,195 @@
+@page "/suppliers/{id:guid}/payments/create"
+@model PMS.Web.Pages.Suppliers.RecordPaymentModel
+@{
+    var supplier = Model.Supplier;
+    var balance = supplier.Balance;
+    var settling = Model.CanSettleCredit;
+
+    ViewData["Title"] = settling ? "Record payment or refund" : "Record payment";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>@ViewData["Title"]</h1>
+        <p class="pms-page-header__subtitle">
+            @(settling ? "With" : "To") @supplier.Name
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@*
+    The balance goes above the amount field, deliberately: it is the number the amount is being
+    decided against, and somebody who has to scroll to find it will type from memory instead.
+*@
+<div class="stat-cards">
+    <div class="stat-card @(balance.IsOwing ? "stat-card--danger" : "stat-card--emphasis")">
+        <span class="stat-card__label">Currently outstanding</span>
+        <span class="stat-card__value @Money.Tone(balance.Outstanding)">
+            @Money.Signed(balance.Outstanding)
+        </span>
+        <span class="stat-card__note">
+            @if (balance.IsOverpaid)
+            {
+                <text>in credit &mdash; they owe you @Money.Format(balance.CreditAvailable)</text>
+            }
+            else if (balance.IsSettled)
+            {
+                <text>nothing owed</text>
+            }
+            else
+            {
+                <text>across all their bills</text>
+            }
+        </span>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-7">
+        <section class="pms-card">
+            <div class="pms-card__body">
+                <form method="post" data-pms-guard novalidate>
+    <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+    @if (settling)
+    {
+        @*
+            Only shown when there IS a credit. Offering "record a refund" on an account that owes
+            money would invite somebody to record a payment in the wrong direction, which is the
+            one mistake on this form that silently doubles a debt.
+
+            A plain radio group rather than a dropdown: three options that change what the rest of
+            the form means should be visible at once, not hidden behind a click.
+        *@
+        <div class="mb-4">
+            <span class="pms-form-label">What is happening</span>
+
+            <div class="form-check">
+                <input class="form-check-input" type="radio" asp-for="Input.Direction"
+                       value="Payment" id="direction-payment" data-direction="out" />
+                <label class="form-check-label" for="direction-payment">
+                    <strong>Paying them</strong>
+                    <span class="pms-help">
+                        Money out. Reduces what they are owed &mdash; or deepens the credit, since
+                        this account is already in credit.
+                    </span>
+                </label>
+            </div>
+
+            <div class="form-check">
+                <input class="form-check-input" type="radio" asp-for="Input.Direction"
+                       value="Refund" id="direction-refund" data-direction="in" />
+                <label class="form-check-label" for="direction-refund">
+                    <strong>They are refunding me</strong>
+                    <span class="pms-help">
+                        Money back, settling the @Money.Format(balance.CreditAvailable) credit.
+                    </span>
+                </label>
+            </div>
+
+            <div class="form-check">
+                <input class="form-check-input" type="radio" asp-for="Input.Direction"
+                       value="WriteOff" id="direction-writeoff" data-direction="in" />
+                <label class="form-check-label" for="direction-writeoff">
+                    <strong>Write the credit off</strong>
+                    <span class="pms-help">
+                        No money moves. For a credit nobody is going to collect &mdash; the
+                        distributor has closed, or it is too small to chase. Needs a reason.
+                    </span>
+                </label>
+            </div>
+        </div>
+    }
+    else
+    {
+        <input type="hidden" asp-for="Input.Direction" value="Payment" />
+    }
+
+    <div class="mb-4" id="against-row">
+        <label class="pms-form-label" asp-for="Input.PurchaseId">Against</label>
+        <select class="form-select" asp-for="Input.PurchaseId">
+            @*
+                A general payment is the first option, not an afterthought: "here is fifty
+                thousand, put it against what we owe" is how a great many pharmacy settlements
+                actually happen. It reduces the balance and modifies no individual bill.
+            *@
+            <option value="">General payment (against the account)</option>
+            @foreach (var purchase in Model.UnsettledPurchases)
+            {
+                <option value="@purchase.PurchaseId"
+                        selected="@(Model.Input.PurchaseId == purchase.PurchaseId)">
+                    @purchase.PurchaseNumber
+                    &mdash; @purchase.PurchaseDate.ToString("d MMM yyyy")
+                    &mdash; @Money.Format(purchase.Due) due
+                </option>
+            }
+        </select>
+        <span class="pms-help">
+            Settled bills are not listed. Linking a payment to a bill advances that bill's paid
+            figure; a general payment does not touch any bill.
+            @if (settling)
+            {
+                <text>
+                    Money coming back settles the account rather than a bill, so this is ignored
+                    for a refund or a write-off.
+                </text>
+            }
+        </span>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.Amount">Amount <span class="pms-required" aria-hidden="true">*</span></label>
+        <input class="form-control" asp-for="Input.Amount" type="number" step="0.01" min="0.01"
+               autofocus />
+        <span class="pms-help">
+            Overshooting is allowed in either direction &mdash; you will get a warning, not a
+            refusal. Money that has genuinely moved needs recording either way.
+        </span>
+        <span class="pms-field-error" asp-validation-for="Input.Amount"></span>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.PaymentDate">Date</label>
+        <input class="form-control" asp-for="Input.PaymentDate" type="date" />
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.PaymentMethod">Method</label>
+        <select class="form-select" asp-for="Input.PaymentMethod">
+            <option value="Cash">Cash</option>
+        </select>
+    </div>
+
+    <div class="mb-4">
+        <label class="pms-form-label" asp-for="Input.Notes">
+            Notes
+            @if (settling)
+            {
+                <span class="pms-required" aria-hidden="true">*</span>
+            }
+        </label>
+        <textarea class="form-control" asp-for="Input.Notes" rows="2"></textarea>
+        @if (settling)
+        {
+            <span class="pms-help">Required when writing a credit off.</span>
+        }
+        <span class="pms-field-error" asp-validation-for="Input.Notes"></span>
+    </div>
+
+    <div class="pms-form-actions">
+        <button type="submit" class="btn btn-primary">Record payment</button>
+        <a class="btn btn-link" asp-page="/Suppliers/Detail" asp-route-id="@Model.SupplierId">
+            Cancel
+        </a>
+    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/supplier-payment.js" asp-append-version="true"></script>
+}

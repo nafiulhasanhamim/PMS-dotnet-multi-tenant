@@ -111,7 +111,10 @@ public class AddModel : PmsPageModel
                 Input.QuantityUnit,
                 Input.PurchasePrice ?? 0,
                 Input.PurchasePriceUnit,
-                SupplierId: null,
+                // Module 4's retrofit. The id is the record; the free-text name is kept
+                // alongside it because that is what was written on the delivery note, and
+                // because every batch entered before this module has only the text.
+                Input.SupplierId,
                 Input.SupplierNameText,
                 Input.Notes),
             ct);
@@ -145,8 +148,22 @@ public class AddModel : PmsPageModel
     /// Loads the product picker and, when a product is chosen, everything that depends on it.
     /// Runs on both GET and POST so a redisplayed form is never missing its unit dropdowns.
     /// </summary>
+    /// <summary>Active suppliers for the dropdown. Module 4's retrofit.</summary>
+    public IReadOnlyList<SupplierOption> Suppliers { get; private set; } = [];
+
     private async Task<IActionResult?> LoadContextAsync(CancellationToken ct)
     {
+        // Module 4's retrofit: the supplier field was free text until Supplier existed. Active
+        // suppliers only - a deactivated one is somebody the pharmacy has stopped buying from.
+        // A failure here is not fatal: the dropdown renders empty, the field stays optional, and
+        // the batch still saves without a supplier.
+        var suppliers = await _api.GetSupplierOptionsAsync(ct);
+
+        if (suppliers.IsSuccess)
+        {
+            Suppliers = suppliers.Value ?? [];
+        }
+
         var medicines = await _api.GetProductsAsync(
             ProductListType.Medicine, ProductQuery, ProductStatusFilter.Active,
             page: 1, pageSize: PickerLimit, ct: ct);
@@ -296,6 +313,16 @@ public sealed class BatchFormInput
 
     public UnitLevel PurchasePriceUnit { get; set; } = UnitLevel.Base;
 
+    /// <summary>
+    /// Chosen from the dropdown. Still optional: opening inventory, a free sample and a
+    /// correction all arrive without a supplier, and that is what this screen is for.
+    /// </summary>
+    public Guid? SupplierId { get; set; }
+
+    /// <summary>
+    /// Kept, and not replaced by the dropdown. Batches entered before Module 4 have only this,
+    /// and they still display it — see the docs on the historical-data gap.
+    /// </summary>
     public string? SupplierNameText { get; set; }
 
     public string? Notes { get; set; }

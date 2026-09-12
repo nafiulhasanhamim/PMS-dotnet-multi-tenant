@@ -1,0 +1,260 @@
+@page "/reports/supplier-dues"
+@model PMS.Web.Pages.Reports.SupplierDuesModel
+@{
+    ViewData["Title"] = "Supplier dues";
+    var report = Model.Report;
+
+    var chart = new ChartModel
+    {
+        // Only suppliers actually owed money. A chart that plotted credits alongside debts would
+        // need a zero line to be read at all, and the table below carries those rows anyway.
+        Points = report.Rows
+            .Where(r => r.Balance.IsOwing)
+            .Take(10)
+            .Select(r => new ChartPoint(
+                r.SupplierName.Length > 10 ? r.SupplierName[..9] + "." : r.SupplierName,
+                r.Balance.Outstanding,
+                $"{r.SupplierName} - {Money.Format(r.Balance.Outstanding)} outstanding"))
+            .ToList(),
+        Height = 160,
+        Tone = "chart-primary",
+        EmptyMessage = "Nothing is owed to any supplier.",
+    };
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Supplier dues</h1>
+        <p class="pms-page-header__subtitle">
+            What is owed to each supplier, and the purchases, payments and returns behind it.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-all-route-data="Model.RouteValues">Export CSV</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+<div class="pms-print-only pms-print-header">
+    <h1>Supplier dues</h1>
+    <p class="mb-1"><strong>@Model.PharmacyName</strong></p>
+    <p class="mb-0">
+        @if (report.AllTime)
+        {
+            <text>All time, as at @DateTime.UtcNow.ToString("d MMMM yyyy")</text>
+        }
+        else
+        {
+            <text>
+                Activity @report.From?.ToString("d MMM yyyy") &ndash;
+                @report.To?.ToString("d MMM yyyy")
+            </text>
+        }
+    </p>
+</div>
+
+@if (TempData["ExportFailed"] is string exportError)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(exportError)" />
+}
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="report-filters pms-no-print">
+    <div class="report-filter">
+        <label class="pms-form-label" for="from">Activity from</label>
+        <input type="date" class="form-control" id="from" name="from"
+               value="@Model.From?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="to">to</label>
+        <input type="date" class="form-control" id="to" name="to"
+               value="@Model.To?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a class="btn btn-link" asp-page="/Reports/SupplierDues">All time</a>
+    </div>
+</form>
+
+<div class="stat-cards">
+    <div class="stat-card stat-card--emphasis">
+        <span class="stat-card__label">Total outstanding</span>
+        <span class="stat-card__value @Money.Tone(report.TotalOutstanding)">
+            @Money.Signed(report.TotalOutstanding)
+        </span>
+        <span class="stat-card__note">
+            @Money.Count(report.OwingCount) supplier@(report.OwingCount == 1 ? "" : "s") owed
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Purchased</span>
+        <span class="stat-card__value">@Money.Format(report.TotalPurchased)</span>
+        <span class="stat-card__note">
+            @(report.AllTime ? "all time" : "in the selected period")
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Paid</span>
+        <span class="stat-card__value">@Money.Format(report.TotalPaid)</span>
+        <span class="stat-card__note">
+            @(report.AllTime ? "all time" : "in the selected period")
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Returned</span>
+        <span class="stat-card__value">@Money.Format(report.TotalReturned)</span>
+        <span class="stat-card__note">
+            @if (report.OverpaidCount > 0)
+            {
+                <text>@Money.Count(report.OverpaidCount) supplier@(report.OverpaidCount == 1
+                    ? " is" : "s are") in credit</text>
+            }
+            else
+            {
+                <text>goods sent back</text>
+            }
+        </span>
+    </div>
+</div>
+
+@if (!report.AllTime)
+{
+    @*
+        Said out loud, because the two kinds of column on this page answer different questions
+        and a reader who conflated them would act on the wrong one.
+    *@
+    <partial name="_Alert" model="@AlertModel.Info(
+        "Purchased, paid and returned below cover the selected dates. Outstanding always covers "
+        + "all time — it is what is actually payable now, and a balance narrowed to a window "
+        + "would not be a debt anybody owes.")" />
+}
+
+@if (report.Rows.Count == 0)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "No suppliers yet",
+        "Add the distributors you buy from, and record what they deliver.",
+        "Go to suppliers",
+        "/Suppliers/Index"))" />
+}
+else
+{
+    @if (!chart.IsEmpty)
+    {
+        <section class="report-section">
+            <h2 class="h6">Who is owed the most</h2>
+            <partial name="_BarChart" model="chart" />
+        </section>
+    }
+
+    <section class="report-section">
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <caption class="visually-hidden">
+                    Suppliers with what is owed to each, biggest debt first.
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Supplier</th>
+                        <th scope="col">Phone</th>
+                        <th scope="col" class="text-end">Purchased</th>
+                        <th scope="col" class="text-end">Paid</th>
+                        <th scope="col" class="text-end">Returned</th>
+                        <th scope="col" class="text-end">Outstanding</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in report.Rows)
+                    {
+                        <tr class="@(row.IsActive ? null : "pms-row-inactive")">
+                            <td>
+                                @* Links through to the supplier's own page, where the same
+                                   outstanding figure appears — it comes from the same service,
+                                   so the two agree by construction. *@
+                                <a asp-page="/Suppliers/Detail" asp-route-id="@row.SupplierId"
+                                   class="pms-cell-link">
+                                    <span class="pms-cart__name">@row.SupplierName</span>
+                                    @if (!string.IsNullOrWhiteSpace(row.Company))
+                                    {
+                                        <span class="pms-help">@row.Company</span>
+                                    }
+                                </a>
+                                @if (!row.IsActive)
+                                {
+                                    <span class="pms-badge pms-badge--neutral">Inactive</span>
+                                }
+                            </td>
+                            <td>@row.Phone</td>
+                            <td class="text-end">
+                                @Money.Format(row.PeriodActivity.TotalPurchased)
+                            </td>
+                            <td class="text-end">@Money.Format(row.PeriodActivity.TotalPaid)</td>
+                            <td class="text-end">
+                                @if (row.PeriodActivity.TotalReturned > 0)
+                                {
+                                    @Money.Format(row.PeriodActivity.TotalReturned)
+                                }
+                                else
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                            </td>
+                            <td class="text-end @Money.Tone(row.Balance.Outstanding)">
+                                @Money.Signed(row.Balance.Outstanding)
+                                @if (row.Balance.IsOverpaid)
+                                {
+                                    <span class="pms-help">in credit</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th scope="row" colspan="2">Total</th>
+                        <td class="text-end">@Money.Format(report.TotalPurchased)</td>
+                        <td class="text-end">@Money.Format(report.TotalPaid)</td>
+                        <td class="text-end">@Money.Format(report.TotalReturned)</td>
+                        <td class="text-end @Money.Tone(report.TotalOutstanding)">
+                            @Money.Signed(report.TotalOutstanding)
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+
+    <div class="report-note">
+        <h2 class="h6">Reading this</h2>
+        <ul>
+            <li>
+                <strong>Outstanding is purchases, less returns, less payments.</strong> It is
+                computed on every read from those three, never stored — a saved total would be
+                wrong the moment any one of them changed without it.
+            </li>
+            <li>
+                <strong>A negative figure means the supplier owes you.</strong> It happens after
+                paying a bill and then returning against it, or after an overpayment. It is shown
+                rather than clamped to zero, because a credit is real money.
+            </li>
+            <li>
+                <strong>A credit clears three ways.</strong> The next delivery absorbs it; the
+                supplier hands the cash back, recorded as a refund; or it is written off when
+                nobody is going to collect it. All three bring the figure back toward zero.
+            </li>
+            <li>
+                Each supplier's figure here is the same one on their own page. Both read the same
+                service, so they cannot disagree.
+            </li>
+            <li>
+                General payments &mdash; money against the account rather than a bill &mdash; are
+                included in Paid. They reduce what is owed without changing any individual
+                purchase.
+            </li>
+        </ul>
+    </div>
+}

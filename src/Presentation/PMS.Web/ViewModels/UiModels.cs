@@ -115,6 +115,21 @@ public static class StatusPresentation
             ? ("pms-badge--success", "Active")
             : ("pms-badge--danger", "Inactive");
 
+    /// <summary>
+    /// How a bill is labelled. Module 4.
+    ///
+    /// <para>"Paid" covers a bill settled by a return as well as one settled by money — the
+    /// status answers "is there anything left to settle", and a delivery returned in full has
+    /// nothing owed on it. The Due column carries the figure, including a negative one.</para>
+    /// </summary>
+    public static (string Css, string Text) ForPurchase(PurchasePaymentStatus status) => status
+        switch
+    {
+        PurchasePaymentStatus.Paid => ("pms-badge--success", "Paid"),
+        PurchasePaymentStatus.PartiallyPaid => ("pms-badge--warning", "Partially paid"),
+        _ => ("pms-badge--danger", "Unpaid"),
+    };
+
     public static (string Css, string Text) ForRole(UserRole role) => role switch
     {
         UserRole.PlatformAdmin => ("pms-badge--platform", "Platform admin"),

@@ -1961,6 +1961,59 @@ a:hover {
 /* ---- Module 8: reports in print ------------------------------------------
    These pages get printed and filed, so the figures have to survive losing
    colour and losing the sidebar. */
+/* ===========================================================================
+   Module 4 — suppliers and purchases
+   =========================================================================== */
+
+/* One repeatable row of the new-purchase form. Boxed rather than a bare table
+   row: each one carries two sub-rows of inputs and its own helper text, and
+   without a boundary the eye cannot tell where one item ends. */
+.purchase-line {
+    padding: var(--pms-space-3) var(--pms-space-4) 0;
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    margin-bottom: var(--pms-space-3);
+    background: var(--pms-canvas);
+}
+
+.purchase-line + .purchase-line {
+    margin-top: 0;
+}
+
+/* The running total. Sits below the rows and is deliberately the largest thing
+   on the form after the heading — it is the figure being agreed with a
+   supplier. */
+.purchase-total {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: var(--pms-space-3);
+    padding-top: var(--pms-space-3);
+    border-top: 1px solid var(--pms-border-strong);
+    font-size: var(--pms-font-lg);
+}
+
+.purchase-total strong {
+    font-size: 1.375rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The line total inside a row: read-only, but aligned with the inputs beside it
+   so the row does not look ragged. */
+.purchase-line .line-total {
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--pms-weight-heading);
+    padding-top: 0.375rem;
+}
+
+@media print {
+    .purchase-line,
+    .purchase-total {
+        background: #fff !important;
+        border-color: #999 !important;
+    }
+}
+
 @media print {
     .report-filters,
     .report-cards {

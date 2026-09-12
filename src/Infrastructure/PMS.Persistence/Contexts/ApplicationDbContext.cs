@@ -117,6 +117,38 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     /// </summary>
     public DbSet<SalesReturn> SalesReturns => Set<SalesReturn>();
 
+    // ── Suppliers and purchases (Module 4) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Who the pharmacy buys from. Tenant-scoped by convention.
+    ///
+    /// <para>Carries no balance column. What is owed is computed from purchases, returns and
+    /// payments on every read — see <c>ISupplierBalanceQueries</c>, which is the only place that
+    /// arithmetic exists.</para>
+    /// </summary>
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
+
+    /// <summary>One delivery against one bill. Tenant-scoped by convention.</summary>
+    public DbSet<Purchase> Purchases => Set<Purchase>();
+
+    /// <summary>
+    /// One product out of one batch on a purchase. Its quantity and cost deliberately duplicate
+    /// the batch's: the batch moves as stock sells, this does not.
+    /// </summary>
+    public DbSet<PurchaseLine> PurchaseLines => Set<PurchaseLine>();
+
+    /// <summary>Money going out, against a bill or against the account.</summary>
+    public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
+
+    /// <summary>
+    /// Goods going back to a supplier. Written only alongside the stock adjustment that removes
+    /// the units — see CreatePurchaseReturnCommandHandler.
+    /// </summary>
+    public DbSet<PurchaseReturn> PurchaseReturns => Set<PurchaseReturn>();
+
+    // Nor is there one for PurchaseSequences, for exactly the same reasons as InvoiceSequences
+    // below. See PurchaseNumberGenerator.
+
     // Note there is no DbSet for InvoiceSequences. It is a counter table with no business data,
     // read and written only by InvoiceNumberGenerator through one atomic statement; mapping it
     // would give it a tenant query filter that the generator would then have to bypass. See
