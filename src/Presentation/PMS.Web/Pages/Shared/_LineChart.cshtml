@@ -1,0 +1,65 @@
+@*
+    A line chart for a trend over days, drawn on the server.
+
+    Used where a bar chart would mislead: a month's sales are a continuous series, and 30 bars
+    invite comparing individual days when the shape over the month is the thing worth seeing.
+
+    Unlike the bar chart this keeps its aspect ratio, because a line's slope IS its meaning and
+    stretching it non-uniformly would misrepresent it.
+*@
+@model PMS.Web.ViewModels.ChartModel
+@using PMS.Web.ViewModels
+@{
+    var count = Model.Points.Count;
+    var plotHeight = Model.Height - 22;
+    var step = count > 1 ? (double)Model.Width / (count - 1) : 0;
+
+    string PointX(int i) => ChartModel.Coord(count > 1 ? i * step : Model.Width / 2.0);
+
+    string PointY(int i) =>
+        ChartModel.Coord(plotHeight - (Model.Fraction(Model.Points[i].Value) * (plotHeight - 4)));
+
+    var line = count == 0
+        ? string.Empty
+        : string.Join(' ', Enumerable.Range(0, count).Select(i => $"{PointX(i)},{PointY(i)}"));
+
+    // The same points closed down to the axis, so the area under the line can be filled.
+    var area = count == 0
+        ? string.Empty
+        : $"{PointX(0)},{ChartModel.Coord(plotHeight)} {line} "
+            + $"{PointX(count - 1)},{ChartModel.Coord(plotHeight)}";
+}
+
+@if (Model.IsEmpty)
+{
+    <p class="chart-empty">@Model.EmptyMessage</p>
+}
+else
+{
+    <div class="chart">
+        <svg viewBox="0 0 @Model.Width @Model.Height" class="chart-svg" role="presentation"
+             aria-hidden="true">
+            <line x1="0" y1="@ChartModel.Coord(plotHeight)"
+                  x2="@Model.Width" y2="@ChartModel.Coord(plotHeight)" class="chart-axis" />
+
+            <polygon points="@area" class="chart-area @Model.Tone" />
+            <polyline points="@line" class="chart-line @Model.Tone" />
+
+            @for (var i = 0; i < count; i++)
+            {
+                <circle cx="@PointX(i)" cy="@PointY(i)" r="2.5" class="chart-dot @Model.Tone">
+                    <title>@Model.Points[i].Detail</title>
+                </circle>
+            }
+        </svg>
+
+        <div class="chart-labels" aria-hidden="true">
+            @for (var i = 0; i < count; i++)
+            {
+                <span class="chart-label">
+                    @(i % Model.LabelEvery == 0 ? Model.Points[i].Label : string.Empty)
+                </span>
+            }
+        </div>
+    </div>
+}

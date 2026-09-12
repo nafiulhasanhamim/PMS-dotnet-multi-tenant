@@ -124,12 +124,21 @@ public static class NavRegistry
             Roles: new[] { UserRole.Admin, UserRole.Pharmacist },
             MatchPrefix: "/antibiotics"),
 
+        // Module 8. Admin only, and this is the strictest entry in the sidebar. Other modules
+        // separate reading from writing; here the reading IS the sensitive act - these screens
+        // show what stock cost, what the business earns on it, and a per-cashier discount
+        // breakdown that is in effect a staff review. A Pharmacist who may dispense a controlled
+        // drug still has no business knowing the owner's margin on it.
+        new NavItem("Reports", "/Reports/Index", "chart",
+            Roles: new[] { UserRole.Admin },
+            MatchPrefix: "/reports"),
+
         new NavItem("Users", "/Users/Index", "people",
             Roles: new[] { UserRole.Admin }),
 
         new NavItem("My profile", "/Account", "person"),
 
-        // Module 4, 7 onwards: suppliers and purchases, the antibiotic register, reports.
+        // Module 4 onwards: suppliers and purchases, then salary.
     };
 
     /// <summary>Sidebar for a platform operator. An entirely separate list — no overlap.</summary>

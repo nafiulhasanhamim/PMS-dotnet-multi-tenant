@@ -148,6 +148,7 @@ public sealed class AccessMatrixBuilder
         "Sales" => "Sales",
         "Alerts" => "Alerts",
         "Antibiotics" => "Antibiotic register",
+        "Reports" => "Reports and profit",
         "Settings" => "Pharmacy settings",
         _ => Humanise(controller),
     };
@@ -164,7 +165,8 @@ public sealed class AccessMatrixBuilder
         "Sales" => 7,
         "Alerts" => 8,
         "Antibiotic register" => 9,
-        "Pharmacy settings" => 10,
+        "Reports and profit" => 10,
+        "Pharmacy settings" => 11,
         _ => 9,
     };
 

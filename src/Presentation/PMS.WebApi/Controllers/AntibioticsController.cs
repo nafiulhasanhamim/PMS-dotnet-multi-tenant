@@ -9,6 +9,7 @@ using PMS.Application.Features.Antibiotics.Queries.GetMonthlySummary;
 using PMS.Application.Features.Antibiotics.Queries.GetRegister;
 using PMS.Application.Interfaces;
 using PMS.SharedKernel.Interfaces;
+using PMS.WebApi.Csv;
 using PMS.WebApi.Extensions;
 
 namespace PMS.WebApi.Controllers;
@@ -111,7 +112,7 @@ public class AntibioticsController : ApiControllerBase
         await using var writer = new StreamWriter(Response.Body, new UTF8Encoding(true));
 
         await writer.WriteLineAsync($"Antibiotic sales register");
-        await writer.WriteLineAsync($"Pharmacy,{Csv(pharmacy)}");
+        await writer.WriteLineAsync($"Pharmacy,{CsvField.Text(pharmacy)}");
         await writer.WriteLineAsync($"Date range,{from:yyyy-MM-dd} to {to:yyyy-MM-dd}");
         await writer.WriteLineAsync($"Prescription capture,{mode}");
         await writer.WriteLineAsync(
@@ -132,21 +133,21 @@ public class AntibioticsController : ApiControllerBase
             await writer.WriteLineAsync(string.Join(',', new[]
             {
                 row.SaleDate.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
-                Csv(row.InvoiceNumber),
-                Csv(row.BrandName),
-                Csv(row.GenericName),
-                Csv(row.FormattedQuantity),
-                Csv(row.HasReturns ? row.FormattedQuantityReturned : null),
-                Csv(row.PatientName),
-                Csv(row.PatientPhone),
-                Csv(row.DoctorName),
-                Csv(row.PrescriptionNumber),
+                CsvField.Text(row.InvoiceNumber),
+                CsvField.Text(row.BrandName),
+                CsvField.Text(row.GenericName),
+                CsvField.Text(row.FormattedQuantity),
+                CsvField.Text(row.HasReturns ? row.FormattedQuantityReturned : null),
+                CsvField.Text(row.PatientName),
+                CsvField.Text(row.PatientPhone),
+                CsvField.Text(row.DoctorName),
+                CsvField.Text(row.PrescriptionNumber),
                 row.PrescriptionDate?.ToString("yyyy-MM-dd") ?? string.Empty,
 
                 // Only meaningful under Required. Under Off nothing was captured and under
                 // Optional it was captured if somebody had it, so "No" there is not a finding.
                 row.HasPrescription ? (row.PrescriptionVerified ? "Yes" : "No") : string.Empty,
-                Csv(row.CashierName),
+                CsvField.Text(row.CashierName),
             }));
         }
 
@@ -165,28 +166,4 @@ public class AntibioticsController : ApiControllerBase
         CancellationToken cancellationToken = default)
         => HandleResult(await Mediator.Send(
             new GetMonthlySummaryQuery(month, year), cancellationToken));
-
-    /// <summary>
-    /// Escapes one CSV field.
-    ///
-    /// <para>Quoting anything containing a comma, a quote or a newline, and doubling embedded
-    /// quotes — RFC 4180. It matters more here than on most exports: a patient's name is free
-    /// text typed at a counter, and "Rahman, Md. Abdul" unquoted would shift every column after
-    /// it by one for that row alone.</para>
-    /// </summary>
-    private static string Csv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var needsQuoting =
-            value.Contains(',') || value.Contains('"') || value.Contains('\n')
-            || value.Contains('\r');
-
-        return needsQuoting
-            ? "\"" + value.Replace("\"", "\"\"") + "\""
-            : value;
-    }
 }

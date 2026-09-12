@@ -1628,6 +1628,287 @@ a:hover {
     display: none;
 }
 
+/* ===========================================================================
+   Module 8 — reports and profit
+   =========================================================================== */
+
+/* ---- The landing page ----------------------------------------------------
+   Cards rather than a list: each report needs a sentence explaining what it
+   answers, because "dead stock" and "stock valuation" are not self-evident to
+   somebody opening the section for the first time. */
+.report-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--pms-space-4);
+    margin-bottom: var(--pms-space-6);
+}
+
+.report-card {
+    display: block;
+    padding: var(--pms-space-4);
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.report-card:hover,
+.report-card:focus-visible {
+    border-color: var(--pms-primary);
+    box-shadow: 0 1px 6px rgba(31, 111, 178, 0.12);
+    color: inherit;
+}
+
+.report-card h2 {
+    font-size: var(--pms-font-lg);
+    font-weight: var(--pms-weight-heading);
+    color: var(--pms-primary);
+    margin: 0 0 var(--pms-space-2);
+}
+
+.report-card p {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+    margin: 0;
+}
+
+/* A report that cannot be built yet. Visibly inert rather than hidden: a gap
+   somebody notices and asks about is better than a report they assume exists
+   and cannot find. */
+.report-card--disabled {
+    background: var(--pms-canvas);
+    border-style: dashed;
+    cursor: default;
+}
+
+.report-card--disabled h2 {
+    color: var(--pms-text-muted);
+}
+
+/* ---- Filters ------------------------------------------------------------- */
+.report-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--pms-space-3);
+    padding: var(--pms-space-3) var(--pms-space-4);
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    margin-bottom: var(--pms-space-4);
+}
+
+.report-filter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    min-width: 9rem;
+}
+
+.report-filter--actions {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--pms-space-2);
+    margin-left: auto;
+}
+
+/* ---- Headline figures ----------------------------------------------------
+   The numbers somebody opened the page for, before the table they came from. */
+.stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--pms-space-3);
+    margin-bottom: var(--pms-space-5);
+}
+
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    padding: var(--pms-space-3) var(--pms-space-4);
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+}
+
+.stat-card--emphasis {
+    border-color: var(--pms-primary);
+    background: var(--pms-primary-light);
+}
+
+.stat-card--danger {
+    border-color: var(--pms-danger);
+    background: var(--pms-danger-bg);
+}
+
+.stat-card__label {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.stat-card__value {
+    font-size: 1.375rem;
+    font-weight: var(--pms-weight-heading);
+    /* Tabular figures, so a column of these lines up digit for digit. */
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-card__note {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-faint);
+}
+
+/* ---- Sections ------------------------------------------------------------ */
+.report-section {
+    margin-bottom: var(--pms-space-5);
+}
+
+.report-section > h2 {
+    color: var(--pms-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: var(--pms-font-sm);
+    margin-bottom: var(--pms-space-2);
+}
+
+.report-section__note {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+    margin-top: var(--pms-space-2);
+}
+
+.report-note {
+    padding: var(--pms-space-4);
+    background: var(--pms-canvas);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.report-note ul {
+    margin: 0;
+    padding-left: var(--pms-space-5);
+}
+
+.report-note li + li {
+    margin-top: var(--pms-space-2);
+}
+
+/* ---- Figures -------------------------------------------------------------
+   Colour is never the only signal: Money.Signed puts a real minus sign on a
+   negative, so these read correctly in monochrome and to anyone who cannot
+   distinguish the two hues. */
+.figure-negative {
+    color: var(--pms-danger);
+}
+
+.figure-positive {
+    color: var(--pms-success);
+}
+
+/* Every money column in a report is right-aligned and tabular, so the decimal
+   points form a line the eye can run down. */
+.pms-table td.text-end,
+.pms-table th.text-end {
+    font-variant-numeric: tabular-nums;
+}
+
+/* A day on which nothing happened. Kept in the table rather than skipped, so a
+   quiet Friday reads as quiet rather than missing. */
+.row-quiet > td {
+    color: var(--pms-text-faint);
+}
+
+/* ---- Charts --------------------------------------------------------------
+   Server-rendered inline SVG; see ChartModel for why there is no charting
+   library. The SVG is aria-hidden and always accompanied by its own table. */
+.chart {
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    padding: var(--pms-space-3) var(--pms-space-4) var(--pms-space-2);
+}
+
+.chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.chart-axis {
+    stroke: var(--pms-border-strong);
+    stroke-width: 1;
+    /* The bar chart stretches its SVG non-uniformly, which would thicken a
+       horizontal rule unpredictably. This keeps it one pixel. */
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-bar {
+    fill: var(--pms-primary);
+}
+
+.chart-bar:hover {
+    fill: var(--pms-primary-dark);
+}
+
+.chart-line {
+    fill: none;
+    stroke: var(--pms-primary);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-area {
+    fill: var(--pms-primary);
+    opacity: 0.12;
+    stroke: none;
+}
+
+.chart-dot {
+    fill: var(--pms-primary);
+}
+
+.chart-profit.chart-bar,
+.chart-profit.chart-dot,
+.chart-profit.chart-area {
+    fill: var(--pms-success);
+}
+
+.chart-profit.chart-line {
+    stroke: var(--pms-success);
+}
+
+.chart-labels {
+    display: flex;
+    margin-top: var(--pms-space-1);
+}
+
+.chart-label {
+    /* Equal share of the row, so label n sits under bar n. */
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.6875rem;
+    color: var(--pms-text-faint);
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.chart-empty {
+    padding: var(--pms-space-5);
+    text-align: center;
+    color: var(--pms-text-muted);
+    background: var(--pms-canvas);
+    border: 1px dashed var(--pms-border);
+    border-radius: var(--pms-radius);
+    margin: 0;
+}
+
 @media print {
     .pms-print-only {
         display: block;
@@ -1674,5 +1955,78 @@ a:hover {
 
     .pms-table-wrap {
         overflow: visible !important;
+    }
+}
+
+/* ---- Module 8: reports in print ------------------------------------------
+   These pages get printed and filed, so the figures have to survive losing
+   colour and losing the sidebar. */
+@media print {
+    .report-filters,
+    .report-cards {
+        display: none !important;
+    }
+
+    .stat-cards {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2mm;
+        margin-bottom: 4mm;
+    }
+
+    .stat-card {
+        border: 1px solid #000 !important;
+        background: #fff !important;
+        padding: 2mm;
+    }
+
+    .stat-card__value {
+        font-size: 11pt;
+    }
+
+    .stat-card__label,
+    .stat-card__note {
+        font-size: 7pt;
+        color: #000 !important;
+    }
+
+    /* The chart prints. That is most of why it is SVG rather than a canvas a
+       script would have to draw after the print dialog had already opened. */
+    .chart {
+        border: 1px solid #999 !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .chart-bar,
+    .chart-dot,
+    .chart-area {
+        fill: #444 !important;
+    }
+
+    .chart-line {
+        stroke: #444 !important;
+    }
+
+    /* A negative figure keeps its minus sign from Money.Signed, so losing the
+       red loses nothing. */
+    .figure-negative,
+    .figure-positive {
+        color: #000 !important;
+    }
+
+    .report-note {
+        border: 1px solid #999 !important;
+        background: #fff !important;
+        font-size: 8pt;
+        break-inside: avoid;
+    }
+
+    .report-section {
+        break-inside: auto;
+    }
+
+    .report-section > h2 {
+        color: #000 !important;
     }
 }

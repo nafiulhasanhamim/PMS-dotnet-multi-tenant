@@ -1,0 +1,147 @@
+@page "/reports/sales-by-product-type"
+@model PMS.Web.Pages.Reports.ByProductTypeModel
+@{
+    ViewData["Title"] = "Sales by product type";
+
+    var chart = new ChartModel
+    {
+        Points = Model.Rows
+            .Select(r => new ChartPoint(
+                r.ProductType == ProductType.Medicine ? "Medicines" : "Other items",
+                r.Revenue,
+                $"{(r.ProductType == ProductType.Medicine ? "Medicines" : "Other items")} - "
+                    + $"{Money.Format(r.Revenue)} revenue, {Money.Signed(r.Profit)} profit"))
+            .ToList(),
+        Height = 150,
+        EmptyMessage = "Nothing sold in this period.",
+    };
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Sales by product type</h1>
+        <p class="pms-page-header__subtitle">
+            Where the margin actually comes from.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-all-route-data="Model.RouteValues">Export CSV</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+<div class="pms-print-only pms-print-header">
+    <h1>Sales by product type</h1>
+    <p class="mb-1"><strong>@Model.PharmacyName</strong></p>
+    <p class="mb-0">
+        @Model.From?.ToString("d MMM yyyy") &ndash; @Model.To?.ToString("d MMM yyyy")
+    </p>
+</div>
+
+@if (TempData["ExportFailed"] is string exportError)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(exportError)" />
+}
+
+@if (Model.FormError is not null)
+{
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+}
+
+<form method="get" class="report-filters pms-no-print">
+    <div class="report-filter">
+        <label class="pms-form-label" for="from">From</label>
+        <input type="date" class="form-control" id="from" name="from"
+               value="@Model.From?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="to">To</label>
+        <input type="date" class="form-control" id="to" name="to"
+               value="@Model.To?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a class="btn btn-link" asp-page="/Reports/ByProductType">Reset</a>
+    </div>
+</form>
+
+@if (Model.Rows.Count == 0)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "Nothing sold in this period",
+        "Widen the date range to see how the margin splits."))" />
+}
+else
+{
+    <section class="report-section">
+        <h2 class="h6">Revenue by type</h2>
+        <partial name="_BarChart" model="chart" />
+    </section>
+
+    <section class="report-section">
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="text-end">Lines sold</th>
+                        <th scope="col" class="text-end">Revenue</th>
+                        <th scope="col" class="text-end">Cost</th>
+                        <th scope="col" class="text-end">Profit</th>
+                        <th scope="col" class="text-end">Margin</th>
+                        <th scope="col" class="text-end">Share of revenue</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td>
+                                <span class="pms-badge pms-badge--neutral">
+                                    @(row.ProductType == ProductType.Medicine
+                                        ? "Medicines" : "Other items")
+                                </span>
+                            </td>
+                            <td class="text-end">@Money.Count(row.LineCount)</td>
+                            <td class="text-end">@Money.Format(row.Revenue)</td>
+                            <td class="text-end text-muted">@Money.Format(row.Cost)</td>
+                            <td class="text-end @Money.Tone(row.Profit)">
+                                @Money.Signed(row.Profit)
+                            </td>
+                            <td class="text-end @Money.Tone(row.MarginPercent)">
+                                @Money.Percent(row.MarginPercent)
+                            </td>
+                            <td class="text-end">
+                                @Money.Percent(Model.TotalRevenue == 0
+                                    ? 0m
+                                    : row.Revenue / Model.TotalRevenue * 100m)
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th scope="row">All</th>
+                        <td class="text-end">@Money.Count(Model.Rows.Sum(r => r.LineCount))</td>
+                        <td class="text-end">@Money.Format(Model.TotalRevenue)</td>
+                        <td class="text-end text-muted">@Money.Format(Model.TotalCost)</td>
+                        <td class="text-end @Money.Tone(Model.TotalProfit)">
+                            @Money.Signed(Model.TotalProfit)
+                        </td>
+                        <td class="text-end">@Money.Percent(Model.TotalMargin)</td>
+                        <td class="text-end">100.0%</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+
+    <p class="report-section__note">
+        A type with no sales in this period has no row. Cost is what each sale's own batch was
+        bought at, so the margin here is what was actually earned rather than what the current
+        purchase price would suggest.
+    </p>
+}

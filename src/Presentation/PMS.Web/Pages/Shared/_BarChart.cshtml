@@ -1,0 +1,64 @@
+@*
+    A bar chart, drawn on the server.
+
+    Bars are positioned in a fixed 0..Width / 0..Height user space and the SVG scales to its
+    container through a viewBox, so this is responsive without any script. See ChartModel for
+    why there is no charting library.
+
+    The SVG is aria-hidden: it summarises a table that is always on the page beside it, so a
+    reader who cannot see it loses nothing by skipping it.
+*@
+@model PMS.Web.ViewModels.ChartModel
+@using PMS.Web.ViewModels
+@{
+    var count = Model.Points.Count;
+    var slot = count == 0 ? 0 : (double)Model.Width / count;
+
+    // A gap of a fifth of the slot, capped: with 31 days the gap has to shrink or the bars
+    // vanish, and with 4 bars it must not grow into a chart of mostly whitespace.
+    var gap = Math.Min(slot * 0.2, 8);
+    var barWidth = Math.Max(slot - gap, 1);
+
+    // Room under the plot for the labels, inside the same coordinate space.
+    var plotHeight = Model.Height - 22;
+}
+
+@if (Model.IsEmpty)
+{
+    <p class="chart-empty">@Model.EmptyMessage</p>
+}
+else
+{
+    <div class="chart">
+        <svg viewBox="0 0 @Model.Width @Model.Height" class="chart-svg" role="presentation"
+             aria-hidden="true" preserveAspectRatio="none">
+            <line x1="0" y1="@ChartModel.Coord(plotHeight)"
+                  x2="@Model.Width" y2="@ChartModel.Coord(plotHeight)" class="chart-axis" />
+
+            @for (var i = 0; i < count; i++)
+            {
+                var point = Model.Points[i];
+                var height = Model.Fraction(point.Value) * (plotHeight - 4);
+                var x = (i * slot) + (gap / 2);
+                var y = plotHeight - height;
+
+                <rect x="@ChartModel.Coord(x)" y="@ChartModel.Coord(y)"
+                      width="@ChartModel.Coord(barWidth)" height="@ChartModel.Coord(height)"
+                      class="chart-bar @Model.Tone" rx="1">
+                    @* A native SVG tooltip: no script, and it works on hover everywhere. *@
+                    <title>@point.Detail</title>
+                </rect>
+            }
+        </svg>
+
+        @* Labels sit outside the SVG so they are not stretched by preserveAspectRatio="none". *@
+        <div class="chart-labels" aria-hidden="true">
+            @for (var i = 0; i < count; i++)
+            {
+                <span class="chart-label">
+                    @(i % Model.LabelEvery == 0 ? Model.Points[i].Label : string.Empty)
+                </span>
+            }
+        </div>
+    </div>
+}

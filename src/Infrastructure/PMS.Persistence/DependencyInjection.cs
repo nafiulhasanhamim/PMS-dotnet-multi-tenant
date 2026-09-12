@@ -79,6 +79,12 @@ public static class DependencyInjection
         services.AddScoped<IAntibioticQueries, AntibioticQueries>();
         services.AddScoped<ITenantSettings, TenantSettings>();
 
+        // Module 8: the reports. OperatingExpenses is the Module 9 seam - it returns zero today,
+        // and is registered and called for real so that finishing Module 9 means replacing this
+        // one class rather than editing eight reports.
+        services.AddScoped<IReportQueries, ReportQueries>();
+        services.AddScoped<IOperatingExpenses, OperatingExpenses>();
+
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

@@ -632,4 +632,187 @@ public sealed class PmsApiClient
             (int)response.StatusCode,
             null);
     }
+
+    // ── reports and profit (Module 8) ────────────────────────────────────────────────────
+    //
+    // Every method here fronts an Admin-only endpoint. The pages do not check the role before
+    // calling: the API is the authority, a 403 comes back as a normal failed ApiResult, and the
+    // navigation simply does not offer the link. Duplicating the rule in this client would give
+    // it two places to drift.
+
+    public Task<ApiResult<DailySalesReport>> GetDailySalesReportAsync(
+        DateOnly? date = null, CancellationToken ct = default) =>
+        SendAsync<DailySalesReport>(
+            HttpMethod.Get,
+            "api/reports/daily-sales" + (date is { } d ? $"?date={d:yyyy-MM-dd}" : string.Empty),
+            null, ct);
+
+    public Task<ApiResult<MonthlySalesReport>> GetMonthlySalesReportAsync(
+        int? month = null, int? year = null, CancellationToken ct = default) =>
+        SendAsync<MonthlySalesReport>(
+            HttpMethod.Get, "api/reports/monthly-sales" + MonthQuery(month, year), null, ct);
+
+    public Task<ApiResult<ApiPage<TopSellingProduct>>> GetTopSellingProductsAsync(
+        DateOnly? from = null,
+        DateOnly? to = null,
+        TopSellingSort sortBy = TopSellingSort.Quantity,
+        ProductType? productType = null,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default) =>
+        SendAsync<ApiPage<TopSellingProduct>>(
+            HttpMethod.Get,
+            "api/reports/top-selling?" + TopSellingQuery(from, to, sortBy, productType)
+                + $"&page={page}&pageSize={pageSize}",
+            null, ct);
+
+    public Task<ApiResult<IReadOnlyList<SalesByProductTypeRow>>> GetSalesByProductTypeAsync(
+        DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default) =>
+        SendAsync<IReadOnlyList<SalesByProductTypeRow>>(
+            HttpMethod.Get,
+            "api/reports/sales-by-product-type" + RangeQuery(from, to, "?"), null, ct);
+
+    public Task<ApiResult<DeadStockPage>> GetDeadStockAsync(
+        int? thresholdDays = null,
+        ProductType? productType = null,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default) =>
+        SendAsync<DeadStockPage>(
+            HttpMethod.Get,
+            "api/reports/dead-stock?" + DeadStockQuery(thresholdDays, productType)
+                + $"&page={page}&pageSize={pageSize}",
+            null, ct);
+
+    public Task<ApiResult<IReadOnlyList<SalesPerUserRow>>> GetSalesPerUserAsync(
+        DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default) =>
+        SendAsync<IReadOnlyList<SalesPerUserRow>>(
+            HttpMethod.Get, "api/reports/sales-per-user" + RangeQuery(from, to, "?"), null, ct);
+
+    public Task<ApiResult<StockValuationPage>> GetStockValuationAsync(
+        ProductType? productType = null,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default) =>
+        SendAsync<StockValuationPage>(
+            HttpMethod.Get,
+            $"api/reports/stock-valuation?page={page}&pageSize={pageSize}"
+                + (productType is { } t ? $"&productType={(int)t}" : string.Empty),
+            null, ct);
+
+    /// <summary>
+    /// Any report's CSV, passed through from the API to the browser without being read into
+    /// memory here — see <see cref="ExportAntibioticRegisterAsync"/> for why
+    /// <c>ResponseHeadersRead</c> is the whole point.
+    /// </summary>
+    /// <param name="reportPath">
+    /// The report's own path and query, exactly as the page built it for its own request. The
+    /// page passes the filters it is displaying, which is what makes a downloaded file cover what
+    /// was on screen rather than a default range.
+    /// </param>
+    public async Task<ApiResult<ApiFile>> ExportReportAsync(
+        string reportPath, string fallbackFileName, CancellationToken ct = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, reportPath);
+
+        var response = await _http.SendAsync(
+            request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var problem = await ReadProblemAsync(response, ct);
+            response.Dispose();
+
+            _logger.LogWarning(
+                "Report export failed: {Path} {Status} {Message}",
+                reportPath, (int)response.StatusCode, problem.Message);
+
+            return ApiResult<ApiFile>.Fail(problem);
+        }
+
+        var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
+            ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"')
+            ?? fallbackFileName;
+
+        var content = await response.Content.ReadAsStreamAsync(ct);
+
+        return ApiResult<ApiFile>.Ok(new ApiFile(content, "text/csv", fileName));
+    }
+
+    // ── report query builders ────────────────────────────────────────────────────────────
+    //
+    // Shared by each page and its export button, so a downloaded CSV covers exactly the filters
+    // that produced the table above it.
+
+    public static string RangeQuery(DateOnly? from, DateOnly? to, string prefix = "")
+    {
+        var query = new List<string>();
+
+        if (from is { } start)
+        {
+            query.Add($"dateFrom={start:yyyy-MM-dd}");
+        }
+
+        if (to is { } end)
+        {
+            query.Add($"dateTo={end:yyyy-MM-dd}");
+        }
+
+        return query.Count == 0 ? string.Empty : prefix + string.Join('&', query);
+    }
+
+    public static string TopSellingQuery(
+        DateOnly? from, DateOnly? to, TopSellingSort sortBy, ProductType? productType)
+    {
+        var query = new List<string> { $"sortBy={(int)sortBy}" };
+
+        var range = RangeQuery(from, to);
+
+        if (range.Length > 0)
+        {
+            query.Add(range);
+        }
+
+        if (productType is { } type)
+        {
+            query.Add($"productType={(int)type}");
+        }
+
+        return string.Join('&', query);
+    }
+
+    public static string DeadStockQuery(int? thresholdDays, ProductType? productType)
+    {
+        var query = new List<string>();
+
+        if (thresholdDays is { } days)
+        {
+            query.Add($"thresholdDays={days}");
+        }
+
+        if (productType is { } type)
+        {
+            query.Add($"productType={(int)type}");
+        }
+
+        // Never empty: the caller concatenates "&page=..." onto it.
+        return query.Count == 0 ? "thresholdDays=90" : string.Join('&', query);
+    }
+
+    private static string MonthQuery(int? month, int? year)
+    {
+        var query = new List<string>();
+
+        if (month is { } m)
+        {
+            query.Add($"month={m}");
+        }
+
+        if (year is { } y)
+        {
+            query.Add($"year={y}");
+        }
+
+        return query.Count == 0 ? string.Empty : "?" + string.Join('&', query);
+    }
 }

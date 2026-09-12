@@ -76,6 +76,32 @@ public static class StockPolicy
     };
 
     /// <summary>
+    /// How long a product can go unsold before Module 8's dead-stock report lists it.
+    ///
+    /// <para>Here with the expiry window rather than in the reports module, because it is the
+    /// same kind of number: a judgement about stock that belongs to the pharmacy and moves to
+    /// per-tenant Settings with the rest. A shop turning over paracetamol weekly means something
+    /// different by "dead" from one stocking slow-moving surgical supplies.</para>
+    ///
+    /// <para>Ninety days matches the expiry window, and not by accident — a quarter is roughly
+    /// the horizon on which a pharmacy can still act on either problem.</para>
+    /// </summary>
+    public const int DeadStockThresholdDays = 90;
+
+    /// <summary>The thresholds the dead-stock report offers in its dropdown.</summary>
+    public static readonly IReadOnlyList<int> SelectableDeadStockThresholds = [30, 60, 90, 180];
+
+    /// <summary>
+    /// Whether <paramref name="days"/> is a dead-stock threshold a caller may ask for. Bounded
+    /// for the same reason the expiry window is: an unbounded value turns an alert query into a
+    /// request for the whole catalogue.
+    /// </summary>
+    public static int CoerceDeadStockThreshold(int? days) =>
+        days is { } value && SelectableDeadStockThresholds.Contains(value)
+            ? value
+            : DeadStockThresholdDays;
+
+    /// <summary>
     /// How close to expiry a batch has to be before <em>adding</em> stock to it is treated as
     /// probably a mistake.
     ///
