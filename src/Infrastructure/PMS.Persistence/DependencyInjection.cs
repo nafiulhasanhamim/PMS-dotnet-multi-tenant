@@ -88,11 +88,14 @@ public static class DependencyInjection
         services.AddScoped<IPurchaseQueries, PurchaseQueries>();
         services.AddScoped<IPurchaseNumberGenerator, PurchaseNumberGenerator>();
 
-        // Module 8: the reports. OperatingExpenses is the Module 9 seam - it returns zero today,
-        // and is registered and called for real so that finishing Module 9 means replacing this
-        // one class rather than editing eight reports.
+        // Module 8: the reports. OperatingExpenses was the Module 9 seam - it returned zero and
+        // was registered and called for real, so finishing Module 9 meant replacing that one
+        // class rather than editing eight reports. It now sums paid salaries and advances.
         services.AddScoped<IReportQueries, ReportQueries>();
         services.AddScoped<IOperatingExpenses, OperatingExpenses>();
+
+        // Module 9: salary management.
+        services.AddScoped<ISalaryQueries, SalaryQueries>();
 
         services.AddScoped<DomainEventDispatcherInterceptor>();
 

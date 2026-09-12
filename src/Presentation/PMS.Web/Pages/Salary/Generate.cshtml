@@ -1,0 +1,289 @@
+@page "/salary/generate"
+@model PMS.Web.Pages.Salary.GenerateModel
+@{
+    ViewData["Title"] = "Generate salary";
+    var preview = Model.Preview;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Generate salary</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Index">&larr; Salary</a>
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="report-filters">
+    <div class="report-filter">
+        <label class="pms-form-label" for="month">Month</label>
+        <select class="form-select" id="month" name="month">
+            @for (var m = 1; m <= 12; m++)
+            {
+                <option value="@m" selected="@(Model.Month == m)">
+                    @(new DateOnly(2000, m, 1).ToString("MMMM"))
+                </option>
+            }
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="year">Year</label>
+        <select class="form-select" id="year" name="year">
+            @foreach (var y in Model.YearOptions)
+            {
+                <option value="@y" selected="@(Model.Year == y)">@y</option>
+            }
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Show</button>
+    </div>
+</form>
+
+@if (preview.Rows.Count == 0)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "Nobody is on the payroll",
+        "Add a salary profile for each member of staff who draws a salary.",
+        "Add profile",
+        "/Salary/Profiles/Edit"))" />
+}
+else if (preview.EligibleCount == 0)
+{
+    <partial name="_Alert" model="@AlertModel.Info(
+        $"Salary for {Model.PeriodName} has already been generated for everybody on the payroll. "
+        + "Open the salary history to edit or pay it.")" />
+
+    <p><a class="btn btn-outline-secondary" asp-page="/Salary/Entries/Index"
+          asp-route-month="@Model.Month" asp-route-year="@Model.Year">Salary history</a></p>
+}
+else
+{
+    <form method="post" data-pms-guard novalidate data-pms-salary-form
+          data-period="@Model.PeriodName">
+        <input type="hidden" name="month" value="@Model.Month" />
+        <input type="hidden" name="year" value="@Model.Year" />
+
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <caption class="visually-hidden">
+                    Employees eligible for @Model.PeriodName, with their outstanding advances.
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col" style="width: 2.5rem;">
+                            <span class="visually-hidden">Include</span>
+                        </th>
+                        <th scope="col">Employee</th>
+                        <th scope="col" class="text-end">Base salary</th>
+                        <th scope="col" class="text-end">Bonus</th>
+                        <th scope="col" class="text-end">Advance deduction</th>
+                        <th scope="col" class="text-end">Other deduction</th>
+                        <th scope="col">Notes</th>
+                        <th scope="col" class="text-end">Net payable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in preview.Rows)
+                    {
+                        @if (row.AlreadyGenerated)
+                        {
+                            @*
+                                Greyed and unselectable, never omitted. An employee absent from
+                                this table is indistinguishable from one nobody put on the payroll,
+                                and the difference matters enormously on the one screen where
+                                somebody decides who gets paid.
+                            *@
+                            <tr class="pms-row-inactive">
+                                <td></td>
+                                <td>
+                                    <span class="pms-cart__name">@row.EmployeeName</span>
+                                    @if (!string.IsNullOrWhiteSpace(row.Designation))
+                                    {
+                                        <span class="pms-help">@row.Designation</span>
+                                    }
+                                </td>
+                                <td class="text-end">@Money.Format(row.BaseSalary)</td>
+                                <td colspan="4">
+                                    <span class="pms-badge pms-badge--neutral">Already generated</span>
+                                    <span class="pms-help">
+                                        Salary for @Model.PeriodName already exists for this
+                                        employee.
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    @if (row.ExistingEntryId is { } entryId)
+                                    {
+                                        <a asp-page="/Salary/Entries/Slip" asp-route-id="@entryId">
+                                            View slip
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                            continue;
+                        }
+
+                        var index = Model.IndexOf(row.ProfileId);
+                        var input = Model.RowFor(row.ProfileId);
+                        var prefix = $"Rows[{index}]";
+
+                        <tr data-pms-salary-row data-base="@row.BaseSalary.ToString("0.00")">
+                            <td>
+                                <input type="hidden" name="@(prefix).ProfileId" value="@row.ProfileId" />
+                                <input class="form-check-input" type="checkbox"
+                                       name="@(prefix).Selected" value="true"
+                                       checked="@input.Selected"
+                                       data-pms-salary-select
+                                       aria-label="Include @row.EmployeeName" />
+                                @* Unticked checkboxes post nothing, so the false half is
+                                   explicit - otherwise the binder sees an absent value and the
+                                   row index shifts. *@
+                                <input type="hidden" name="@(prefix).Selected" value="false" />
+                            </td>
+                            <td>
+                                <span class="pms-cart__name">@row.EmployeeName</span>
+                                @if (!string.IsNullOrWhiteSpace(row.Designation))
+                                {
+                                    <span class="pms-help">@row.Designation</span>
+                                }
+                            </td>
+                            <td class="text-end">@Money.Format(row.BaseSalary)</td>
+                            <td class="text-end">
+                                <input class="form-control form-control-sm text-end"
+                                       type="number" step="0.01" min="0" inputmode="decimal"
+                                       name="@(prefix).Bonus"
+                                       value="@(input.Bonus?.ToString("0.00") ?? "0.00")"
+                                       data-pms-salary-bonus
+                                       aria-label="Bonus for @row.EmployeeName" />
+                            </td>
+                            <td class="text-end">
+                                <input class="form-control form-control-sm text-end"
+                                       type="number" step="0.01" min="0" inputmode="decimal"
+                                       name="@(prefix).AdvanceDeduction"
+                                       value="@(input.AdvanceDeduction?.ToString("0.00") ?? "0.00")"
+                                       data-pms-salary-advance
+                                       aria-label="Advance deduction for @row.EmployeeName" />
+
+                                @if (row.UnsettledAdvances.Count > 0)
+                                {
+                                    @*
+                                        The breakdown, and the reason this screen exists. A total
+                                        alone still asks somebody to trust a number; the dates and
+                                        reasons are what let them recognise the cash they handed
+                                        over.
+                                    *@
+                                    <details class="pms-help">
+                                        <summary>
+                                            @Money.Format(row.UnsettledAdvanceTotal) outstanding in
+                                            @row.UnsettledAdvances.Count
+                                            @(row.UnsettledAdvances.Count == 1 ? "advance" : "advances")
+                                        </summary>
+                                        <ul class="mb-0">
+                                            @foreach (var advance in row.UnsettledAdvances)
+                                            {
+                                                <li>
+                                                    @advance.AdvanceDate.ToString("dd MMM yyyy")
+                                                    &middot; @Money.Format(advance.Amount)
+                                                    @if (!string.IsNullOrWhiteSpace(advance.Reason))
+                                                    {
+                                                        <text> &middot; @advance.Reason</text>
+                                                    }
+                                                </li>
+                                            }
+                                        </ul>
+                                    </details>
+                                }
+                                else
+                                {
+                                    <span class="pms-help">Nothing outstanding</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <input class="form-control form-control-sm text-end"
+                                       type="number" step="0.01" min="0" inputmode="decimal"
+                                       name="@(prefix).OtherDeduction"
+                                       value="@(input.OtherDeduction?.ToString("0.00") ?? "0.00")"
+                                       data-pms-salary-other
+                                       aria-label="Other deduction for @row.EmployeeName" />
+                            </td>
+                            <td>
+                                <input class="form-control form-control-sm"
+                                       name="@(prefix).AdjustmentNotes"
+                                       value="@input.AdjustmentNotes"
+                                       placeholder="Why?"
+                                       data-pms-salary-notes
+                                       aria-label="Notes for @row.EmployeeName" />
+                                <span class="pms-help">
+                                    Required if you enter a bonus or an other deduction.
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <strong data-pms-salary-net>
+                                    @Money.Format(row.InitialNetPayable)
+                                </strong>
+                                @*
+                                    Rendered on the server for first paint and recomputed live as
+                                    the inputs change. Never submitted: the server decides net
+                                    payable from the same rules, and the response says what
+                                    actually happened.
+                                *@
+                                <span class="pms-field-error" data-pms-salary-warning
+                                      hidden>
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="7" class="text-end"><strong>Total payable</strong></td>
+                        <td class="text-end">
+                            <strong data-pms-salary-total>
+                                @Money.Format(preview.Eligible.Sum(r => r.InitialNetPayable))
+                            </strong>
+                            <span class="pms-help" data-pms-salary-count>
+                                @preview.EligibleCount selected
+                            </span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="pms-form-actions">
+            <button type="submit" class="btn btn-primary" data-pms-salary-submit>
+                <span class="pms-spinner" aria-hidden="true"></span>Generate salary
+            </button>
+            <a class="btn btn-link" asp-page="/Salary/Index">Cancel</a>
+        </div>
+    </form>
+}
+
+<div class="report-note">
+    <h2 class="h6">Before you press Generate</h2>
+    <ul>
+        <li>
+            <strong>An employee's month can only be generated once.</strong> If you need to change
+            a figure afterwards you can edit the entry, but only until it is marked paid.
+        </li>
+        <li>
+            <strong>The base salary is copied, not linked.</strong> Raising somebody's pay later
+            will not change what this month says they were paid.
+        </li>
+        <li>
+            <strong>Advances are settled oldest first.</strong> If the month cannot cover
+            everything outstanding, the deduction is capped so net payable never goes below zero
+            and the remainder carries into next month.
+        </li>
+        <li>
+            Generating costs nothing on the profit report. Only marking a salary <em>paid</em>
+            makes it an expense, and it lands in the month you paid it.
+        </li>
+    </ul>
+</div>
+
+@section Scripts {
+    <script src="~/js/salary-generate.js" asp-append-version="true"></script>
+}

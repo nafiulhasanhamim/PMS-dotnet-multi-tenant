@@ -1,0 +1,143 @@
+@page "/salary/advances"
+@model PMS.Web.Pages.Salary.Advances.IndexModel
+@{
+    ViewData["Title"] = "Advances";
+    var advances = Model.Advances;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Advances</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Index">&larr; Salary</a>
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Salary/Advances/Create">Record advance</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="report-filters">
+    <div class="report-filter">
+        <label class="pms-form-label" for="employee">Employee</label>
+        <select class="form-select" id="employee" name="employee" asp-items="Model.Employees">
+            <option value="">Everyone</option>
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="settlement">Status</label>
+        <select class="form-select" id="settlement" name="settlement">
+            <option value="All" selected="@(Model.Settlement == AdvanceSettlementFilter.All)">
+                All
+            </option>
+            <option value="Unsettled" selected="@(Model.Settlement == AdvanceSettlementFilter.Unsettled)">
+                Outstanding
+            </option>
+            <option value="Settled" selected="@(Model.Settlement == AdvanceSettlementFilter.Settled)">
+                Settled
+            </option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        @if (Model.HasFilters)
+        {
+            <a class="btn btn-link" asp-page="/Salary/Advances/Index">Clear</a>
+        }
+    </div>
+</form>
+
+@if (advances.IsEmpty)
+{
+    @if (Model.HasFilters)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No advances match",
+            "Try a different employee or status, or clear the filters."))" />
+    }
+    else
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No advances recorded.",
+            "Record one the moment cash changes hands - an advance remembered at month-end is an "
+            + "advance that gets paid twice.",
+            "Record advance",
+            "/Salary/Advances/Create"))" />
+    }
+}
+else
+{
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <caption class="visually-hidden">
+                Advances, with whether each has been deducted from a salary.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Employee</th>
+                    <th scope="col" class="text-end">Amount</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Reason</th>
+                    <th scope="col">Given by</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var advance in advances.Data)
+                {
+                    <tr>
+                        <td>
+                            <span class="pms-cart__name">@advance.EmployeeName</span>
+                            @if (!string.IsNullOrWhiteSpace(advance.Designation))
+                            {
+                                <span class="pms-help">@advance.Designation</span>
+                            }
+                        </td>
+                        <td class="text-end">@Money.Format(advance.Amount)</td>
+                        <td>@advance.AdvanceDate.ToString("dd MMM yyyy")</td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(advance.Reason))
+                            {
+                                @advance.Reason
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        <td>@advance.GivenByName</td>
+                        @*
+                            "Settled in August 2026" rather than a bare tick. An employee asking
+                            where their money went deserves an answer that names the month, and
+                            that is the only thing this column is ever read for.
+                        *@
+                        <td>
+                            @if (advance.IsSettled)
+                            {
+                                <span class="pms-badge pms-badge--success">Settled</span>
+                                @if (advance.SettledInMonth is { } month
+                                     && advance.SettledInYear is { } year)
+                                {
+                                    <span class="pms-help">
+                                        in @(new DateOnly(year, month, 1).ToString("MMMM yyyy"))
+                                    </span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="pms-badge pms-badge--warning">Outstanding</span>
+                                <span class="pms-help">comes out of a future salary</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        advances, "/Salary/Advances/Index", Model.RouteValues))" />
+}

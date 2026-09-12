@@ -124,21 +124,20 @@
     </div>
 </div>
 
-@if (report.ExpensesMissing)
+@if (report.NoExpensesRecorded)
 {
     @*
-        The one thing this page must not do is present gross profit under a heading that says
-        "net". Somebody reading that figure is entitled to assume staff costs are in it, and a
-        pharmacy's salaries are its largest recurring expense - so a silent zero would overstate
-        profit by more than anything else on the page.
+        Module 8 rendered a note here saying salaries were not yet recorded anywhere. Module 9
+        built them, so the note now says what is actually true of this month: nothing went out.
 
-        Driven by the figure being zero rather than hard-coded, so it disappears by itself the
-        day a salary is recorded.
+        It is kept rather than deleted because zero staff cost in a trading month almost always
+        means a payroll generated and not yet marked paid, not a month where nobody was paid.
+        Somebody reading "net profit" is entitled to know which.
     *@
-    <partial name="_Alert" model="@AlertModel.Warning(
-        "No operating expenses have been recorded for this month, so net profit above is the "
-        + "same as gross profit and does not include staff salaries or advances. Salary "
-        + "recording arrives with the Salary module.")" />
+    <partial name="_Alert" model="@AlertModel.Info(
+        "No salaries were paid and no advances were given in this month, so net profit above is "
+        + "the same as gross profit. If staff were paid, check that the month's payroll has been "
+        + "marked paid on the Salary screen.")" />
 }
 
 <section class="report-section">

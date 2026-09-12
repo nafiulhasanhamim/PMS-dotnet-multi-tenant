@@ -3,15 +3,15 @@ namespace PMS.Application.Interfaces;
 /// <summary>
 /// What it cost to keep the doors open in a period — the figure that turns gross profit into net.
 ///
-/// <para><b>This returns zero today, and that is a placeholder rather than a business rule.</b>
-/// The Salary module is Module 9 and does not exist. Every report that needs operating expenses
-/// calls this now, so completing Module 9 is a matter of filling in one method body — no report
-/// code changes, no report forgets to include the new figure, and nothing has to be hunted
-/// for.</para>
+/// <para>Module 8 introduced this seam and shipped an implementation returning zero, with the
+/// monthly report saying so on screen. Module 9 replaced that one class. No report changed, no
+/// report forgot to include the new figure, and nothing had to be hunted for — which is the whole
+/// argument for having declared the interface a module early.</para>
 ///
-/// <para>The monthly report says so on screen while it returns zero, rather than presenting gross
-/// profit under a heading that says net. An owner reading "net profit" is entitled to assume
-/// salaries are in it.</para>
+/// <para><b>Staff cost is the only thing in here today</b>, because it is the only recurring
+/// expense the system records. Rent, utilities and the rest would be a fourth table and a fourth
+/// screen; when one arrives it is added to the implementation and every report picks it up
+/// unchanged, exactly as salaries did.</para>
 /// </summary>
 public interface IOperatingExpenses
 {
@@ -19,10 +19,14 @@ public interface IOperatingExpenses
     /// Operating expenses that occurred between <paramref name="from"/> and
     /// <paramref name="to"/>, both inclusive.
     ///
-    /// <para><b>TODO: implement in Module 9 (Salary).</b> Must return the sum of salary payments
-    /// plus salary advances that occurred in this period — by the date the money moved, not the
-    /// month the salary was for, matching how Module 8 attributes returns to the period they
-    /// happened in. See the Module 9 documentation.</para>
+    /// <para><b>By the date the money moved, not the month it relates to.</b> A salary counts on
+    /// the day it was paid — an August salary paid on 2 September is a September expense — and an
+    /// advance counts on the day the cash was handed over. This matches how Module 8 attributes a
+    /// return to the day the goods came back rather than the day of the original sale, and it is
+    /// what makes the figure reconcile against a till.</para>
+    ///
+    /// <para>See <c>OperatingExpenses</c> for why both salary entries and advances have to be
+    /// summed, and why neither double-counts the other.</para>
     /// </summary>
     Task<decimal> GetOperatingExpensesAsync(
         DateOnly from, DateOnly to, CancellationToken cancellationToken = default);

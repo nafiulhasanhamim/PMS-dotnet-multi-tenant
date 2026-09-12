@@ -1,0 +1,212 @@
+@page "/salary/entries"
+@model PMS.Web.Pages.Salary.Entries.IndexModel
+@{
+    ViewData["Title"] = "Salary history";
+    var entries = Model.Entries;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Salary history</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Index">&larr; Salary</a>
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Salary/Generate">Generate salary</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="report-filters">
+    <div class="report-filter">
+        <label class="pms-form-label" for="month">Month</label>
+        <select class="form-select" id="month" name="month">
+            <option value="">Any</option>
+            @for (var m = 1; m <= 12; m++)
+            {
+                <option value="@m" selected="@(Model.Month == m)">
+                    @(new DateOnly(2000, m, 1).ToString("MMMM"))
+                </option>
+            }
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="year">Year</label>
+        <select class="form-select" id="year" name="year">
+            <option value="">Any</option>
+            @foreach (var y in Model.YearOptions)
+            {
+                <option value="@y" selected="@(Model.Year == y)">@y</option>
+            }
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="employee">Employee</label>
+        <select class="form-select" id="employee" name="employee" asp-items="Model.Employees">
+            <option value="">Everyone</option>
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="status">Status</label>
+        <select class="form-select" id="status" name="status">
+            <option value="All" selected="@(Model.Status == SalaryStatusFilter.All)">All</option>
+            <option value="Unpaid" selected="@(Model.Status == SalaryStatusFilter.Unpaid)">
+                Unpaid
+            </option>
+            <option value="Paid" selected="@(Model.Status == SalaryStatusFilter.Paid)">Paid</option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        @if (Model.HasFilters)
+        {
+            <a class="btn btn-link" asp-page="/Salary/Entries/Index">Clear</a>
+        }
+    </div>
+</form>
+
+@if (entries.IsEmpty)
+{
+    @if (Model.HasFilters)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No salary entries match",
+            "Try a different month, employee or status, or clear the filters."))" />
+    }
+    else
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No salary has been generated yet",
+            "Generate a month's payroll and it will appear here.",
+            "Generate salary",
+            "/Salary/Generate"))" />
+    }
+}
+else
+{
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <caption class="visually-hidden">
+                Generated salaries with their deductions and payment status.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Employee</th>
+                    <th scope="col">Month</th>
+                    <th scope="col" class="text-end">Base</th>
+                    <th scope="col" class="text-end">Bonus</th>
+                    <th scope="col" class="text-end">Deductions</th>
+                    <th scope="col" class="text-end">Net payable</th>
+                    <th scope="col">Status</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in entries.Data)
+                {
+                    var payFormId = $"pay-{entry.Id}";
+
+                    <tr>
+                        <td>
+                            <span class="pms-cart__name">@entry.EmployeeName</span>
+                            @if (!string.IsNullOrWhiteSpace(entry.Designation))
+                            {
+                                <span class="pms-help">@entry.Designation</span>
+                            }
+                        </td>
+                        <td>@(new DateOnly(entry.Year, entry.Month, 1).ToString("MMMM yyyy"))</td>
+                        <td class="text-end">@Money.Format(entry.BaseSalary)</td>
+                        <td class="text-end">
+                            @if (entry.Bonus > 0m)
+                            {
+                                <span class="figure-positive">@Money.Format(entry.Bonus)</span>
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            @if (entry.TotalDeductions > 0m)
+                            {
+                                <span class="figure-negative">
+                                    @Money.Format(entry.TotalDeductions)
+                                </span>
+                                @if (entry.AdvanceDeduction > 0m)
+                                {
+                                    <span class="pms-help">
+                                        @Money.Format(entry.AdvanceDeduction) advance
+                                    </span>
+                                }
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        <td class="text-end"><strong>@Money.Format(entry.NetPayable)</strong></td>
+                        <td>
+                            @if (entry.PaymentStatus == SalaryPaymentStatus.Paid)
+                            {
+                                <span class="pms-badge pms-badge--success">Paid</span>
+                                <span class="pms-help">
+                                    @entry.PaymentDate?.ToString("dd MMM yyyy")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="pms-badge pms-badge--warning">Unpaid</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a asp-page="/Salary/Entries/Slip" asp-route-id="@entry.Id">Slip</a>
+
+                            @if (entry.CanEdit)
+                            {
+                                <text> &middot; </text>
+                                <a asp-page="/Salary/Entries/Edit" asp-route-id="@entry.Id">Edit</a>
+
+                                @*
+                                    The date sits inside the row's own form, so paying is one
+                                    press once the date is right. A modal asking for it would put
+                                    a second step in front of the most routine act on the page.
+                                *@
+                                <form method="post" id="@payFormId" asp-page-handler="Pay"
+                                      asp-route-id="@entry.Id"
+                                      asp-route-month="@Model.Month" asp-route-year="@Model.Year"
+                                      asp-route-employee="@Model.ProfileId"
+                                      asp-route-status="@Model.Status"
+                                      class="mt-2">
+                                    <label class="visually-hidden"
+                                           for="pay-date-@entry.Id">Payment date</label>
+                                    <input class="form-control form-control-sm" type="date"
+                                           id="pay-date-@entry.Id" name="PaymentDate"
+                                           value="@Model.Today.ToString("yyyy-MM-dd")" />
+                                    <button type="button" class="btn btn-sm btn-outline-success mt-1"
+                                            data-pms-confirm-form="@payFormId"
+                                            data-pms-confirm-title="Mark this salary as paid?"
+                                            data-pms-confirm-ok="Mark paid"
+                                            data-pms-confirm="@($"{entry.EmployeeName} will be recorded as paid {Money.Format(entry.NetPayable)}. The entry LOCKS once paid - the bonus, the deductions and the notes can no longer be changed. It also becomes an operating expense on the payment date you entered, not in the month it covers.")">
+                                        Mark paid
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <span class="pms-help">Paid entries cannot be edited.</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        entries, "/Salary/Entries/Index", Model.RouteValues))" />
+}
+
+<partial name="_ConfirmModal" />

@@ -147,12 +147,18 @@ public static class NavRegistry
             Roles: new[] { UserRole.Admin },
             MatchPrefix: "/reports"),
 
+        // Module 9. Admin only, and as strict as Reports for a different reason: this is not
+        // the owner's margin, it is what each colleague earns. A counter assistant who could
+        // open this could see what the person standing next to them is paid, which is why the
+        // module has no read-only variant at all.
+        new NavItem("Salary", "/Salary/Index", "wallet",
+            Roles: new[] { UserRole.Admin },
+            MatchPrefix: "/salary"),
+
         new NavItem("Users", "/Users/Index", "people",
             Roles: new[] { UserRole.Admin }),
 
         new NavItem("My profile", "/Account", "person"),
-
-        // Module 9 onwards: salary.
     };
 
     /// <summary>Sidebar for a platform operator. An entirely separate list — no overlap.</summary>

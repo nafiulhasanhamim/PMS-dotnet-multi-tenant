@@ -154,6 +154,35 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     // would give it a tenant query filter that the generator would then have to bypass. See
     // that class for the reasoning.
 
+    // ── Salary management (Module 9) ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// What one member of staff is paid, and on what terms. Tenant-scoped by convention.
+    ///
+    /// <para>Deliberately not columns on <see cref="Users"/>: not every user draws a salary, a
+    /// user row is read on every request while this is read a few times a month, and keeping
+    /// them apart means a bug in authentication cannot expose what people earn.</para>
+    /// </summary>
+    public DbSet<EmployeeSalaryProfile> EmployeeSalaryProfiles => Set<EmployeeSalaryProfile>();
+
+    /// <summary>
+    /// One employee's salary for one month, once generated. Unique per profile and period.
+    ///
+    /// <para>Its <c>BaseSalary</c> duplicates the profile's on purpose — the profile says what
+    /// somebody earns now, this says what they were paid in a month that has already
+    /// happened.</para>
+    /// </summary>
+    public DbSet<SalaryEntry> SalaryEntries => Set<SalaryEntry>();
+
+    /// <summary>
+    /// Cash handed over mid-month, to come out of a later salary.
+    ///
+    /// <para>An expense on the day it was given, not on the day it is deducted — see
+    /// <c>IOperatingExpenses</c>, which sums both this and paid salary entries and would
+    /// otherwise lose every advance entirely.</para>
+    /// </summary>
+    public DbSet<SalaryAdvance> SalaryAdvances => Set<SalaryAdvance>();
+
     // ── Medicine reference catalog ───────────────────────────────────────────────────────
     //
     // Platform-level and shared: none of these implement ITenantEntity, so none is filtered

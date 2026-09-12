@@ -179,13 +179,17 @@ public class ReportsController : ApiControllerBase
             $"Operating expenses,{CsvField.Money(report.OperatingExpenses)}");
         await writer.WriteLineAsync($"Net profit,{CsvField.Money(report.NetProfit)}");
 
-        // The caveat travels with the file. An exported figure headed "net profit" that silently
-        // omits the largest recurring cost a pharmacy has is the one thing this module must not
-        // hand somebody.
-        await writer.WriteLineAsync();
-        await writer.WriteLineAsync(CsvField.Text(
-            "Note: operating expenses are not yet recorded (the salary module is not built), so "
-            + "net profit above equals gross profit and does not include staff costs."));
+        // The caveat travels with the file, and only when it applies. Module 8 printed it
+        // unconditionally because expenses did not exist; since Module 9 they do, and a note
+        // saying otherwise on a month with real payroll in it would be worse than none.
+        if (report.OperatingExpenses == 0m)
+        {
+            await writer.WriteLineAsync();
+            await writer.WriteLineAsync(CsvField.Text(
+                "Note: no salaries were paid and no advances were given in this month, so net "
+                + "profit above equals gross profit. If staff were paid, check that the month's "
+                + "payroll has been marked paid."));
+        }
 
         await writer.FlushAsync(cancellationToken);
     }

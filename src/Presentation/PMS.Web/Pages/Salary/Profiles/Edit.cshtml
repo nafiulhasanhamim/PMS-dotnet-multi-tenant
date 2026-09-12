@@ -1,0 +1,122 @@
+@page "/salary/profiles/edit/{id:guid?}"
+@model PMS.Web.Pages.Salary.Profiles.EditModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>@Model.Title</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Profiles/Index">&larr; Salary profiles</a>
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="row">
+    <div class="col-lg-7">
+        <section class="pms-card">
+            <div class="pms-card__body">
+                <form method="post" data-pms-guard novalidate>
+                    <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+                    @if (Model.IsEdit)
+                    {
+                        @*
+                            The employee is fixed once the profile exists. Moving a profile to a
+                            different person would take their salary history with it, which is a
+                            thing no screen should be able to do by accident.
+                        *@
+                        <div class="mb-4">
+                            <span class="pms-form-label">Employee</span>
+                            <p class="mb-0"><strong>@Model.EmployeeName</strong></p>
+                            <span class="pms-help">
+                                Who a profile belongs to cannot be changed. Deactivate this one and
+                                add another if it was created against the wrong person.
+                            </span>
+                        </div>
+                        <input type="hidden" asp-for="Input.UserId" />
+                    }
+                    else if (Model.EligibleUsers.Count == 0)
+                    {
+                        <partial name="_Alert" model="@AlertModel.Info(
+                            "Everybody in this pharmacy already has an active salary profile. Add "
+                            + "a user first, or reactivate an existing profile.")" />
+                    }
+                    else
+                    {
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.UserId">
+                                Employee <span class="pms-required" aria-hidden="true">*</span>
+                            </label>
+                            <select class="form-select" asp-for="Input.UserId"
+                                    asp-items="Model.EligibleUsers">
+                                <option value="">Choose an employee</option>
+                            </select>
+                            <span class="pms-help">
+                                Only users who do not already have an active salary profile appear
+                                here. Not every user needs one &mdash; an owner running the system
+                                as Admin often does not draw a salary.
+                            </span>
+                            <span class="pms-field-error" asp-validation-for="Input.UserId"></span>
+                        </div>
+                    }
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.Designation">Designation</label>
+                        <input class="form-control" asp-for="Input.Designation"
+                               placeholder="Counter staff" />
+                        <span class="pms-help">
+                            Free text &mdash; "Counter staff", "Pharmacist", "Cleaner". It appears
+                            on the salary slip.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.Designation"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.MonthlyBaseSalary">
+                            Monthly salary <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.MonthlyBaseSalary"
+                               type="number" step="0.01" min="0.01" inputmode="decimal" />
+                        @if (Model.IsEdit)
+                        {
+                            <span class="pms-help">
+                                <strong>Changing this affects future salary generation only.</strong>
+                                Every month already generated copied the figure that applied at the
+                                time, so a raise now will not restate what this person was paid in
+                                July.
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="pms-help">
+                                Copied onto each month's entry when salary is generated, so a later
+                                raise never rewrites a past month.
+                            </span>
+                        }
+                        <span class="pms-field-error" asp-validation-for="Input.MonthlyBaseSalary"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.JoiningDate">
+                            Joining date <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.JoiningDate" type="date" />
+                        <span class="pms-field-error" asp-validation-for="Input.JoiningDate"></span>
+                    </div>
+
+                    <div class="pms-form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="pms-spinner" aria-hidden="true"></span>
+                            @(Model.IsEdit ? "Save changes" : "Add profile")
+                        </button>
+                        <a class="btn btn-link" asp-page="/Salary/Profiles/Index">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>

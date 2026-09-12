@@ -253,30 +253,52 @@ ignored the dates would be worse than not offering one.
 
 ---
 
-## 7. Operating expenses: the Module 9 seam
+## 7. Operating expenses — the seam, now filled
 
-`IOperatingExpenses.GetOperatingExpensesAsync(from, to)` returns **zero today**, because the
-Salary module is Module 9 and does not exist.
+`IOperatingExpenses.GetOperatingExpensesAsync(from, to)` is what turns gross profit into net.
 
-It is a real interface with a real registered implementation, and the monthly report **calls it**
-rather than assuming zero. Finishing Module 9 therefore means replacing one class — no report
-changes, no report forgets to include the new figure, nothing to hunt for.
+**Module 8 shipped it returning zero**, with the monthly report saying so on screen, because the
+Salary module did not exist yet. It was a real interface with a real registered implementation,
+and the monthly report *called it* rather than assuming zero.
 
-`OperatingExpenses.cs` carries the TODO, and the implementation must sum salary payments plus
-salary advances **by the date the money moved**, not by the month the salary was for — matching
-how §3 attributes returns.
+**Module 9 replaced that one class.** No report changed. No report forgot to include the new
+figure. Nothing had to be hunted for — which is the whole argument for having declared the
+interface a module early, and worth remembering the next time a module needs something the one
+after it will provide.
 
-### 7.1 Saying so out loud
+### 7.1 What it returns
+
+Two sums, added together, and **both are required**:
+
+```
+GetOperatingExpenses(from, to) =
+      SUM(SalaryEntry.NetPayable  WHERE PaymentStatus = Paid
+                                    AND PaymentDate  BETWEEN from AND to)
+    + SUM(SalaryAdvance.Amount     WHERE AdvanceDate  BETWEEN from AND to)
+```
+
+`NetPayable` already has the advance subtracted out of it, so summing paid entries alone would
+lose every advance ever given. Both are dated by **when the money moved** — the day a salary was
+paid, and the day an advance was handed over — matching how §3 attributes a return to the day the
+goods came back rather than the day of the original sale.
+
+The full reasoning, the worked example and the cash-basis consequence an owner will ask about are
+in [09-salary-management.md](09-salary-management.md) §4.
+
+### 7.2 The note beside net profit
 
 An owner reading "net profit" is entitled to assume salaries are in it. A silent zero would
 overstate profit by the largest recurring expense a pharmacy has.
 
-So the monthly report renders a warning beside the figure while expenses are zero, and the
-exported CSV carries the same caveat as a trailing line — because a file that has been emailed on
-is read without the screen it came from.
+Module 8 rendered a warning saying salaries were not yet recorded anywhere. **That note is gone.**
+What replaced it says what is actually true of a month with no expenses in it: nothing was paid
+out, and the likeliest reason is a payroll generated but not yet marked paid.
 
-The notice is driven by `OperatingExpenses == 0`, not hard-coded, so it disappears by itself the
-day a pharmacy records its first salary.
+It is still driven by `OperatingExpenses == 0` rather than hard-coded — the contract property is
+now `NoExpensesRecorded` — so it appears only on a month that genuinely had no staff cost. The CSV
+export carries the same note, and now only when it applies: a file that has been emailed on is
+read without the screen it came from, and a caveat printed unconditionally on a month with real
+payroll in it would be worse than none.
 
 ---
 
@@ -361,6 +383,7 @@ than the one it replaced, because a mixture is exactly what weighted average cos
 `Interfaces/IOperatingExpenses.cs`, `Features/Reports/Queries/**`
 
 **Persistence** — `Services/ReportQueries.cs`, `Services/OperatingExpenses.cs`
+(the latter implemented in Module 9; see §7)
 
 **API** — `Controllers/ReportsController.cs`, `Csv/CsvField.cs`,
 `Access/AccessMatrixBuilder.cs` (area name and order)

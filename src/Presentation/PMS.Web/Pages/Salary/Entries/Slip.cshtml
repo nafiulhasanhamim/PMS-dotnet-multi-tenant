@@ -1,0 +1,175 @@
+@page "/salary/entries/{id:guid}/slip"
+@model PMS.Web.Pages.Salary.Entries.SlipModel
+@inject DisplayTimeZone Clock
+@{
+    var slip = Model.Slip;
+    var period = new DateOnly(slip.Year, slip.Month, 1).ToString("MMMM yyyy");
+    ViewData["Title"] = $"Salary slip - {slip.EmployeeName}, {period}";
+
+    // Placeholder pharmacy details, exactly as the invoice carries them. Module 10's settings is
+    // where these become configurable; hard-coding them keeps the one place they move from
+    // obvious.
+    var pharmacyName = User.TenantName() ?? "Pharmacy";
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Salary slip</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Entries/Index">&larr; Salary history</a>
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <button type="button" class="btn btn-primary" onclick="window.print();">Print</button>
+        @if (slip.PaymentStatus != SalaryPaymentStatus.Paid)
+        {
+            <a class="btn btn-outline-secondary" asp-page="/Salary/Entries/Edit"
+               asp-route-id="@slip.Id">Edit</a>
+        }
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<article class="pms-invoice">
+    @if (slip.PaymentStatus != SalaryPaymentStatus.Paid)
+    {
+        @*
+            On the printed copy too, and deliberately - the same reasoning as a cancelled invoice.
+            An unpaid slip that prints identically to a paid one is a document somebody could
+            present as proof of payment.
+        *@
+        <div class="pms-invoice__cancelled">
+            <partial name="_Alert" model="@AlertModel.Warning(
+                "NOT YET PAID. This slip shows what is due, not what has been handed over.")" />
+        </div>
+    }
+
+    <header class="pms-invoice__head">
+        <div>
+            <p class="pms-invoice__pharmacy">@pharmacyName</p>
+            <p class="pms-help mb-0">
+                Address line one, Dhaka<br />
+                Phone 01700-000000
+            </p>
+        </div>
+        <div class="pms-invoice__meta">
+            <p class="mb-1"><strong>Salary slip</strong></p>
+            <p class="mb-1">@period</p>
+            <p class="mb-0">
+                @if (slip.PaymentStatus == SalaryPaymentStatus.Paid)
+                {
+                    <text>Paid @slip.PaymentDate?.ToString("dd MMM yyyy")</text>
+                }
+                else
+                {
+                    <text>Unpaid</text>
+                }
+            </p>
+        </div>
+    </header>
+
+    <section class="mb-4">
+        <p class="mb-1"><strong>@slip.EmployeeName</strong></p>
+        <p class="pms-help mb-0">
+            @if (!string.IsNullOrWhiteSpace(slip.Designation))
+            {
+                <text>@slip.Designation &middot; </text>
+            }
+            Joined @slip.JoiningDate.ToString("dd MMM yyyy")
+        </p>
+    </section>
+
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <caption class="visually-hidden">Salary breakdown for @period.</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Item</th>
+                    <th scope="col" class="text-end">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Base salary</td>
+                    <td class="text-end">@Money.Format(slip.BaseSalary)</td>
+                </tr>
+                @if (slip.Bonus > 0m)
+                {
+                    <tr>
+                        <td>
+                            Bonus
+                            @if (!string.IsNullOrWhiteSpace(slip.AdjustmentNotes))
+                            {
+                                <span class="pms-help">@slip.AdjustmentNotes</span>
+                            }
+                        </td>
+                        <td class="text-end figure-positive">@Money.Format(slip.Bonus)</td>
+                    </tr>
+                }
+                @if (slip.AdvanceDeduction > 0m)
+                {
+                    <tr>
+                        <td>
+                            Advances recovered
+                            @*
+                                Itemised, and this is the reason a slip is worth printing at all.
+                                An employee handed less than their base salary can see exactly
+                                which advances account for the difference, and on what dates.
+                            *@
+                            @if (slip.SettledAdvances.Count > 0)
+                            {
+                                <ul class="pms-help mb-0">
+                                    @foreach (var advance in slip.SettledAdvances)
+                                    {
+                                        <li>
+                                            @advance.AdvanceDate.ToString("dd MMM yyyy")
+                                            &middot; @Money.Format(advance.Amount)
+                                            @if (!string.IsNullOrWhiteSpace(advance.Reason))
+                                            {
+                                                <text> &middot; @advance.Reason</text>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </td>
+                        <td class="text-end figure-negative">
+                            &minus;@Money.Format(slip.AdvanceDeduction)
+                        </td>
+                    </tr>
+                }
+                @if (slip.OtherDeduction > 0m)
+                {
+                    <tr>
+                        <td>
+                            Other deduction
+                            @if (!string.IsNullOrWhiteSpace(slip.AdjustmentNotes))
+                            {
+                                <span class="pms-help">@slip.AdjustmentNotes</span>
+                            }
+                        </td>
+                        <td class="text-end figure-negative">
+                            &minus;@Money.Format(slip.OtherDeduction)
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pms-invoice__totals">
+        <dl>
+            <div class="pms-invoice__net">
+                <dt>Net payable</dt>
+                <dd>@Money.Format(slip.NetPayable)</dd>
+            </div>
+        </dl>
+    </div>
+
+    <footer class="pms-help mt-4">
+        <p class="mb-0">
+            Generated by @slip.GeneratedByName on @Clock.Format(slip.GeneratedOnUtc).
+        </p>
+    </footer>
+</article>

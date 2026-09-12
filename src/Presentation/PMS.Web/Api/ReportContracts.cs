@@ -83,14 +83,15 @@ public sealed record MonthlySalesReport(
         TotalSales == 0m ? 0m : GrossProfit / TotalSales * 100m;
 
     /// <summary>
-    /// Whether the net-profit figure is still missing its expenses.
+    /// Whether this month carries no operating expenses at all.
     ///
-    /// <para>Drives the caveat beside it. Expressed as "no expenses have been recorded" rather
-    /// than hard-coded to false, so that the day Module 9 lands and a pharmacy records its first
-    /// salary, the notice disappears on its own — and a month genuinely without expenses still
-    /// says so, which is also true.</para>
+    /// <para>Drives the caveat beside net profit. Module 8 used it to say the salary module was
+    /// not built; since Module 9 it means what it says — nothing was paid out. That is still worth
+    /// pointing at, because the overwhelmingly likely cause is a payroll that has been generated
+    /// but not yet marked paid, and an owner reading "net profit" on a month with no staff cost in
+    /// it should be told why.</para>
     /// </summary>
-    public bool ExpensesMissing => OperatingExpenses == 0m;
+    public bool NoExpensesRecorded => OperatingExpenses == 0m;
 
     public string MonthName =>
         Month is >= 1 and <= 12

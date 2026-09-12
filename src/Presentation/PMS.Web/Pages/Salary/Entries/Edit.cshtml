@@ -1,0 +1,102 @@
+@page "/salary/entries/edit/{id:guid}"
+@model PMS.Web.Pages.Salary.Entries.EditModel
+@{
+    ViewData["Title"] = "Edit salary";
+    var entry = Model.Entry!;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>@entry.EmployeeName &mdash; @Model.PeriodName</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Entries/Index">&larr; Salary history</a>
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="row">
+    <div class="col-lg-7">
+        <section class="pms-card">
+            <div class="pms-card__body">
+                <form method="post" data-pms-guard novalidate>
+                    <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+                    <div class="mb-4">
+                        <span class="pms-form-label">Base salary</span>
+                        <p class="mb-0"><strong>@Money.Format(entry.BaseSalary)</strong></p>
+                        <span class="pms-help">
+                            Copied from the profile when this month was generated, and not editable
+                            here. It is what this employee earned in @Model.PeriodName; changing it
+                            would be inventing a different past. Edit the profile to change what
+                            they earn from now on.
+                        </span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.Bonus">Bonus</label>
+                        <input class="form-control" asp-for="Input.Bonus" type="number"
+                               step="0.01" min="0" inputmode="decimal" />
+                        <span class="pms-field-error" asp-validation-for="Input.Bonus"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.AdvanceDeduction">
+                            Advance deduction
+                        </label>
+                        <input class="form-control" asp-for="Input.AdvanceDeduction" type="number"
+                               step="0.01" min="0" inputmode="decimal" />
+                        <span class="pms-help">
+                            Lowering this releases advances back into next month's generation;
+                            raising it recovers more, up to whatever this month can bear. Net
+                            payable never goes below zero.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.AdvanceDeduction"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.OtherDeduction">
+                            Other deduction
+                        </label>
+                        <input class="form-control" asp-for="Input.OtherDeduction" type="number"
+                               step="0.01" min="0" inputmode="decimal" />
+                        <span class="pms-help">
+                            A single free amount &mdash; this is not a tax or provident-fund
+                            calculation. Say what it is in the notes.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.OtherDeduction"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.AdjustmentNotes">Notes</label>
+                        <textarea class="form-control" asp-for="Input.AdjustmentNotes" rows="2"
+                                  placeholder="Eid bonus"></textarea>
+                        <span class="pms-help">
+                            Required whenever there is a bonus or an other deduction. A figure
+                            nobody can account for six months later is the thing this field
+                            prevents.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.AdjustmentNotes"></span>
+                    </div>
+
+                    <div class="pms-form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="pms-spinner" aria-hidden="true"></span>Save changes
+                        </button>
+                        <a class="btn btn-link" asp-page="/Salary/Entries/Index">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="report-note">
+    <h2 class="h6">This is editable only until it is paid</h2>
+    <p class="mb-0">
+        Once you mark this salary paid, nothing on it can be changed &mdash; not the bonus, not the
+        deductions, not these notes. The money has gone and the employee has a slip. Correcting a
+        paid salary is a deliberate database intervention, not something any screen offers.
+    </p>
+</div>

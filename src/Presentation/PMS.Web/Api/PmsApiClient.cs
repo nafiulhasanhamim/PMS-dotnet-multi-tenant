@@ -982,4 +982,190 @@ public sealed class PmsApiClient
         return SendAsync<SupplierDuesReport>(
             HttpMethod.Get, "api/reports/supplier-dues?" + string.Join('&', query), null, ct);
     }
+
+    // ── Module 9: salary ─────────────────────────────────────────────────────────────────
+    //
+    // Admin-only on the server, and every page calling these carries the matching policy. A
+    // Pharmacist reaching one of these methods would get a 403 from the API, which is the
+    // boundary that actually holds.
+
+    public Task<ApiResult<ApiPage<SalaryProfileListItem>>> GetSalaryProfilesAsync(
+        string? search = null,
+        SalaryProfileStatusFilter status = SalaryProfileStatusFilter.Active,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string> { $"status={status}", $"page={page}", $"pageSize={pageSize}" };
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query.Add($"search={Uri.EscapeDataString(search.Trim())}");
+        }
+
+        return SendAsync<ApiPage<SalaryProfileListItem>>(
+            HttpMethod.Get, "api/salary/profiles?" + string.Join('&', query), null, ct);
+    }
+
+    public Task<ApiResult<SalaryProfileDetail>> GetSalaryProfileAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<SalaryProfileDetail>(HttpMethod.Get, $"api/salary/profiles/{id}", null, ct);
+
+    public Task<ApiResult<IReadOnlyList<SalaryEligibleUser>>> GetSalaryEligibleUsersAsync(
+        CancellationToken ct = default) =>
+        SendAsync<IReadOnlyList<SalaryEligibleUser>>(
+            HttpMethod.Get, "api/salary/profiles/eligible-users", null, ct);
+
+    public Task<ApiResult<IReadOnlyList<SalaryProfileOption>>> GetSalaryProfileOptionsAsync(
+        CancellationToken ct = default) =>
+        SendAsync<IReadOnlyList<SalaryProfileOption>>(
+            HttpMethod.Get, "api/salary/profiles/options", null, ct);
+
+    public Task<ApiResult<SalaryProfileDetail>> CreateSalaryProfileAsync(
+        Guid userId,
+        string? designation,
+        decimal monthlyBaseSalary,
+        DateOnly joiningDate,
+        CancellationToken ct = default) =>
+        SendAsync<SalaryProfileDetail>(HttpMethod.Post, "api/salary/profiles", new
+        {
+            userId,
+            designation,
+            monthlyBaseSalary,
+            joiningDate,
+        }, ct);
+
+    public Task<ApiResult<SalaryProfileDetail>> UpdateSalaryProfileAsync(
+        Guid id,
+        string? designation,
+        decimal monthlyBaseSalary,
+        DateOnly joiningDate,
+        CancellationToken ct = default) =>
+        SendAsync<SalaryProfileDetail>(HttpMethod.Put, $"api/salary/profiles/{id}", new
+        {
+            designation,
+            monthlyBaseSalary,
+            joiningDate,
+        }, ct);
+
+    public Task<ApiResult<SalaryProfileDetail>> SetSalaryProfileStatusAsync(
+        Guid id, bool isActive, CancellationToken ct = default) =>
+        SendAsync<SalaryProfileDetail>(
+            HttpMethod.Patch,
+            $"api/salary/profiles/{id}/{(isActive ? "reactivate" : "deactivate")}",
+            null,
+            ct);
+
+    public Task<ApiResult<ApiPage<SalaryAdvanceRow>>> GetSalaryAdvancesAsync(
+        Guid? profileId = null,
+        AdvanceSettlementFilter settlement = AdvanceSettlementFilter.All,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string>
+        {
+            $"settlement={settlement}", $"page={page}", $"pageSize={pageSize}",
+        };
+
+        if (profileId is { } id)
+        {
+            query.Add($"profileId={id}");
+        }
+
+        return SendAsync<ApiPage<SalaryAdvanceRow>>(
+            HttpMethod.Get, "api/salary/advances?" + string.Join('&', query), null, ct);
+    }
+
+    public Task<ApiResult<SalaryAdvanceRecorded>> RecordSalaryAdvanceAsync(
+        Guid profileId,
+        decimal amount,
+        DateOnly? advanceDate,
+        string? reason,
+        CancellationToken ct = default) =>
+        SendAsync<SalaryAdvanceRecorded>(HttpMethod.Post, "api/salary/advances", new
+        {
+            profileId,
+            amount,
+            advanceDate,
+            reason,
+        }, ct);
+
+    public Task<ApiResult<SalaryGenerationPreview>> GetSalaryGenerationPreviewAsync(
+        int month, int year, CancellationToken ct = default) =>
+        SendAsync<SalaryGenerationPreview>(
+            HttpMethod.Get, $"api/salary/generate/preview?month={month}&year={year}", null, ct);
+
+    public Task<ApiResult<SalaryGenerationResult>> GenerateSalaryAsync(
+        int month,
+        int year,
+        IReadOnlyList<SalaryGenerationLine> lines,
+        CancellationToken ct = default) =>
+        SendAsync<SalaryGenerationResult>(HttpMethod.Post, "api/salary/generate", new
+        {
+            month,
+            year,
+            lines,
+        }, ct);
+
+    public Task<ApiResult<ApiPage<SalaryEntryRow>>> GetSalaryEntriesAsync(
+        int? month = null,
+        int? year = null,
+        Guid? profileId = null,
+        SalaryStatusFilter status = SalaryStatusFilter.All,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var query = new List<string> { $"status={status}", $"page={page}", $"pageSize={pageSize}" };
+
+        if (month is { } m)
+        {
+            query.Add($"month={m}");
+        }
+
+        if (year is { } y)
+        {
+            query.Add($"year={y}");
+        }
+
+        if (profileId is { } id)
+        {
+            query.Add($"profileId={id}");
+        }
+
+        return SendAsync<ApiPage<SalaryEntryRow>>(
+            HttpMethod.Get, "api/salary/entries?" + string.Join('&', query), null, ct);
+    }
+
+    public Task<ApiResult<SalaryEntryRow>> GetSalaryEntryAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<SalaryEntryRow>(HttpMethod.Get, $"api/salary/entries/{id}", null, ct);
+
+    public Task<ApiResult<SalaryEntryRow>> UpdateSalaryEntryAsync(
+        Guid id,
+        decimal bonus,
+        decimal advanceDeduction,
+        decimal otherDeduction,
+        string? adjustmentNotes,
+        CancellationToken ct = default) =>
+        SendAsync<SalaryEntryRow>(HttpMethod.Put, $"api/salary/entries/{id}", new
+        {
+            bonus,
+            advanceDeduction,
+            otherDeduction,
+            adjustmentNotes,
+        }, ct);
+
+    public Task<ApiResult<SalaryEntryRow>> MarkSalaryPaidAsync(
+        Guid id, DateOnly? paymentDate, CancellationToken ct = default) =>
+        SendAsync<SalaryEntryRow>(
+            HttpMethod.Patch, $"api/salary/entries/{id}/pay", new { paymentDate }, ct);
+
+    public Task<ApiResult<SalarySlip>> GetSalarySlipAsync(
+        Guid id, CancellationToken ct = default) =>
+        SendAsync<SalarySlip>(HttpMethod.Get, $"api/salary/entries/{id}/slip", null, ct);
+
+    public Task<ApiResult<SalarySummary>> GetSalarySummaryAsync(CancellationToken ct = default) =>
+        SendAsync<SalarySummary>(HttpMethod.Get, "api/salary/summary", null, ct);
 }
