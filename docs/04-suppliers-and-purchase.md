@@ -103,10 +103,15 @@ silently changing every time a customer bought something out of that delivery, w
 destructive thing this module could do to a supplier's account.
 
 ### SupplierPayment
-`Id, TenantId, SupplierId*, PurchaseId (nullable), Amount*, PaymentDate, PaymentMethod, Notes, RecordedByUserId`
+`Id, TenantId, SupplierId*, PurchaseId (nullable), Amount*, Direction*, PaymentDate, PaymentMethod, Notes, RecordedByUserId`
+
+`Direction` is `Payment` / `Refund` / `WriteOff` — see §4.2. Added by migration `014` with a
+default of `Payment`, so every row written before it keeps its meaning. `Amount` is strictly
+positive whichever way the money went.
 
 `PaymentMethod` is free text rather than an enum: the column costs nothing today and adding bKash
-or a bank transfer later should not need a migration. The UI offers Cash.
+or a bank transfer later should not need a migration. The UI offers Cash. It describes *how* money
+moved; `Direction` describes *which way*, and the two are independent.
 
 ### PurchaseReturn
 `Id, TenantId, PurchaseLineId*, BatchId*, QuantityInBaseUnits*, Reason*, ReturnAmount, ReturnedByUserId`
@@ -177,7 +182,7 @@ when somebody writes to the database directly.
 
 A pharmacy that paid a bill in full and then returned half the delivery is **owed money by its
 supplier**. Flooring the figure at zero would hide a real credit. Every screen is written to say
-"overpaid" rather than pretend the account is settled.
+"in credit" rather than pretend the account is settled — see §8 for why not "overpaid".
 
 The brief's messy-sequence test is exactly this, and `acceptance_purchases.py` runs it:
 
@@ -220,8 +225,8 @@ capped at what that bill owes:
 - Bills already settled — or in credit from a return — absorb nothing. Crediting a bill that owes
   nothing would push it further into credit and leave one that *is* owed still reading Unpaid.
 - No bill takes more than it owes.
-- Anything left over stays unallocated, which is the honest outcome for an overpaid account: the
-  credit belongs to the account, not to any one bill.
+- Anything left over stays unallocated, which is the honest outcome when more has been paid than
+  the bills come to: the credit belongs to the account, not to any one bill.
 
 The figure arrives as `GeneralPaymentApplied` and is folded into `Due` and the status badge by
 `PurchaseMath`. **Nothing is written.** `Purchase.AmountPaid` still reads 0 on a bill covered
@@ -494,6 +499,12 @@ delivery note. Both columns are kept on `Batch` permanently for that reason.
 - Recurring or scheduled purchases.
 - **Editing or deleting a completed purchase** — see §8.
 - Retroactively matching historical free-text supplier names — see §9.4.
+- **A written-off credit is not reflected as a cost in any report.** Module 8's gross profit is
+  sales revenue less batch cost, and net profit subtracts operating expenses, which come from the
+  unbuilt Salary module. A credit given up is real money lost — the pharmacy paid for goods it
+  returned and never recovered the cash — but it leaves the supplier balance without appearing as
+  a loss anywhere. Surfacing it would mean deciding where purchase-side losses belong in the
+  profit model, which is a Module 8 question rather than a Module 4 one.
 
 ---
 

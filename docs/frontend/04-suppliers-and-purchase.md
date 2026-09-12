@@ -237,13 +237,15 @@ left the till.
 never the only signal, so these read correctly in monochrome and to anyone who cannot distinguish
 the two hues.
 
-An overpaid supplier shows a negative figure labelled **overpaid**, on the list, on their detail
+A supplier in credit shows a negative figure labelled **in credit**, on the list, on their detail
 page, on the purchases list, and on the dues report. Nothing clamps to zero anywhere: a credit is
-real money.
+real money, and it clears only when the next delivery absorbs it, the supplier refunds it, or it
+is written off (§4.2).
 
 `StatusPresentation.ForPurchase` labels a bill — Paid (green), Partially paid (amber), Unpaid
 (red) — so every screen describes the same bill the same way. A bill settled entirely by a return
-reads **Paid**, because the status answers "is there anything left to settle".
+reads **Paid**, because the status answers "is there anything left to settle" — and so does one
+covered entirely by general payments, for the same reason.
 
 ---
 
