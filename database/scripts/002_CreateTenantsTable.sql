@@ -9,62 +9,67 @@
 USE [PMSDb]
 GO
 
+-- Filtered indexes (the WHERE clauses below) will not be created unless both of these are ON.
+-- sqlcmd defaults QUOTED_IDENTIFIER to OFF, so stating them here is not redundant: without
+-- them the table is created and the unique indexes silently are not.
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+GO
+
 IF OBJECT_ID('[dbo].[Tenants]', 'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[Tenants]
     (
-        [Id]              UNIQUEIDENTIFIER NOT NULL DEFAULT NEWSEQUENTIALID(),
+        [Id]                UNIQUEIDENTIFIER NOT NULL DEFAULT NEWSEQUENTIALID(),
 
-        -- The pharmacy's name, as printed on its invoices.
-        [Name]            NVARCHAR(200)    NOT NULL,
+        -- The pharmacy name, as printed on its invoices.
+        [Name]              NVARCHAR(200)    NOT NULL,
 
-        -- Short stable key used in URLs and support conversations, e.g. 'citycare'.
-        -- Kept separate from Name so the name can be corrected without invalidating
-        -- anything that refers to the tenant.
-        [Slug]            NVARCHAR(64)     NOT NULL,
+        -- The pharmacy own host, e.g. 'citycare.com'. Required: staff type this at sign-in,
+        -- so it is what decides which pharmacy a login targets. Stored as a bare lowercase
+        -- host - no scheme, port or path. 253 is the longest a fully-qualified domain name
+        -- can be (RFC 1035).
+        [DomainName]        NVARCHAR(253)    NOT NULL,
 
-        -- The pharmacy's own host, e.g. 'citycare.com'. Optional. Stored as a bare
-        -- lowercase host: no scheme, port or path. 253 is the longest a fully-qualified
-        -- domain name can be (RFC 1035).
-        [DomainName]      NVARCHAR(253)    NULL,
+        -- 0 = Trial, 1 = Active, 2 = Suspended. Suspended stops every sign-in for the
+        -- pharmacy without touching a row of its data.
+        [Status]            INT              NOT NULL DEFAULT 0,
 
-        -- Suspends a pharmacy without deleting it: its users cannot sign in, its data
-        -- is untouched.
-        [IsActive]        BIT              NOT NULL DEFAULT 1,
+        -- Free text for now, e.g. 'Standard'. Billing is not modelled yet.
+        [SubscriptionPlan]  NVARCHAR(100)    NULL,
+
+        -- Declared on AggregateRoot as a concurrency token, but not currently configured as
+        -- one (no IsRowVersion() anywhere), so EF maps it as a plain nullable blob and never
+        -- populates it. The column has to exist regardless: EF selects it on every read.
+        -- To make it do its job, map it with .IsRowVersion() and change this to ROWVERSION.
+        [RowVersion]        VARBINARY(MAX)   NULL,
 
         -- Audit (IAuditable)
-        [CreatedOnUtc]    DATETIME2        NOT NULL,
-        [CreatedBy]       NVARCHAR(256)    NULL,
-        [ModifiedOnUtc]   DATETIME2        NULL,
-        [ModifiedBy]      NVARCHAR(256)    NULL,
+        [CreatedOnUtc]      DATETIME2        NOT NULL,
+        [CreatedBy]         NVARCHAR(256)    NULL,
+        [ModifiedOnUtc]     DATETIME2        NULL,
+        [ModifiedBy]        NVARCHAR(256)    NULL,
 
-        -- Soft delete (ISoftDelete). A tenant is never hard-deleted: its pharmacy's
-        -- sales, purchases and audit history have to remain readable.
-        [IsDeleted]       BIT              NOT NULL DEFAULT 0,
-        [DeletedOnUtc]    DATETIME2        NULL,
-        [DeletedBy]       NVARCHAR(256)    NULL,
+        -- Soft delete (ISoftDelete). A tenant is never hard-deleted: its sales, purchases
+        -- and audit history have to remain readable.
+        [IsDeleted]         BIT              NOT NULL DEFAULT 0,
+        [DeletedOnUtc]      DATETIME2        NULL,
+        [DeletedBy]         NVARCHAR(256)    NULL,
 
-        CONSTRAINT [PK_Tenants] PRIMARY KEY CLUSTERED ([Id])
+        CONSTRAINT [PK_Tenants] PRIMARY KEY CLUSTERED ([Id]),
+
+        CONSTRAINT [CK_Tenants_Status] CHECK ([Status] IN (0, 1, 2))
     )
 
-    -- Slug identifies a pharmacy system-wide, so it is unique across all tenants.
-    -- Filtered on IsDeleted so a slug can be reused after a tenant is removed.
-    CREATE UNIQUE NONCLUSTERED INDEX [IX_Tenants_Slug]
-        ON [dbo].[Tenants] ([Slug])
-        WHERE [IsDeleted] = 0
-
-    -- A domain must resolve to exactly one tenant.
-    --
-    -- Filtered on IS NOT NULL as well as on IsDeleted, and that part is load-bearing:
-    -- SQL Server treats NULLs as equal in a unique index, so without it only ONE
-    -- pharmacy could exist without a domain - and most will not have one.
+    -- A domain decides which pharmacy a login targets, so it must resolve to exactly one.
+    -- Filtered on IsDeleted so a domain can be reused after a pharmacy is removed.
     CREATE UNIQUE NONCLUSTERED INDEX [IX_Tenants_DomainName]
         ON [dbo].[Tenants] ([DomainName])
-        WHERE [DomainName] IS NOT NULL AND [IsDeleted] = 0
+        WHERE [IsDeleted] = 0
 
-    -- Sign-in resolves the active tenant for a host or slug on every login.
-    CREATE NONCLUSTERED INDEX [IX_Tenants_IsActive]
-        ON [dbo].[Tenants] ([IsActive])
+    -- Sign-in checks status on every login, and the platform list groups by it.
+    CREATE NONCLUSTERED INDEX [IX_Tenants_Status]
+        ON [dbo].[Tenants] ([Status])
         WHERE [IsDeleted] = 0
 
     PRINT 'Table [Tenants] created successfully.'

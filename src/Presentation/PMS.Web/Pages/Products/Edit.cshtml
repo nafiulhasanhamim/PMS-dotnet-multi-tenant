@@ -1,0 +1,30 @@
+@page "/products/{id:guid}/edit"
+@model PMS.Web.Pages.Products.EditModel
+@{
+    ViewData["Title"] = "Edit product";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Edit @Model.Input.BrandName</h1>
+        @if (Model.Input.IsMedicine && !string.IsNullOrWhiteSpace(Model.Input.GenericName))
+        {
+            <p class="pms-page-header__subtitle">@Model.Input.GenericName</p>
+        }
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Products/Detail" asp-route-id="@Model.Id">
+            Back to product
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-xl-9">
+        <partial name="_ProductForm" model="Model.FormModel" />
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/product-form.js" asp-append-version="true"></script>
+}

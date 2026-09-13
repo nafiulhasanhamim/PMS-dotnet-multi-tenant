@@ -1,0 +1,24 @@
+@*
+    The mode indicator. Rendered on the register, on screen and in print.
+
+    Its job is to explain empty prescription columns before anybody has to ask. A register whose
+    patient and doctor columns are all dashes looks like a system that lost the data unless it
+    says, on the page, that this pharmacy does not collect it.
+*@
+@model AntibioticModeNoticeModel
+
+<div class="pms-mode-notice">
+    <p class="pms-mode-notice__line mb-0">
+        <strong>Prescription capture: @Model.Label</strong>
+
+        @if (Model.SettingsLink)
+        {
+            <a class="pms-no-print" asp-page="/Settings/Antibiotics">Change</a>
+        }
+    </p>
+
+    @if (Model.Explanation is { } explanation)
+    {
+        <p class="pms-form-help mb-0">@explanation</p>
+    }
+</div>

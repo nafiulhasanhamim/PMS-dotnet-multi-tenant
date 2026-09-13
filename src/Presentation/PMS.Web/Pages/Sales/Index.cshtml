@@ -1,0 +1,188 @@
+@page "/sales"
+@model PMS.Web.Pages.Sales.IndexModel
+@inject DisplayTimeZone Clock
+@{
+    ViewData["Title"] = "Sales";
+    var showCashierFilter = Model.Cashiers.Count > 0;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Sales</h1>
+        <p class="pms-page-header__subtitle">
+            @if (showCashierFilter)
+            {
+                <text>Every invoice this pharmacy has issued.</text>
+            }
+            else
+            {
+                <text>The invoices you have rung up.</text>
+            }
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Billing/Index">New sale</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="pms-card mb-3">
+    <div class="pms-card__body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="pms-form-label" for="from">From</label>
+                <input class="form-control" type="date" id="from" name="from"
+                       value="@Model.From?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="col-md-3">
+                <label class="pms-form-label" for="to">To</label>
+                <input class="form-control" type="date" id="to" name="to"
+                       value="@Model.To?.ToString("yyyy-MM-dd")" />
+            </div>
+
+            @* Absent for an Employee. See the page model for why an empty one is worse. *@
+            @if (showCashierFilter)
+            {
+                <div class="col-md-3">
+                    <label class="pms-form-label" for="cashier">Cashier</label>
+                    <select class="form-select" id="cashier" name="cashier">
+                        <option value="">Everyone</option>
+                        @foreach (var option in Model.Cashiers)
+                        {
+                            <option value="@option.UserId" selected="@(Model.Cashier == option.UserId)">
+                                @option.Name (@option.SaleCount)
+                            </option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <div class="col-md-2">
+                <label class="pms-form-label" for="status">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="@SaleStatusFilter.All" selected="@(Model.Status == SaleStatusFilter.All)">All</option>
+                    <option value="@SaleStatusFilter.Completed" selected="@(Model.Status == SaleStatusFilter.Completed)">Completed</option>
+                    <option value="@SaleStatusFilter.Cancelled" selected="@(Model.Status == SaleStatusFilter.Cancelled)">Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="pms-table-wrap">
+    @if (Model.Sales.IsEmpty)
+    {
+        @if (Model.HasFilters)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No sales match those filters",
+                "Try a wider date range, or clear the filters."))" />
+        }
+        else
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No sales yet",
+                "Completed sales appear here with their invoices.",
+                "New sale",
+                "/Billing/Index"))" />
+        }
+    }
+    else
+    {
+        <table class="pms-table">
+            <caption class="visually-hidden">Sales, newest first.</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Invoice</th>
+                    <th scope="col">Date and time</th>
+                    <th scope="col">Cashier</th>
+                    <th scope="col" class="text-end">Items</th>
+                    <th scope="col" class="text-end">Net total</th>
+                    <th scope="col">Status</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sale in Model.Sales.Data)
+                {
+                    <tr class="@(sale.IsCancelled ? "pms-row-inactive" : null)">
+                        <td>
+                            <a asp-page="/Sales/Detail" asp-route-id="@sale.Id" class="pms-mono">
+                                @sale.InvoiceNumber
+                            </a>
+                        </td>
+                        <td>@Clock.Format(sale.SaleDate)</td>
+                        <td>@(sale.CashierName ?? "(unknown user)")</td>
+                        <td class="text-end">@sale.ItemCount</td>
+                        <td class="text-end">@sale.NetTotal.ToString("N2")</td>
+                        <td>
+                            @if (sale.IsCancelled)
+                            {
+                                <span class="pms-badge pms-badge--danger">Cancelled</span>
+                            }
+                            else if (sale.HasReturns)
+                            {
+                                @* Not a status of its own on the sale - it is derived from the
+                                   returns - but it is the thing somebody scanning this column
+                                   wants to know, because it changes what the invoice totals
+                                   mean. *@
+                                <span class="pms-badge pms-badge--warning">Part returned</span>
+                            }
+                            else
+                            {
+                                <span class="pms-badge pms-badge--success">Completed</span>
+                            }
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary"
+                               asp-page="/Sales/Detail" asp-route-id="@sale.Id">Invoice</a>
+
+                            @if (Model.Limits.MayReturn && !sale.IsCancelled)
+                            {
+                                <a class="btn btn-sm btn-outline-secondary"
+                                   asp-page="/Sales/Return" asp-route-id="@sale.Id">Return</a>
+                            }
+
+                            @if (Model.Limits.MayCancel && !sale.IsCancelled)
+                            {
+                                <form method="post" asp-page-handler="Cancel"
+                                      asp-route-id="@sale.Id" id="cancel-@sale.Id" class="d-inline">
+                                    <input type="hidden" name="from" value="@Model.From?.ToString("yyyy-MM-dd")" />
+                                    <input type="hidden" name="to" value="@Model.To?.ToString("yyyy-MM-dd")" />
+                                    <input type="hidden" name="status" value="@Model.Status" />
+                                    <input type="hidden" name="p" value="@Model.PageNumber" />
+                                    <input type="hidden" name="reason" data-pms-confirm-prompt-value value="" />
+                                </form>
+
+                                @* data-pms-confirm carries the body text: that is the
+                                   attribute site.js reads, not data-pms-confirm-body. *@
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-pms-confirm-form="cancel-@sale.Id"
+                                        data-pms-confirm-title="Cancel @sale.InvoiceNumber?"
+                                        data-pms-confirm="This will cancel invoice @sale.InvoiceNumber and restore all stock from this sale. The sale will be excluded from all reports. This cannot be undone."
+                                        data-pms-confirm-ok="Cancel the sale"
+                                        data-pms-confirm-prompt="Reason for cancelling">
+                                    Cancel
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (!Model.Sales.IsEmpty)
+{
+    @* ApiPaginationModel.For, not the PaginationModel used with locally sliced lists: this
+       endpoint pages in the database, so the totals come from the response. *@
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        Model.Sales, "/Sales/Index", Model.RouteValues))" />
+}
+
+<partial name="_ConfirmModal" />

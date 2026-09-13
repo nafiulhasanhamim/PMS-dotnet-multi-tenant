@@ -1,0 +1,166 @@
+@model PMS.Web.ViewModels.PriceGridViewModel
+@*
+    The review grid, shared by the bulk setup screen and the complete-setup screen.
+
+    They are the same problem at two moments - a list of products and the prices they still
+    need - so they render this one partial. Sharing it is not only about markup: the copy-down
+    affordance, the keyboard order and the antibiotic tint all behave identically, which
+    matters on the screen somebody works through fifty rows of.
+
+    The caller supplies the rows and the field-name prefix; this knows nothing about where the
+    rows came from.
+*@
+<div class="pms-table-wrap">
+    <div class="table-responsive">
+        <table class="pms-table pms-grid">
+            <caption class="visually-hidden">@Model.Caption</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Brand name</th>
+                    <th scope="col">Generic</th>
+                    @if (Model.ShowAntibioticColumn)
+                    {
+                        <th scope="col" class="text-center">Antibiotic</th>
+                    }
+                    <th scope="col">Unit setup</th>
+                    @foreach (var level in Model.PriceColumns)
+                    {
+                        <th scope="col">
+                            @level.Header
+                            @if (Model.Rows.Count > 1)
+                            {
+                                @* Fills the column from the first row down. On fifty rows of
+                                   the same tablet strength this is the difference between one
+                                   number and fifty. *@
+                                <button type="button" class="btn btn-sm btn-link p-0 ms-1"
+                                        data-copy-down="@level.FieldSuffix"
+                                        title="Copy the first value down this column">
+                                    copy down
+                                </button>
+                            }
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Model.Rows.Count; i++)
+                {
+                    var row = Model.Rows[i];
+                    var errors = Model.ErrorsFor(row.Key);
+                    <tr class="@(row.IsAntibioticSuggested ? "pms-row-antibiotic" : null) @(errors.Count > 0 ? "pms-row-error" : null)">
+                        <td>
+                            <strong>@row.BrandName</strong>
+                            @if (row.Strength is not null)
+                            {
+                                <span class="text-muted"> @row.Strength</span>
+                            }
+                            @Model.KeyField(i, row)
+                            @if (errors.Count > 0)
+                            {
+                                <div class="pms-field-error">
+                                    @foreach (var message in errors)
+                                    {
+                                        <div>@message</div>
+                                    }
+                                </div>
+                            }
+                        </td>
+                        <td class="text-muted">@(row.GenericName ?? "—")</td>
+
+                        @if (Model.ShowAntibioticColumn)
+                        {
+                            <td class="text-center">
+                                @* Pre-set from the catalogue and editable. The tint on the row
+                                   is what draws the eye here: the classifier is a guess, and
+                                   this is the moment it becomes a decision. *@
+                                <input class="form-check-input" type="checkbox"
+                                       name="@Model.FieldName(i, "IsAntibiotic")"
+                                       value="true"
+                                       checked="@row.IsAntibioticSuggested"
+                                       aria-label="@row.BrandName is an antibiotic" />
+                                <input type="hidden"
+                                       name="@Model.FieldName(i, "IsAntibiotic")" value="false" />
+                            </td>
+                        }
+
+                        <td class="pms-grid__units">
+                            <span data-row-units="@i">@Model.DescribeUnits(row)</span>
+                            @if (Model.AllowUnitOverride)
+                            {
+                                <details class="pms-grid__override">
+                                    <summary>customise</summary>
+                                    <div class="pms-grid__override-body">
+                                        @* Unticking "use the shared setup" is what exempts this
+                                           row from the preset above, so a pharmacy importing
+                                           forty tablets and two syrups fixes two rows. *@
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox"
+                                                   name="@Model.FieldName(i, "UsesSharedUnits")"
+                                                   value="true" checked="@true"
+                                                   id="shared-@i" />
+                                            <input type="hidden"
+                                                   name="@Model.FieldName(i, "UsesSharedUnits")"
+                                                   value="false" />
+                                            <label class="form-check-label" for="shared-@i">
+                                                Use the shared setup
+                                            </label>
+                                        </div>
+
+                                        <label class="pms-form-label mt-2">Smallest unit</label>
+                                        <input class="form-control form-control-sm"
+                                               name="@Model.FieldName(i, "BaseUnitName")"
+                                               value="@row.BaseUnitName" />
+
+                                        <label class="pms-form-label mt-2">Middle pack</label>
+                                        <div class="d-flex gap-1">
+                                            <input class="form-control form-control-sm"
+                                                   name="@Model.FieldName(i, "MidUnitName")"
+                                                   value="@row.MidUnitName" placeholder="strip" />
+                                            <input class="form-control form-control-sm"
+                                                   type="number" min="2"
+                                                   name="@Model.FieldName(i, "BasePerMid")"
+                                                   value="@row.BasePerMid" placeholder="10" />
+                                        </div>
+
+                                        <label class="pms-form-label mt-2">Bulk pack</label>
+                                        <div class="d-flex gap-1">
+                                            <input class="form-control form-control-sm"
+                                                   name="@Model.FieldName(i, "LargeUnitName")"
+                                                   value="@row.LargeUnitName" placeholder="box" />
+                                            <input class="form-control form-control-sm"
+                                                   type="number" min="2"
+                                                   name="@Model.FieldName(i, "MidPerLarge")"
+                                                   value="@row.MidPerLarge" placeholder="10" />
+                                        </div>
+                                    </div>
+                                </details>
+                            }
+                        </td>
+
+                        @foreach (var level in Model.PriceColumns)
+                        {
+                            var applies = Model.RowHasLevel(row, level.FieldSuffix);
+                            <td>
+                                @if (applies)
+                                {
+                                    <input class="form-control form-control-sm pms-grid__price"
+                                           type="number" step="any" min="0"
+                                           name="@Model.FieldName(i, level.FieldSuffix)"
+                                           value="@Model.PriceValue(row.Key, level.FieldSuffix)"
+                                           data-price-column="@level.FieldSuffix"
+                                           aria-label="@level.Header for @row.BrandName" />
+                                }
+                                else
+                                {
+                                    @* The row does not have this level, so there is nothing to
+                                       price. An input here would be sent and rejected. *@
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

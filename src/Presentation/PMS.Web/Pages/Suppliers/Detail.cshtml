@@ -1,0 +1,347 @@
+@page "/suppliers/{id:guid}"
+@model PMS.Web.Pages.Suppliers.DetailModel
+@{
+    var supplier = Model.Supplier;
+    ViewData["Title"] = supplier.Name;
+    var status = StatusPresentation.ForMembership(supplier.IsActive);
+    var balance = supplier.Balance;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>
+            @supplier.Name
+            <span class="pms-badge @status.Css">@status.Text</span>
+        </h1>
+        <p class="pms-page-header__subtitle">
+            @supplier.Phone
+            @if (!string.IsNullOrWhiteSpace(supplier.Company))
+            {
+                <text>&middot; @supplier.Company</text>
+            }
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Suppliers/Edit"
+           asp-route-id="@supplier.Id">Edit</a>
+
+        @if (Model.IsAdmin)
+        {
+            <form method="post" asp-page-handler="SetStatus" class="d-inline">
+                <input type="hidden" name="active"
+                       value="@((!supplier.IsActive).ToString().ToLowerInvariant())" />
+                <button type="submit" class="btn btn-outline-secondary">
+                    @(supplier.IsActive ? "Deactivate" : "Reactivate")
+                </button>
+            </form>
+        }
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (!supplier.IsActive)
+{
+    <partial name="_Alert" model="@AlertModel.Info(
+        "This supplier is deactivated, so no new purchase can be recorded against them. "
+        + "Everything already bought from them, and anything still owed, is unchanged.")" />
+}
+
+@*
+    The four figures, with outstanding given the most weight — it is the number somebody opened
+    this page for. Purchased, paid and returned are shown alongside because a balance with no
+    working is a number nobody can check.
+*@
+<div class="stat-cards">
+    <div class="stat-card">
+        <span class="stat-card__label">Total purchased</span>
+        <span class="stat-card__value">@Money.Format(balance.TotalPurchased)</span>
+        <span class="stat-card__note">@Money.Count(supplier.PurchaseCount) purchases</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Total paid</span>
+        <span class="stat-card__value">@Money.Format(balance.TotalPaid)</span>
+        <span class="stat-card__note">@Money.Count(supplier.PaymentCount) payments</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Total returned</span>
+        <span class="stat-card__value">@Money.Format(balance.TotalReturned)</span>
+        <span class="stat-card__note">goods sent back</span>
+    </div>
+    @if (balance.HasIncoming)
+    {
+        @*
+            Only shown once money has come back the other way. A card reading 0.00 on every
+            ordinary account would be four-fifths noise, and the balance can be checked without
+            it until then.
+        *@
+        <div class="stat-card">
+            <span class="stat-card__label">Refunded to us</span>
+            <span class="stat-card__value">@Money.Format(balance.TotalRefunded)</span>
+            <span class="stat-card__note">
+                @if (balance.TotalWrittenOff > 0)
+                {
+                    <text>plus @Money.Format(balance.TotalWrittenOff) written off</text>
+                }
+                else
+                {
+                    <text>credits settled in cash</text>
+                }
+            </span>
+        </div>
+    }
+    <div class="stat-card @(balance.IsOwing ? "stat-card--danger" : "stat-card--emphasis")">
+        <span class="stat-card__label">Outstanding</span>
+        <span class="stat-card__value @Money.Tone(balance.Outstanding)">
+            @Money.Signed(balance.Outstanding)
+        </span>
+        <span class="stat-card__note">
+            @*
+                "In credit" rather than "overpaid": the credit can arise from returning goods
+                after paying, which is not an overpayment at all. The cause differs; the state
+                does not.
+            *@
+            @if (balance.IsOverpaid)
+            {
+                <text>in credit &mdash; they owe you</text>
+            }
+            else if (balance.IsSettled)
+            {
+                <text>nothing owed</text>
+            }
+            else
+            {
+                <text>still to pay</text>
+            }
+        </span>
+    </div>
+</div>
+
+<div class="pms-page-header__actions mb-3">
+    @if (Model.IsAdmin)
+    {
+        <a class="btn btn-primary" asp-page="/Suppliers/RecordPayment" asp-route-id="@supplier.Id">
+            @(balance.IsOverpaid ? "Record payment or refund" : "Record payment")
+        </a>
+    }
+    @if (supplier.IsActive)
+    {
+        <a class="btn btn-outline-secondary" asp-page="/Purchases/Create"
+           asp-route-supplier="@supplier.Id">New purchase</a>
+    }
+</div>
+
+@if (!string.IsNullOrWhiteSpace(supplier.ContactPerson)
+     || !string.IsNullOrWhiteSpace(supplier.Email)
+     || !string.IsNullOrWhiteSpace(supplier.Address))
+{
+    <section class="report-section">
+        <h2 class="h6">Contact</h2>
+        <dl class="pms-detail-list">
+            @if (!string.IsNullOrWhiteSpace(supplier.ContactPerson))
+            {
+                <dt>Contact person</dt>
+                <dd>@supplier.ContactPerson</dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(supplier.Email))
+            {
+                <dt>Email</dt>
+                <dd>@supplier.Email</dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(supplier.Address))
+            {
+                <dt>Address</dt>
+                <dd>@supplier.Address</dd>
+            }
+        </dl>
+    </section>
+}
+
+<section class="report-section">
+    <h2 class="h6">Purchase history</h2>
+
+    @if (Model.Purchases.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "Nothing bought from them yet",
+            "Record a purchase to book stock in against this supplier."))" />
+    }
+    else
+    {
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Purchase</th>
+                        <th scope="col" class="text-end">Total</th>
+                        <th scope="col" class="text-end">Paid</th>
+                        <th scope="col" class="text-end">Returned</th>
+                        <th scope="col" class="text-end">Due</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Purchases.Data)
+                    {
+                        var rowStatus = StatusPresentation.ForPurchase(row.Status);
+                        <tr>
+                            <td>@row.PurchaseDate.ToString("d MMM yyyy")</td>
+                            <td>
+                                <a asp-page="/Purchases/Detail" asp-route-id="@row.PurchaseId">
+                                    @row.PurchaseNumber
+                                </a>
+                                <span class="pms-help">
+                                    @Money.Count(row.LineCount) item@(row.LineCount == 1 ? "" : "s")
+                                </span>
+                            </td>
+                            <td class="text-end">@Money.Format(row.TotalAmount)</td>
+                            <td class="text-end">@Money.Format(row.AmountPaid)</td>
+                            <td class="text-end">
+                                @if (row.ReturnedAmount > 0)
+                                {
+                                    @Money.Format(row.ReturnedAmount)
+                                }
+                                else
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                            </td>
+                            <td class="text-end @Money.Tone(row.Due)">
+                                @Money.Signed(row.Due)
+                                @*
+                                    Money paid against the account rather than this bill, shown
+                                    where it was applied. Without it this column contradicted the
+                                    Outstanding figure above: a settled supplier showed bills
+                                    badged Unpaid.
+                                *@
+                                @if (row.HasGeneralPayment)
+                                {
+                                    <span class="pms-help">
+                                        after @Money.Format(row.GeneralPaymentApplied) from
+                                        general payments
+                                    </span>
+                                }
+                                @if (row.HasCreditSettled)
+                                {
+                                    @* The mirror of the line above: a credit this bill was
+                                       holding has since been handed back or given up. *@
+                                    <span class="pms-help">
+                                        @Money.Format(row.CreditSettled) credit settled
+                                    </span>
+                                }
+                            </td>
+                            <td><span class="pms-badge @rowStatus.Css">@rowStatus.Text</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            Model.Purchases, "/Suppliers/Detail", Model.PurchaseRoute))" />
+
+        @if (Model.Purchases.Data.Any(r => r.HasGeneralPayment))
+        {
+            <p class="report-section__note">
+                Some payments to this supplier went against the account rather than a specific
+                bill. They are shown above against the oldest bills still owing, so the Due column
+                adds up to the outstanding balance.
+                <strong>That is a view, not a record</strong> &mdash; nothing is stored saying
+                which bill an unallocated payment settled.
+            </p>
+        }
+    }
+</section>
+
+<section class="report-section">
+    <h2 class="h6">Payment history</h2>
+
+    @if (Model.Payments.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No payments recorded",
+            "Payments show here once money has gone out to this supplier."))" />
+    }
+    else
+    {
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="text-end">Amount</th>
+                        <th scope="col">Against</th>
+                        <th scope="col">Method</th>
+                        <th scope="col">Recorded by</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var payment in Model.Payments.Data)
+                    {
+                        <tr>
+                            <td>@payment.PaymentDate.ToString("d MMM yyyy")</td>
+                            <td>
+                                @*
+                                    Every amount in this table is positive; the type column is
+                                    what says which way it moved. A signed amount would have been
+                                    the alternative, and a column of mixed signs is read wrongly
+                                    far more often than a column of labels.
+                                *@
+                                @if (payment.IsIncoming)
+                                {
+                                    <span class="pms-badge pms-badge--info">
+                                        @payment.DirectionLabel
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="pms-badge pms-badge--neutral">Payment</span>
+                                }
+                            </td>
+                            <td class="text-end">@Money.Format(payment.Amount)</td>
+                            <td>
+                                @*
+                                    A general payment says so rather than leaving the cell blank:
+                                    an empty cell reads as missing data, and this is a deliberate
+                                    kind of payment rather than an incomplete one.
+                                *@
+                                @if (payment.IsIncoming)
+                                {
+                                    <span class="text-muted">The account</span>
+                                }
+                                else if (payment.IsGeneral)
+                                {
+                                    <span class="text-muted">General payment</span>
+                                }
+                                else
+                                {
+                                    <a asp-page="/Purchases/Detail"
+                                       asp-route-id="@payment.PurchaseId">
+                                        @payment.PurchaseNumber
+                                    </a>
+                                }
+                            </td>
+                            <td>@payment.PaymentMethod</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(payment.RecordedByName))
+                                {
+                                    @payment.RecordedByName
+                                }
+                                else
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            Model.Payments, "/Suppliers/Detail", Model.PaymentRoute))" />
+    }
+</section>

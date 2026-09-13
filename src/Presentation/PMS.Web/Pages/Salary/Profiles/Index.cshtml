@@ -1,0 +1,170 @@
+@page "/salary/profiles"
+@model PMS.Web.Pages.Salary.Profiles.IndexModel
+@{
+    ViewData["Title"] = "Salary profiles";
+    var profiles = Model.Profiles;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Salary profiles</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Index">&larr; Salary</a>
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Salary/Profiles/Edit">Add profile</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="report-filters">
+    <div class="report-filter">
+        <label class="pms-form-label" for="q">Search</label>
+        <input type="search" class="form-control" id="q" name="q" value="@Model.Search"
+               placeholder="Name or designation" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="status">Status</label>
+        <select class="form-select" id="status" name="status">
+            <option value="Active" selected="@(Model.Status == SalaryProfileStatusFilter.Active)">
+                Active
+            </option>
+            <option value="Inactive" selected="@(Model.Status == SalaryProfileStatusFilter.Inactive)">
+                Inactive
+            </option>
+            <option value="All" selected="@(Model.Status == SalaryProfileStatusFilter.All)">
+                All
+            </option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Search</button>
+        @if (Model.HasFilters)
+        {
+            <a class="btn btn-link" asp-page="/Salary/Profiles/Index">Clear</a>
+        }
+    </div>
+</form>
+
+@if (profiles.IsEmpty)
+{
+    @if (Model.HasFilters)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No profiles match",
+            "Try a different name or designation, or clear the filters."))" />
+    }
+    else
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "Nobody is on the payroll yet",
+            "Add a salary profile for each member of staff who draws a salary. Not every user "
+            + "needs one.",
+            "Add profile",
+            "/Salary/Profiles/Edit"))" />
+    }
+}
+else
+{
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <caption class="visually-hidden">
+                Salary profiles with monthly pay and outstanding advances.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Employee</th>
+                    <th scope="col">Designation</th>
+                    <th scope="col" class="text-end">Monthly salary</th>
+                    <th scope="col" class="text-end">Advances outstanding</th>
+                    <th scope="col">Joined</th>
+                    <th scope="col">Status</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var profile in profiles.Data)
+                {
+                    var status = StatusPresentation.ForMembership(profile.IsActive);
+                    var formId = $"profile-status-{profile.Id}";
+
+                    <tr class="@(profile.IsActive ? null : "pms-row-inactive")">
+                        <td>
+                            <a asp-page="/Salary/Profiles/Edit" asp-route-id="@profile.Id"
+                               class="pms-cell-link">
+                                <span class="pms-cart__name">@profile.EmployeeName</span>
+                            </a>
+                            <span class="pms-help">@profile.EmployeeEmail</span>
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(profile.Designation))
+                            {
+                                @profile.Designation
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        <td class="text-end">@Money.Format(profile.MonthlyBaseSalary)</td>
+                        @*
+                            Money the EMPLOYEE owes, so it is not a debt of the pharmacy's and is
+                            not styled like one. A muted dash when there is nothing outstanding
+                            reads faster than a row of zeroes.
+                        *@
+                        <td class="text-end">
+                            @if (profile.UnsettledAdvanceTotal > 0m)
+                            {
+                                <span class="figure-negative">
+                                    @Money.Format(profile.UnsettledAdvanceTotal)
+                                </span>
+                                <span class="pms-help">
+                                    @profile.UnsettledAdvanceCount
+                                    @(profile.UnsettledAdvanceCount == 1 ? "advance" : "advances")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="pms-placeholder">&mdash;</span>
+                            }
+                        </td>
+                        <td>@profile.JoiningDate.ToString("dd MMM yyyy")</td>
+                        <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                        <td class="text-end">
+                            <form method="post" id="@formId" asp-page-handler="Status"
+                                  asp-route-id="@profile.Id"
+                                  asp-route-q="@Model.Search" asp-route-status="@Model.Status">
+                                <input type="hidden" name="isActive"
+                                       value="@((!profile.IsActive).ToString().ToLowerInvariant())" />
+                                @if (profile.IsActive)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-pms-confirm-form="@formId"
+                                            data-pms-confirm-title="Take @profile.EmployeeName off the payroll?"
+                                            data-pms-confirm-ok="Deactivate"
+                                            data-pms-confirm="They will disappear from the salary generation screen and from the advance form. Every salary already generated for them, and every advance recorded against them, stays exactly as it is - nothing is deleted. You can put them back on the payroll later.">
+                                        Deactivate
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <span class="pms-spinner" aria-hidden="true"></span>Reactivate
+                                    </button>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        profiles, "/Salary/Profiles/Index", Model.RouteValues))" />
+}
+
+<partial name="_ConfirmModal" />

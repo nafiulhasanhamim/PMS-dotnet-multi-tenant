@@ -1,0 +1,268 @@
+@page "/settings"
+@model PMS.Web.Pages.Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+    var current = Model.Current;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Settings</h1>
+        <p class="pms-page-header__subtitle">
+            What this pharmacy is called, how far ahead it looks for problems, and what staff may
+            discount. Everything here takes effect immediately &mdash; there is nothing to restart.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="post" id="settings-form" data-pms-guard novalidate>
+    <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+    <div class="row">
+        <div class="col-lg-8">
+
+            @* ── Pharmacy details ───────────────────────────────────────────────────── *@
+            <section class="pms-card mb-4">
+                <div class="pms-card__body">
+                    <h2 class="h6">Pharmacy details</h2>
+                    <p class="pms-help">
+                        These appear on every invoice and salary slip.
+                    </p>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.PharmacyName">
+                            Pharmacy name <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.PharmacyName" autofocus />
+                        <span class="pms-field-error" asp-validation-for="Input.PharmacyName"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.PharmacyAddress">Address</label>
+                        <textarea class="form-control" asp-for="Input.PharmacyAddress" rows="2"></textarea>
+                        <span class="pms-field-error" asp-validation-for="Input.PharmacyAddress"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.PharmacyPhone">
+                            Phone <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.PharmacyPhone" inputmode="tel" />
+                        <span class="pms-help">
+                            Required: a receipt a customer cannot act on is barely a receipt.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.PharmacyPhone"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.PharmacyLicenseNumber">
+                            Drug licence number
+                        </label>
+                        <input class="form-control" asp-for="Input.PharmacyLicenseNumber" />
+                        <span class="pms-help">
+                            Printed on the invoice header where you have one. Leave blank if not.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.PharmacyLicenseNumber"></span>
+                    </div>
+                </div>
+            </section>
+
+            @* ── Alerts ─────────────────────────────────────────────────────────────── *@
+            <section class="pms-card mb-4">
+                <div class="pms-card__body">
+                    <h2 class="h6">Alerts</h2>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.ExpiryAlertWindowDays">
+                            Expiry alert window (days)
+                            <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.ExpiryAlertWindowDays"
+                               type="number" min="1" max="3650" inputmode="numeric" />
+                        <span class="pms-help">
+                            Products expiring within this many days appear in the Expiring soon
+                            alert.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.ExpiryAlertWindowDays"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.DeadStockThresholdDays">
+                            Dead stock threshold (days)
+                            <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.DeadStockThresholdDays"
+                               type="number" min="1" max="3650" inputmode="numeric" />
+                        <span class="pms-help">
+                            Products with no sales in this many days appear on the Dead stock
+                            report.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.DeadStockThresholdDays"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.DefaultReorderLevel">
+                            Default reorder level
+                            <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.DefaultReorderLevel"
+                               type="number" min="1" inputmode="numeric" />
+                        <span class="pms-help">
+                            Used as the starting reorder level when adding a new product. Existing
+                            products are not affected.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.DefaultReorderLevel"></span>
+                    </div>
+                </div>
+            </section>
+
+            @* ── Billing rules ──────────────────────────────────────────────────────── *@
+            <section class="pms-card mb-4">
+                <div class="pms-card__body">
+                    <h2 class="h6">Billing rules</h2>
+                    <p class="pms-help">
+                        Admins can always apply any discount.
+                    </p>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.DiscountCapEmployeePercent">
+                            Employee maximum discount (%)
+                            <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.DiscountCapEmployeePercent"
+                               type="number" min="0" max="100" inputmode="numeric" />
+                        <span class="pms-field-error" asp-validation-for="Input.DiscountCapEmployeePercent"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="pms-form-label" asp-for="Input.DiscountCapPharmacistPercent">
+                            Pharmacist maximum discount (%)
+                            <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.DiscountCapPharmacistPercent"
+                               type="number" min="0" max="100" inputmode="numeric" />
+                        <span class="pms-help">
+                            A flat taka discount is capped too &mdash; 10% of a
+                            @Money.Format(500m) bill is @Money.Format(50m), however it is typed.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.DiscountCapPharmacistPercent"></span>
+                    </div>
+                </div>
+            </section>
+
+            @* ── Antibiotic prescription capture ────────────────────────────────────── *@
+            @*
+                The descriptions here are longer than the labels on any other setting in the
+                application, deliberately. This one has legal consequences in both directions:
+                Required stops Employees dispensing mid-shift, Off stops prescriptions being
+                recorded at all. Nobody should have to infer that from three one-word names, and
+                an owner choosing under time pressure before an inspection least of all.
+            *@
+            <section class="pms-card mb-4" id="antibiotics">
+                <div class="pms-card__body">
+                    <h2 class="h6">Antibiotic prescription capture</h2>
+                    <p class="pms-help">
+                        Antibiotic sales are recorded in the register on every setting. This
+                        decides what is captured alongside them, and who may dispense.
+                    </p>
+
+                    <fieldset>
+                        <legend class="visually-hidden">Prescription capture</legend>
+
+                        <div class="pms-mode-option">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       asp-for="Input.AntibioticPrescriptionMode"
+                                       value="@AntibioticPrescriptionMode.Off" id="mode-off"
+                                       data-mode="Off" />
+                                <label class="form-check-label" for="mode-off">
+                                    <strong>Off</strong>
+                                    @if (current.AntibioticPrescriptionMode == AntibioticPrescriptionMode.Off)
+                                    {
+                                        <span class="pms-badge pms-badge--neutral">Current</span>
+                                    }
+                                </label>
+                            </div>
+                            <p class="pms-help">
+                                Antibiotics are sold like any other product. No prescription
+                                details are recorded. All antibiotic sales are still tracked in
+                                the register.
+                            </p>
+                        </div>
+
+                        <div class="pms-mode-option">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       asp-for="Input.AntibioticPrescriptionMode"
+                                       value="@AntibioticPrescriptionMode.Optional"
+                                       id="mode-optional" data-mode="Optional" />
+                                <label class="form-check-label" for="mode-optional">
+                                    <strong>Optional</strong>
+                                    @if (current.AntibioticPrescriptionMode == AntibioticPrescriptionMode.Optional)
+                                    {
+                                        <span class="pms-badge pms-badge--neutral">Current</span>
+                                    }
+                                </label>
+                            </div>
+                            <p class="pms-help">
+                                Staff can record prescription details when available, but sales
+                                are not blocked if they don&rsquo;t.
+                            </p>
+                        </div>
+
+                        <div class="pms-mode-option">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                       asp-for="Input.AntibioticPrescriptionMode"
+                                       value="@AntibioticPrescriptionMode.Required"
+                                       id="mode-required" data-mode="Required" />
+                                <label class="form-check-label" for="mode-required">
+                                    <strong>Required</strong>
+                                    @if (current.AntibioticPrescriptionMode == AntibioticPrescriptionMode.Required)
+                                    {
+                                        <span class="pms-badge pms-badge--neutral">Current</span>
+                                    }
+                                </label>
+                            </div>
+                            <p class="pms-help">
+                                Prescription details must be recorded for every antibiotic sale,
+                                and only pharmacists or admins can sell antibiotics. Use this if
+                                your pharmacy is under Model Pharmacy rules or preparing for
+                                inspection.
+                            </p>
+                        </div>
+                    </fieldset>
+
+                    <span class="pms-field-error" asp-validation-for="Input.AntibioticPrescriptionMode"></span>
+                </div>
+            </section>
+
+            @*
+                One Save for the page. The confirmation fires only when Required is a CHANGE -
+                switching to it takes a capability away from staff who are mid-shift, so somebody
+                has to be told before it happens. Asking on every save would train them to click
+                through it.
+            *@
+            <div class="pms-form-actions">
+                <button type="button" class="btn btn-primary" id="save-settings"
+                        data-pms-confirm-form="settings-form"
+                        data-pms-confirm-title="Require prescriptions for antibiotics?"
+                        data-pms-confirm="This will prevent employees from selling antibiotics and require prescription details on every antibiotic sale. Staff will need to be informed. Continue?"
+                        data-pms-confirm-ok="Save settings"
+                        data-current-mode="@current.AntibioticPrescriptionMode">
+                    Save settings
+                </button>
+                <a class="btn btn-link" asp-page="/Index">Cancel</a>
+            </div>
+        </div>
+    </div>
+</form>
+
+<partial name="_ConfirmModal" />
+
+@section Scripts {
+    <script src="~/js/settings-page.js" asp-append-version="true"></script>
+}

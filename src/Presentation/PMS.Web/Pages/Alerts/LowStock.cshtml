@@ -1,0 +1,137 @@
+@page "/alerts/low-stock"
+@model PMS.Web.Pages.Alerts.LowStockModel
+@{
+    ViewData["Title"] = "Low stock";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Low stock</h1>
+        <p class="pms-page-header__subtitle">
+            Products at or below their reorder level, furthest below first. Expired batches do
+            not count towards what is available.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="pms-card mb-3">
+    <div class="pms-card__body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="pms-form-label" for="type">Product type</label>
+                <select class="form-select" id="type" name="type">
+                    <option value="" selected="@(Model.ProductType is null)">All</option>
+                    <option value="@ProductType.Medicine"
+                            selected="@(Model.ProductType == ProductType.Medicine)">Medicines</option>
+                    <option value="@ProductType.Other"
+                            selected="@(Model.ProductType == ProductType.Other)">Other items</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="pms-form-label" for="status">Status</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="@LowStockStatusFilter.All"
+                            selected="@(Model.Status == LowStockStatusFilter.All)">All</option>
+                    <option value="@LowStockStatusFilter.Low"
+                            selected="@(Model.Status == LowStockStatusFilter.Low)">Low</option>
+                    <option value="@LowStockStatusFilter.OutOfStock"
+                            selected="@(Model.Status == LowStockStatusFilter.OutOfStock)">Out of stock</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="pms-table-wrap">
+    @if (Model.Products.IsEmpty)
+    {
+        @if (Model.HasFilters)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "Nothing matches those filters",
+                "Try widening the product type or the status."))" />
+        }
+        else
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "All products are adequately stocked",
+                "Every active product is above its reorder level."))" />
+        }
+    }
+    else
+    {
+        <table class="pms-table">
+            <caption class="visually-hidden">
+                Products at or below their reorder level, most critically low first.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col">Type</th>
+                    <th scope="col" class="text-end">Available</th>
+                    <th scope="col" class="text-end">Reorder level</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in Model.Products.Data)
+                {
+                    <tr class="@(product.IsOutOfStock ? "pms-row-danger" : "pms-row-warning")">
+                        <td>
+                            <a asp-page="/Stock/Detail" asp-route-productId="@product.ProductId"
+                               class="pms-cell-link">
+                                <span class="pms-cart__name">@product.BrandName</span>
+                                @if (!string.IsNullOrWhiteSpace(product.GenericName))
+                                {
+                                    <span class="pms-form-help">@product.GenericName</span>
+                                }
+                            </a>
+                        </td>
+                        <td>
+                            <span class="pms-badge pms-badge--neutral">
+                                @(product.ProductType == ProductType.Medicine ? "Medicine" : "Other")
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            @product.FormattedQuantity
+
+                            @* The row that would otherwise look like a bug: a product with a
+                               visibly full shelf reported as out of stock. Saying why, on the
+                               row, is the difference between a trusted alert and one somebody
+                               argues with. *@
+                            @if (product.IsOutButHoldingExpiredStock)
+                            {
+                                <span class="pms-form-help">
+                                    plus @product.FormattedExpiredQuantity expired, which cannot
+                                    be sold
+                                </span>
+                            }
+                        </td>
+                        <td class="text-end">@product.ReorderLevel @product.BaseUnitName</td>
+                        <td>
+                            @if (product.IsOutOfStock)
+                            {
+                                <span class="pms-badge pms-badge--danger">Out of stock</span>
+                            }
+                            else
+                            {
+                                <span class="pms-badge pms-badge--warning">Low</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (!Model.Products.IsEmpty)
+{
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        Model.Products, "/Alerts/LowStock", Model.RouteValues))" />
+}

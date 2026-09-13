@@ -1,0 +1,164 @@
+@page "/"
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+    var data = Model.Data;
+}
+
+<div class="pms-page-header">
+    <div>
+        @*
+            The pharmacy name is the prominent line, not the greeting. Somebody with access to
+            more than one pharmacy is looking at two otherwise identical screens, and this is the
+            only thing telling them apart. It comes from settings since Module 10.
+        *@
+        <h1>@Model.PharmacyName</h1>
+        <p class="pms-page-header__subtitle">
+            Welcome, @Model.UserName@(Model.Role is { } who ? $" · {who}" : "")
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        @*
+            Quick actions: what this role does most, in the order they do it. An Employee gets one
+            button, because a cashier opening this page is almost always about to ring something
+            up and a row of choices would slow that down.
+        *@
+        <a class="btn btn-primary" asp-page="/Billing/Index">New sale</a>
+
+        @if (Model.MayAddStock)
+        {
+            <a class="btn btn-outline-secondary" asp-page="/Stock/AddStock">Add stock</a>
+            <a class="btn btn-outline-secondary" asp-page="/Purchases/Create">New purchase</a>
+        }
+    </div>
+</div>
+
+@if (Model.Unavailable)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(
+        "The dashboard figures could not be loaded just now. Everything else still works "
+        + "- use the buttons above or the menu.")" />
+}
+
+@if (data is not null)
+{
+    @* ── Stock alerts: every role ────────────────────────────────────────────────────── *@
+    <section aria-label="Stock alerts" class="mb-4">
+        <div class="pms-alert-grid">
+            @foreach (var card in Model.Cards)
+            {
+                <partial name="_AlertCard" model="@card" />
+            }
+        </div>
+
+        @if (!data.NeedsAttention)
+        {
+            @*
+                Said once, quietly, instead of four green ticks. The cards above already render
+                calm when their count is zero - see AlertCardModel.Css. A dashboard that shouts
+                on a good day teaches people to stop reading it, and then it is no use on a bad
+                one.
+            *@
+            <p class="pms-help mt-2 mb-0">
+                Nothing needs attention: every product is above its reorder level and nothing is
+                within @data.Alerts.ExpiryWindowDays days of expiry.
+            </p>
+        }
+    </section>
+
+    @* ── Trading and money: Admin and Pharmacist ─────────────────────────────────────── *@
+    @if (data.Today is not null || data.SupplierDues is not null || data.UnpaidSalary is not null)
+    {
+        <section aria-label="Today and this month" class="stat-cards mb-4">
+            @if (data.Today is { } t)
+            {
+                <div class="stat-card">
+                    <span class="stat-card__label">Today&rsquo;s sales</span>
+                    <span class="stat-card__value">@Money.Format(t.NetSales)</span>
+                    <span class="stat-card__note">
+                        @Copy.Count(t.TransactionCount, "sale") &middot;
+                        <a asp-page="/Reports/DailySales">Daily report</a>
+                    </span>
+                </div>
+
+                @* Admin only. Withheld by the API for a Pharmacist, so this is null rather than
+                   hidden - the figure never reaches their browser at all. *@
+                @if (t.GrossProfit is { } profit)
+                {
+                    <div class="stat-card">
+                        <span class="stat-card__label">Today&rsquo;s profit</span>
+                        <span class="stat-card__value @Money.Tone(profit)">
+                            @Money.Signed(profit)
+                        </span>
+                        <span class="stat-card__note">Gross, costed from the batches sold</span>
+                    </div>
+                }
+            }
+
+            @if (data.Antibiotics is { } antibiotics)
+            {
+                <div class="stat-card">
+                    <span class="stat-card__label">Antibiotics this month</span>
+                    <span class="stat-card__value">@antibiotics.DispensedInBaseUnits</span>
+                    <span class="stat-card__note">
+                        @antibiotics.UnitLabel across
+                        @Copy.Count(antibiotics.SaleLineCount, "sale line") &middot;
+                        <a asp-page="/Antibiotics/Register">Register</a>
+                    </span>
+                </div>
+            }
+
+            @* ── Admin only ──────────────────────────────────────────────────────────── *@
+            @if (data.SupplierDues is { } dues)
+            {
+                <div class="stat-card">
+                    <span class="stat-card__label">Supplier dues</span>
+                    <span class="stat-card__value @(dues.TotalOutstanding > 0m ? "figure-negative" : null)">
+                        @Money.Format(dues.TotalOutstanding)
+                    </span>
+                    <span class="stat-card__note">
+                        @if (dues.OwingCount > 0)
+                        {
+                            <text>owed to @Copy.Count(dues.OwingCount, "supplier")</text>
+                        }
+                        else
+                        {
+                            <text>nothing outstanding</text>
+                        }
+                        &middot; <a asp-page="/Reports/SupplierDues">Dues report</a>
+                    </span>
+
+                    @*
+                        The credit line, where any supplier holds money of the pharmacy's. Shown
+                        beside the net rather than folded into it: "you owe 6,845" reads
+                        differently when 155 of that is already sitting with a distributor who
+                        owes it back.
+
+                        "In credit", never "overpaid" - Module 4's word, because returning goods
+                        after paying produces the same state without anybody overpaying.
+                    *@
+                    @if (dues.HasCredit)
+                    {
+                        <span class="stat-card__note">
+                            @Copy.Count(dues.InCreditCount, "supplier") in credit, holding
+                            @Money.Format(dues.TotalCreditHeld)
+                        </span>
+                    }
+                </div>
+            }
+
+            @if (data.UnpaidSalary is { } salary)
+            {
+                <div class="stat-card @(salary.Count > 0 ? "stat-card--emphasis" : null)">
+                    <span class="stat-card__label">Unpaid salary</span>
+                    <span class="stat-card__value">@Money.Format(salary.Total)</span>
+                    <span class="stat-card__note">
+                        @Copy.Count(salary.Count, "entry", "entries") generated, not yet paid
+                        &middot;
+                        <a asp-page="/Salary/Entries/Index" asp-route-status="Unpaid">Salary</a>
+                    </span>
+                </div>
+            }
+        </section>
+    }
+}

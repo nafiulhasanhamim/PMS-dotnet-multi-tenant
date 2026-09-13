@@ -1,0 +1,257 @@
+@page "/products/{id:guid}"
+@model PMS.Web.Pages.Products.DetailModel
+@inject DisplayTimeZone Clock
+@{
+    var product = Model.Product;
+    ViewData["Title"] = product?.BrandName ?? "Product";
+    var canWrite = User.IsTenantAdmin() || User.Role() == UserRole.Pharmacist;
+    var canDeactivate = User.IsTenantAdmin();
+}
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (product is not null)
+{
+    var type = ProductPresentation.TypeBadge(product.ProductType);
+    var status = ProductPresentation.StatusBadge(product.IsActive);
+
+    <div class="pms-page-header">
+        <div>
+            <h1>
+                @product.BrandName
+                @if (product.IsAntibiotic)
+                {
+                    @* Same prominence as in the list: this flag decides who may sell it. *@
+                    <span class="pms-badge pms-badge--danger ms-2" title="Regulated antibiotic">
+                        Antibiotic
+                    </span>
+                }
+                <span class="pms-badge @type.Css ms-1">@type.Text</span>
+                <span class="pms-badge @status.Css ms-1">@status.Text</span>
+            </h1>
+            @if (!string.IsNullOrWhiteSpace(product.GenericName))
+            {
+                <p class="pms-page-header__subtitle">@product.GenericName</p>
+            }
+            <p class="pms-page-header__subtitle">
+                <a asp-page="@Model.BackPage">&larr; @Model.BackLabel</a>
+            </p>
+        </div>
+        <div class="pms-page-header__actions">
+            @if (canWrite)
+            {
+                <a class="btn btn-primary" asp-page="/Products/Edit" asp-route-id="@product.Id">Edit</a>
+            }
+            @if (canDeactivate)
+            {
+                <form method="post" id="detail-active" asp-page-handler="Active">
+                    <input type="hidden" name="isActive"
+                           value="@((!product.IsActive).ToString().ToLowerInvariant())" />
+                    @if (product.IsActive)
+                    {
+                        <button type="button" class="btn btn-outline-danger"
+                                data-pms-confirm-form="detail-active"
+                                data-pms-confirm-title="Deactivate this product?"
+                                data-pms-confirm-ok="Deactivate"
+                                data-pms-confirm="This product will no longer appear in default lists or be available for new purchases and sales. You can reactivate it later. Existing stock and historical records are preserved.">
+                            Deactivate
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="submit" class="btn btn-outline-success">
+                            <span class="pms-spinner" aria-hidden="true"></span>Reactivate
+                        </button>
+                    }
+                </form>
+            }
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <section class="pms-card h-100">
+                <div class="pms-card__header"><h2>Basic information</h2></div>
+                <div class="pms-card__body">
+                    <dl class="pms-detail-list">
+                        <dt>@(product.ProductType == ProductType.Medicine ? "Brand name" : "Name")</dt>
+                        <dd>@product.BrandName</dd>
+
+                        @if (product.ProductType == ProductType.Medicine)
+                        {
+                            <dt>Generic name</dt>
+                            <dd>@(product.GenericName ?? "—")</dd>
+
+                            <dt>Strength</dt>
+                            <dd>@(product.Strength ?? "—")</dd>
+
+                            <dt>Dosage form</dt>
+                            <dd>@(product.DosageForm ?? "—")</dd>
+                        }
+
+                        <dt>Type</dt>
+                        <dd><span class="pms-badge @type.Css">@type.Text</span></dd>
+
+                        <dt>Company</dt>
+                        <dd>@(product.Company ?? "—")</dd>
+
+                        <dt>Category</dt>
+                        <dd>@(product.Category ?? "—")</dd>
+                    </dl>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="pms-card h-100">
+                <div class="pms-card__header"><h2>Unit configuration</h2></div>
+                <div class="pms-card__body">
+                    <dl class="pms-detail-list">
+                        <dt>Smallest unit</dt>
+                        <dd>@product.BaseUnitName</dd>
+
+                        <dt>Middle pack</dt>
+                        <dd>
+                            @if (product.MidUnitName is not null)
+                            {
+                                <text>@product.MidUnitName (@product.BasePerMid @ProductPresentation.PluralUnit(product.BaseUnitName))</text>
+                            }
+                            else
+                            {
+                                <span class="text-muted">None</span>
+                            }
+                        </dd>
+
+                        <dt>Bulk pack</dt>
+                        <dd>
+                            @if (product.LargeUnitName is not null)
+                            {
+                                @* Shows the resolved base-unit total, so the two-level case
+                                   reads correctly: "carton (24 bottles)", not 24 of something
+                                   unspecified. *@
+                                <text>@product.LargeUnitName (@product.BaseUnitsPerLarge @ProductPresentation.PluralUnit(product.BaseUnitName))</text>
+                            }
+                            else
+                            {
+                                <span class="text-muted">None</span>
+                            }
+                        </dd>
+
+                        <dt>Summary</dt>
+                        <dd><strong>@product.PackingSummary</strong></dd>
+                    </dl>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="pms-card h-100">
+                <div class="pms-card__header"><h2>Pricing</h2></div>
+                <div class="pms-card__body">
+                    <div class="table-responsive">
+                        <table class="pms-table">
+                            <caption class="visually-hidden">Current default prices</caption>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Unit</th>
+                                    <th scope="col">Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1 @product.BaseUnitName</td>
+                                    @* An unpriced product shows the reason, not ৳0.00. *@
+                                    <td>
+                                        @if (product.PricePerBase is { } basePrice)
+                                        {
+                                            <text>৳@basePrice.ToString("N2")</text>
+                                        }
+                                        else
+                                        {
+                                            <span class="pms-badge pms-badge--warning">Not priced</span>
+                                        }
+                                    </td>
+                                </tr>
+                                @if (product.MidUnitName is not null && product.PricePerMid is { } mid)
+                                {
+                                    <tr>
+                                        <td>1 @product.MidUnitName</td>
+                                        <td>৳@mid.ToString("N2")</td>
+                                    </tr>
+                                }
+                                @if (product.LargeUnitName is not null && product.PricePerLarge is { } large)
+                                {
+                                    <tr>
+                                        <td>1 @product.LargeUnitName</td>
+                                        <td>৳@large.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="pms-help mt-3 mb-0">
+                        Current default prices. The price charged on a sale is recorded on the
+                        sale itself, so changing these does not alter past sales.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-6">
+            <section class="pms-card h-100">
+                <div class="pms-card__header"><h2>Inventory settings</h2></div>
+                <div class="pms-card__body">
+                    <dl class="pms-detail-list">
+                        <dt>Reorder level</dt>
+                        <dd>
+                            @product.ReorderLevel @ProductPresentation.PluralUnit(product.BaseUnitName)
+                        </dd>
+
+                        <dt>Shelf location</dt>
+                        <dd>@(product.ShelfLocation ?? "—")</dd>
+                    </dl>
+                    <p class="pms-help mt-3 mb-0">
+                        Stock levels and batches arrive with the next module.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-12">
+            <section class="pms-card">
+                <div class="pms-card__header"><h2>Metadata</h2></div>
+                <div class="pms-card__body">
+                    <dl class="pms-detail-list">
+                        <dt>Status</dt>
+                        <dd><span class="pms-badge @status.Css">@status.Text</span></dd>
+
+                        <dt>Source</dt>
+                        <dd>
+                            @if (product.ImportedFromCatalog)
+                            {
+                                <span class="pms-badge pms-badge--info">
+                                    Imported from reference catalog
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Added manually</span>
+                            }
+                        </dd>
+
+                        <dt>Created</dt>
+                        <dd>@Clock.Format(product.CreatedOnUtc)</dd>
+
+                        <dt>Last updated</dt>
+                        @* Clock.Format renders an em dash for null, so no conditional is
+                           needed here. This row was the one date render left showing raw UTC:
+                           an interpolated format rather than a .ToString call, which is how it
+                           survived the sweep that converted the others. It sat directly under
+                           a Created row in local time, six hours apart on the same card. *@
+                        <dd>@Clock.Format(product.ModifiedOnUtc)</dd>
+                    </dl>
+                </div>
+            </section>
+        </div>
+    </div>
+}

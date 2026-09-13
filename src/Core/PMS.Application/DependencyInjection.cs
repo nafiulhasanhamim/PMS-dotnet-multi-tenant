@@ -1,4 +1,5 @@
 using System.Reflection;
+using PMS.Application.Common.Behaviors;
 using PMS.Application.Common.Mappings;
 using PMS.SharedKernel.Behaviors;
 using PMS.SharedKernel.DependencyInjection;
@@ -38,6 +39,7 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(PerformanceBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TenantValidationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(AccessLogBehavior<,>));
 
         // Register FluentValidation validators
@@ -47,6 +49,9 @@ public static class DependencyInjection
         services.RegisterMapsterConfiguration();
 
         // Register services by lifetime marker interfaces
+        services.AddScoped<Common.Provisioning.UserProvisioner>();
+        services.AddScoped<Common.Provisioning.PlatformAdminSeeder>();
+
         services.RegisterAllServiceLifetimes(assembly);
 
         return services;

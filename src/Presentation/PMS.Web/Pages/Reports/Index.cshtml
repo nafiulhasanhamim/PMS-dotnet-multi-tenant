@@ -1,0 +1,102 @@
+@page "/reports"
+@model PMS.Web.Pages.Reports.IndexModel
+@{
+    ViewData["Title"] = "Reports";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Reports</h1>
+        <p class="pms-page-header__subtitle">
+            Sales, profit and what is sitting on the shelves. Every figure here is costed from the
+            specific batch each sale came out of.
+        </p>
+    </div>
+</div>
+
+<div class="report-cards">
+    <a class="report-card" asp-page="/Reports/DailySales">
+        <h2>Daily sales</h2>
+        <p>
+            One day's takings, profit and every invoice, with an hourly breakdown showing when the
+            counter is busy.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Reports/MonthlySales">
+        <h2>Monthly sales &amp; profit</h2>
+        <p>
+            A month day by day, with gross and net profit and the trend across the month.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Reports/TopSelling">
+        <h2>Top selling products</h2>
+        <p>
+            What moved, net of returns &mdash; sortable by quantity, revenue or profit, because
+            the three rarely name the same product.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Reports/ByProductType">
+        <h2>Sales by product type</h2>
+        <p>
+            How much of the margin comes from medicines and how much from everything else.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Reports/DeadStock">
+        <h2>Dead stock</h2>
+        <p>
+            Products that have not sold in months, or ever, and how much capital is tied up in
+            them.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Reports/SalesPerUser">
+        <h2>Sales per user</h2>
+        <p>
+            What each person at the counter rang up, and how much discount they gave.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Reports/StockValuation">
+        <h2>Stock valuation</h2>
+        <p>
+            What the shelves are worth at cost right now, with expired stock counted separately.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Reports/SupplierDues">
+        <h2>Supplier dues</h2>
+        <p>
+            What is owed to each supplier, with what has been purchased, paid and returned.
+        </p>
+    </a>
+</div>
+
+<div class="report-note">
+    <h2 class="h6">About these figures</h2>
+    <ul>
+        <li>
+            <strong>Cost comes from the batch each sale drew from</strong>, not from the product's
+            current price. Two deliveries of the same medicine bought at different prices are
+            costed separately, which is the whole reason batches exist.
+        </li>
+        <li>
+            <strong>Revenue is after discount.</strong> A bill-level discount is spread across its
+            lines, so a discounted sale reports the margin actually earned on it.
+        </li>
+        <li>
+            <strong>Cancelled sales are excluded, not counted as zero.</strong> They never
+            happened, so they are absent from totals, counts and averages alike.
+        </li>
+        <li>
+            <strong>A return reduces the period it happened in</strong>, not the period of the
+            original sale &mdash; matching when the cash actually went back out.
+        </li>
+        <li>
+            Dates are bounded in UTC, the same as everywhere else in the system.
+        </li>
+    </ul>
+</div>

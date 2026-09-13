@@ -45,4 +45,8 @@
     <ProjectReference Include="..\..\Aspire\PMS.ServiceDefaults\PMS.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
 </Project>

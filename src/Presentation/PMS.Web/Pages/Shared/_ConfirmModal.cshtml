@@ -1,0 +1,48 @@
+@*
+    One confirmation modal per page, reused by every action that needs one. Bootstrap
+    handles the focus trap and Escape; site.js focuses Cancel on open so a reflexive
+    Enter takes the safe path, and fills in the wording from the trigger attributes.
+
+    Never a bare browser confirm(): it cannot explain what will happen in more than one
+    sentence, cannot style the destructive action red, and matches nothing else on screen.
+*@
+<div class="modal fade" id="pmsConfirmModal" tabindex="-1"
+     aria-labelledby="pmsConfirmTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="pmsConfirmTitle" data-pms-confirm-title>Are you sure?</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="Close without changing anything"></button>
+            </div>
+            <div class="modal-body">
+                <p data-pms-confirm-body></p>
+
+                @*
+                    An optional reason, shown only when the trigger asks for one with
+                    data-pms-confirm-prompt. Module 5's cancellation needs it: "why was invoice
+                    452 cancelled" is a question an owner asks about their own staff, so the
+                    reason is collected at the moment of the decision rather than inferred
+                    later. It lives here rather than on a page of its own because a destructive
+                    action and its justification belong in the same breath.
+                *@
+                <div data-pms-confirm-prompt-field hidden>
+                    <label class="pms-form-label pms-required" for="pmsConfirmPrompt"
+                           data-pms-confirm-prompt-label></label>
+                    <input type="text" class="form-control" id="pmsConfirmPrompt"
+                           data-pms-confirm-prompt-input maxlength="500" autocomplete="off" />
+                    <span class="pms-field-error" data-pms-confirm-prompt-error hidden>
+                        A reason is required.
+                    </span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"
+                        data-pms-confirm-cancel>Cancel</button>
+                <button type="button" class="btn btn-danger" data-pms-confirm-ok>
+                    <span class="pms-spinner" aria-hidden="true"></span>Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

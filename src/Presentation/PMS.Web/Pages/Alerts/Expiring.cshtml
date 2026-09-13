@@ -1,0 +1,96 @@
+@page "/alerts/expiring"
+@model PMS.Web.Pages.Alerts.ExpiringModel
+@{
+    ViewData["Title"] = "Expiring soon";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Expiring soon</h1>
+        <p class="pms-page-header__subtitle">
+            Batches with stock left that expire within the next @Model.WindowDays days,
+            soonest first.
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="pms-card mb-3">
+    <div class="pms-card__body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="pms-form-label" for="days">Window</label>
+                <select class="form-select" id="days" name="days">
+                    @foreach (var window in Model.Windows)
+                    {
+                        <option value="@window" selected="@(Model.WindowDays == window)">
+                            @window days
+                        </option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Apply</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="pms-table-wrap">
+    @if (Model.Batches.IsEmpty)
+    {
+        @* Positive tone, deliberately. An empty expiry list is good news, and an alerts screen
+           that greets it with the same grey "no results found" as a mistyped search teaches
+           people that the page is broken rather than that the shelves are in order. *@
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            $"Nothing expiring in the next {Model.WindowDays} days",
+            "Every batch with stock left is further out than that."))" />
+    }
+    else
+    {
+        <table class="pms-table">
+            <caption class="visually-hidden">
+                Batches expiring within @Model.WindowDays days, soonest first.
+            </caption>
+            <thead>
+                <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col">Batch</th>
+                    <th scope="col">Expiry date</th>
+                    <th scope="col">Days remaining</th>
+                    <th scope="col" class="text-end">Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var batch in Model.Batches.Data)
+                {
+                    <tr class="@AlertPresentation.RowCss(batch.Severity)">
+                        <td>
+                            @* The whole row is a link to the product's stock page, which is
+                               where the two things a person can do about this live. *@
+                            <a asp-page="/Stock/Detail" asp-route-productId="@batch.ProductId"
+                               class="pms-cell-link">
+                                <span class="pms-cart__name">@batch.BrandName</span>
+                                @if (!string.IsNullOrWhiteSpace(batch.GenericName))
+                                {
+                                    <span class="pms-form-help">@batch.GenericName</span>
+                                }
+                            </a>
+                        </td>
+                        <td class="pms-mono">@batch.BatchNumber</td>
+                        <td>@batch.ExpiryDate.ToString("d MMM yyyy")</td>
+                        <td>@AlertPresentation.DaysRemaining(batch.DaysUntilExpiry)</td>
+                        <td class="text-end">@batch.FormattedQuantity</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (!Model.Batches.IsEmpty)
+{
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        Model.Batches, "/Alerts/Expiring", Model.RouteValues))" />
+}

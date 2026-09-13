@@ -1,0 +1,71 @@
+@page "/account"
+@model AccountModel
+@{
+    ViewData["Title"] = "My profile";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>My profile</h1>
+        <p class="pms-page-header__subtitle">Your account, and what it can do at this pharmacy.</p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (Model.Profile is { } profile)
+{
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <section class="pms-card">
+                <div class="pms-card__header">
+                    <h2>Account</h2>
+                </div>
+                <div class="pms-card__body">
+                    <dl class="pms-detail-list">
+                        <dt>Full name</dt>
+                        <dd>@profile.FullName</dd>
+
+                        <dt>Email</dt>
+                        <dd>@profile.Email</dd>
+
+                        <dt>Pharmacy</dt>
+                        <dd>@profile.Tenant.Name</dd>
+
+                        <dt>Pharmacy domain</dt>
+                        <dd><span class="pms-mono">@profile.Tenant.DomainName</span></dd>
+
+                        <dt>Role here</dt>
+                        <dd>
+                            @{
+                                var role = StatusPresentation.ForRole(profile.Role);
+                            }
+                            <span class="pms-badge @role.Css">@role.Text</span>
+                        </dd>
+                    </dl>
+
+                    @* One email is one account platform-wide, and the same person can hold a
+                       different role at each pharmacy. Saying so here saves the question. *@
+                    <p class="pms-help mt-4 mb-0">
+                        Your role applies to this pharmacy only. If you have access to another
+                        pharmacy, sign in at its domain to work there.
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-5">
+            <section class="pms-card">
+                <div class="pms-card__header">
+                    <h2>Password</h2>
+                </div>
+                <div class="pms-card__body">
+                    <div class="pms-placeholder">
+                        Changing your own password is not available yet &mdash; the API has no
+                        endpoint for it in this module. Until it does, ask an administrator.
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+}

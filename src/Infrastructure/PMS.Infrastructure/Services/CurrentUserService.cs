@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using PMS.Application.Common.Security;
 using PMS.SharedKernel.Interfaces;
 using Microsoft.AspNetCore.Http;
 
@@ -17,7 +18,19 @@ public class CurrentUserService : ICurrentUserService
     }
 
     /// <inheritdoc />
-    public string? UserId => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+    public string? UserId =>
+        // Our tokens put the user id in `sub`; fall back to the framework claim so anything
+        // issued by another scheme still resolves.
+        _httpContextAccessor.HttpContext?.User?.FindFirstValue(AuthClaims.Subject)
+        ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+    /// <inheritdoc />
+    public Guid? UserGuid =>
+        Guid.TryParse(UserId, out var id) ? id : null;
+
+    /// <inheritdoc />
+    public string? TenantRoleName =>
+        _httpContextAccessor.HttpContext?.User?.FindFirstValue(AuthClaims.Role);
 
     /// <inheritdoc />
     public string? UserName => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Name);

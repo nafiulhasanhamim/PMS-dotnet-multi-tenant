@@ -1,0 +1,170 @@
+@page "/sales/{id:guid}/return"
+@model PMS.Web.Pages.Sales.ReturnModel
+@inject DisplayTimeZone Clock
+@{
+    var sale = Model.Sale;
+    ViewData["Title"] = $"Return against {sale.InvoiceNumber}";
+    var openLines = sale.Lines.Where(line => !line.IsFullyReturned).ToList();
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Return items</h1>
+        <p class="pms-page-header__subtitle">
+            Invoice <span class="pms-mono">@sale.InvoiceNumber</span>,
+            @Clock.Format(sale.SaleDate). Net total @sale.NetTotal.ToString("N2")@(sale.TotalRefunded > 0
+                ? $", of which {sale.TotalRefunded:N2} has already been refunded" : "").
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Sales/Detail" asp-route-id="@sale.SaleId">
+            Back to invoice
+        </a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (openLines.Count == 0)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "Everything on this sale has been returned",
+        "There is nothing left to take back against this invoice.",
+        "Back to invoice",
+        "/Sales/Detail"))" />
+}
+else
+{
+    <form method="post" id="return-form">
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <h2 class="pms-card__title">Which item</h2>
+
+                <div class="pms-table-wrap">
+                    <table class="pms-table" id="return-lines">
+                        <thead>
+                            <tr>
+                                <th scope="col"><span class="visually-hidden">Select</span></th>
+                                <th scope="col">Item</th>
+                                <th scope="col">Batch</th>
+                                <th scope="col" class="text-end">Sold</th>
+                                <th scope="col" class="text-end">Returnable</th>
+                                <th scope="col" class="text-end">Refund if all returned</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in sale.Lines)
+                            {
+                                <tr class="@(line.IsFullyReturned ? "pms-row-inactive" : null)">
+                                    <td class="pms-col-select">
+                                        @if (line.IsFullyReturned)
+                                        {
+                                            <span class="pms-form-help">Fully returned</span>
+                                        }
+                                        else
+                                        {
+                                            <input type="radio" class="form-check-input"
+                                                   asp-for="Input.SaleLineId" value="@line.SaleLineId"
+                                                   data-return-line
+                                                   data-returnable="@line.ReturnableInBaseUnits"
+                                                   data-net-line-total="@line.NetLineTotal.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-refunded="@line.RefundedAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-sold="@line.QuantitySoldInBaseUnits"
+                                                   data-refund-all="@line.RefundIfAllReturned.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                                   data-base-unit="@line.BaseUnitName"
+                                                   data-mid-unit="@line.MidUnitName"
+                                                   data-large-unit="@line.LargeUnitName"
+                                                   data-base-per-mid="@line.BasePerMid"
+                                                   data-base-per-large="@line.BaseUnitsPerLarge"
+                                                   data-brand="@line.BrandName"
+                                                   aria-label="Return @line.BrandName from batch @line.BatchNumber" />
+                                        }
+                                    </td>
+                                    <td>
+                                        @line.BrandName
+                                        @if (!string.IsNullOrWhiteSpace(line.Strength))
+                                        {
+                                            <span class="pms-form-help">@line.Strength</span>
+                                        }
+                                    </td>
+                                    <td class="pms-mono">@line.BatchNumber</td>
+                                    <td class="text-end">@line.FormattedSold</td>
+                                    <td class="text-end">@line.FormattedReturnable</td>
+                                    <td class="text-end">@line.RefundIfAllReturned.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <span class="pms-field-error" asp-validation-for="Input.SaleLineId"></span>
+            </div>
+        </div>
+
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <h2 class="pms-card__title">How much, and why</h2>
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="pms-form-label pms-required" asp-for="Input.Quantity">
+                            Quantity
+                        </label>
+                        <input class="form-control" type="number" min="1" step="1"
+                               asp-for="Input.Quantity" data-return-quantity />
+                        <span class="pms-form-help" data-return-available></span>
+                        <span class="pms-field-error" asp-validation-for="Input.Quantity"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pms-form-label" asp-for="Input.QuantityUnit">Unit</label>
+                        <select class="form-select" asp-for="Input.QuantityUnit" data-return-unit>
+                            @* Rebuilt from the selected line: only the units that line's product
+                               actually defines. *@
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pms-form-label pms-required" asp-for="Input.Reason">
+                            Reason
+                        </label>
+                        <input class="form-control" asp-for="Input.Reason" autocomplete="off"
+                               data-return-reason />
+                        <div class="pms-form-actions mt-2">
+                            @foreach (var preset in PMS.Web.Pages.Sales.ReturnModel.ReasonPresets)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        data-reason-preset="@preset">@preset</button>
+                            }
+                        </div>
+                        <span class="pms-field-error" asp-validation-for="Input.Reason"></span>
+                    </div>
+                </div>
+
+                @* The number the cashier is about to hand over, said plainly and before they
+                   commit to it. The discount note is there because the figure will otherwise
+                   look like a mistake against the price on the invoice. *@
+                <p class="pms-help mt-3" data-refund-preview aria-live="polite">
+                    Choose an item to see the refund.
+                </p>
+            </div>
+        </div>
+
+        <div class="pms-form-actions">
+            <button type="button" class="btn btn-primary"
+                    data-pms-confirm-form="return-form"
+                    data-pms-confirm-title="Confirm this return?"
+                    data-pms-confirm="Choose an item first."
+                    data-pms-confirm-ok="Return and refund"
+                    data-return-confirm>
+                Return items
+            </button>
+            <a class="btn btn-outline-secondary" asp-page="/Sales/Detail" asp-route-id="@sale.SaleId">
+                Cancel
+            </a>
+        </div>
+    </form>
+
+    <partial name="_ConfirmModal" />
+}
+
+@section Scripts {
+    <script src="~/js/returns.js" asp-append-version="true"></script>
+}

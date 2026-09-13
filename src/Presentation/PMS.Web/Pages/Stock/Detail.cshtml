@@ -1,0 +1,264 @@
+@page "/stock/product/{productId:guid}"
+@model PMS.Web.Pages.Stock.DetailModel
+@inject DisplayTimeZone Clock
+@{
+    var stock = Model.Stock;
+    ViewData["Title"] = stock is null ? "Stock" : $"{stock.BrandName} — stock";
+    var canWrite = User.IsTenantAdmin() || User.Role() == UserRole.Pharmacist;
+
+    // Computed here rather than inside the else below: Razor does not accept a code block in
+    // that position. The expiry state itself comes from the API - see StockPresentation.
+    var summaryStatus = stock is null
+        ? default
+        : StockPresentation.StatusBadge(stock.Status);
+    var summaryExpiry = stock is null
+        ? default
+        : StockPresentation.ExpiryCell(
+            stock.NearestExpiryDate, stock.DaysUntilNearestExpiry, stock.NearestExpiryState);
+
+    // Purchase price is null for an Employee because the API did not send it. The column is
+    // omitted so there is no empty column - the absent data is the control, not this check.
+    var showCost = canWrite;
+}
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (stock is null)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "That product could not be found.", null, "Back to stock", "/Stock/Index"))" />
+}
+else
+{
+    <div class="mb-2">
+        <a asp-page="/Stock/Index">&larr; Back to stock</a>
+    </div>
+
+    <div class="pms-page-header">
+        <div>
+            <h1>
+                @stock.BrandName
+                @if (stock.IsAntibiotic)
+                {
+                    <span class="pms-badge pms-badge--danger ms-2"
+                          title="Regulated antibiotic">Antibiotic</span>
+                }
+                <span class="pms-badge pms-badge--neutral ms-1">
+                    @ProductPresentation.TypeLabel(stock.ProductType)
+                </span>
+            </h1>
+            <p class="pms-page-header__subtitle">
+                @(stock.GenericName ?? "No generic name")@(stock.Strength is null ? "" : $" · {stock.Strength}")
+                · @stock.PackingSummary
+            </p>
+        </div>
+        @if (canWrite)
+        {
+            <div class="pms-page-header__actions">
+                <a class="btn btn-primary" asp-page="/Stock/Add"
+                   asp-route-productId="@stock.ProductId" asp-route-locked="true">
+                    Add stock for this product
+                </a>
+            </div>
+        }
+    </div>
+
+    <div class="pms-card mb-3">
+        <div class="pms-card__body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="pms-form-label">Total quantity</div>
+                    <div class="fs-5">@stock.FormattedQuantity</div>
+                    @if (stock.HasExpiredStock)
+                    {
+                        <div class="pms-form-help pms-expiry--expired">
+                            + @stock.FormattedExpiredQuantity expired, not counted above
+                        </div>
+                    }
+                </div>
+                <div class="col-md-2">
+                    <div class="pms-form-label">Batches with stock</div>
+                    <div class="fs-5">@stock.BatchCount</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="pms-form-label">Nearest expiry</div>
+                    <div class="fs-5 @summaryExpiry.Css" title="@summaryExpiry.Title">
+                        @summaryExpiry.Text
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="pms-form-label">Reorder level</div>
+                    <div class="fs-5">
+                        @stock.ReorderLevel @stock.BaseUnitName
+                        @if (stock.IsBelowReorderLevel)
+                        {
+                            <span class="pms-badge pms-badge--warning ms-1"
+                                  title="Current stock is at or below the reorder level">Below</span>
+                        }
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="pms-form-label">Status</div>
+                    <div><span class="pms-badge @summaryStatus.Css">@summaryStatus.Text</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="h5 mb-2">Batches with stock</h2>
+    <p class="pms-form-help mb-2">
+        In the order they should be sold — soonest expiry first, so the top row is the one to
+        sell next. Stock that does not expire comes last.
+    </p>
+
+    <div class="pms-table-wrap mb-4">
+        @if (stock.ActiveBatches.Count == 0)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No stock left",
+                "Every batch of this product is sold out.",
+                canWrite ? "Add stock" : null,
+                canWrite ? "/Stock/Add" : null))" />
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="pms-table">
+                    <caption class="visually-hidden">Batches holding stock, in FEFO order</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Batch number</th>
+                            <th scope="col">Expiry</th>
+                            <th scope="col">Manufactured</th>
+                            @if (showCost)
+                            {
+                                <th scope="col">Cost / @stock.BaseUnitName</th>
+                            }
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Initial</th>
+                            <th scope="col">Added</th>
+                            @if (canWrite)
+                            {
+                                <th scope="col" class="pms-col-actions">Actions</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var batch in stock.ActiveBatches)
+                        {
+                            var cell = StockPresentation.ExpiryCell(
+                                batch.ExpiryDate, batch.DaysUntilExpiry, batch.ExpiryState);
+                            <tr>
+                                <td>@batch.BatchNumber</td>
+                                <td class="@cell.Css" title="@cell.Title">@cell.Text</td>
+                                <td>@(batch.ManufactureDate?.ToString("d MMM yyyy") ?? "—")</td>
+                                @if (showCost)
+                                {
+                                    <td>@(batch.PurchasePricePerBaseUnit is { } cost
+                                            ? $"৳{cost:N4}".TrimEnd('0').TrimEnd('.')
+                                            : "—")</td>
+                                }
+                                <td>@batch.FormattedQuantity</td>
+                                <td class="text-muted">@batch.FormattedInitialQuantity</td>
+                                <td>@Clock.FormatDate(batch.CreatedOnUtc)</td>
+                                @if (canWrite)
+                                {
+                                    <td class="pms-col-actions">
+                                        <a class="btn btn-sm btn-outline-primary"
+                                           asp-page="/Stock/EditBatch" asp-route-id="@batch.Id">Edit</a>
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           asp-page="/Stock/AdjustBatch" asp-route-id="@batch.Id">Adjust</a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    @if (stock.DepletedBatchCount > 0)
+    {
+        @* Kept and shown rather than hidden: a depleted batch is the cost and expiry behind
+           sales that already happened, and a recall names its number. Collapsed because they
+           accumulate for as long as the pharmacy trades. *@
+        <details class="pms-card mb-4" @(Model.DepletedPage > 1 ? "open" : null)>
+            <summary class="pms-card__body">
+                <strong>@stock.DepletedBatchCount depleted @(stock.DepletedBatchCount == 1 ? "batch" : "batches")</strong>
+                <span class="pms-form-help">— sold out, kept as the record behind past sales</span>
+            </summary>
+            <div class="table-responsive">
+                <table class="pms-table">
+                    <caption class="visually-hidden">Depleted batches</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Batch number</th>
+                            <th scope="col">Expiry</th>
+                            @if (showCost)
+                            {
+                                <th scope="col">Cost / @stock.BaseUnitName</th>
+                            }
+                            <th scope="col">Initial quantity</th>
+                            <th scope="col">Added</th>
+                            @if (canWrite)
+                            {
+                                <th scope="col" class="pms-col-actions">Actions</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var batch in stock.DepletedBatches)
+                        {
+                            var cell = StockPresentation.ExpiryCell(
+                                batch.ExpiryDate, batch.DaysUntilExpiry, batch.ExpiryState);
+                            <tr class="pms-row-inactive">
+                                <td>@batch.BatchNumber</td>
+                                <td class="@cell.Css" title="@cell.Title">@cell.Text</td>
+                                @if (showCost)
+                                {
+                                    <td>@(batch.PurchasePricePerBaseUnit is { } cost
+                                            ? $"৳{cost:N4}".TrimEnd('0').TrimEnd('.')
+                                            : "—")</td>
+                                }
+                                <td>@batch.FormattedInitialQuantity</td>
+                                <td>@Clock.FormatDate(batch.CreatedOnUtc)</td>
+                                @if (canWrite)
+                                {
+                                    <td class="pms-col-actions">
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           asp-page="/Stock/BatchHistory" asp-route-id="@batch.Id">History</a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Model.DepletedTotalPages > 1)
+            {
+                <div class="pms-card__body">
+                    <nav aria-label="Depleted batch pages">
+                        <ul class="pagination mb-0">
+                            @for (var pageNumber = 1; pageNumber <= Model.DepletedTotalPages; pageNumber++)
+                            {
+                                <li class="page-item @(pageNumber == Model.DepletedPage ? "active" : null)">
+                                    @* Not "page": Razor parses @page as the page directive. *@
+                                    <a class="page-link" asp-page="/Stock/Detail"
+                                       asp-route-productId="@stock.ProductId"
+                                       asp-route-dp="@pageNumber">@pageNumber</a>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </details>
+    }
+
+    <p class="pms-form-help">
+        Sales will deduct from the top batch first. Selling, expiry alerts and reports arrive
+        in later modules; the batch data behind them is here.
+    </p>
+}

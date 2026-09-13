@@ -1,0 +1,212 @@
+@page "/purchases/{id:guid}/return"
+@model PMS.Web.Pages.Purchases.ReturnModel
+@{
+    var purchase = Model.Purchase;
+    ViewData["Title"] = "Return items";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Return items to supplier</h1>
+        <p class="pms-page-header__subtitle">
+            @purchase.PurchaseNumber &middot;
+            <a asp-page="/Suppliers/Detail" asp-route-id="@purchase.SupplierId">
+                @purchase.SupplierName
+            </a>
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (!purchase.AnyReturnable)
+{
+    <partial name="_Alert" model="@AlertModel.Info(
+        "Nothing on this purchase can be returned. Either it has all gone back already, or the "
+        + "stock has been sold and is no longer on the shelf to hand over.")" />
+}
+
+<form method="post" data-pms-guard novalidate>
+    <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+    <section class="pms-card mb-4">
+        <div class="pms-card__body">
+            <h2 class="h6">What is going back</h2>
+
+            <span class="pms-field-error" asp-validation-for="Input.PurchaseLineId"></span>
+
+            <div class="pms-table-wrap">
+                <table class="pms-table">
+                    <caption class="visually-hidden">
+                        Lines on this purchase, with how much of each can still be returned.
+                    </caption>
+                    <thead>
+                        <tr>
+                            <th scope="col"><span class="visually-hidden">Select</span></th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Batch</th>
+                            <th scope="col" class="text-end">Delivered</th>
+                            <th scope="col" class="text-end">Already returned</th>
+                            <th scope="col" class="text-end">Returnable now</th>
+                            <th scope="col" class="text-end">Credit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in purchase.Lines)
+                        {
+                            @*
+                                Lines with nothing returnable stay on the page, disabled, with the
+                                reason. Hiding them would leave somebody hunting for a product
+                                they can plainly see on the purchase.
+                            *@
+                            <tr class="@(line.CanReturn ? null : "pms-row-inactive")">
+                                <td>
+                                    <input type="radio" class="form-check-input"
+                                           asp-for="Input.PurchaseLineId"
+                                           value="@line.PurchaseLineId"
+                                           disabled="@(!line.CanReturn)"
+                                           id="line-@line.PurchaseLineId"
+                                           aria-label="Return @line.BrandName" />
+                                </td>
+                                <td>
+                                    <label for="line-@line.PurchaseLineId" class="mb-0">
+                                        <span class="pms-cart__name">@line.BrandName</span>
+                                        @if (!string.IsNullOrWhiteSpace(line.GenericName))
+                                        {
+                                            <span class="pms-help">@line.GenericName</span>
+                                        }
+                                    </label>
+                                </td>
+                                <td>
+                                    @line.BatchNumber
+                                    @if (line.ExpiryDate is { } expiry)
+                                    {
+                                        <span class="pms-help">
+                                            expires @expiry.ToString("d MMM yyyy")
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-end">@line.FormattedDelivered</td>
+                                <td class="text-end">
+                                    @if (line.AlreadyReturnedInBaseUnits > 0)
+                                    {
+                                        @Money.Count(line.AlreadyReturnedInBaseUnits)
+                                    }
+                                    else
+                                    {
+                                        <span class="pms-placeholder">&mdash;</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (line.CanReturn)
+                                    {
+                                        <strong>@line.FormattedReturnable</strong>
+                                        @if (line.CappedByStock)
+                                        {
+                                            @* Which limit applies matters: "you already sent most
+                                               of it back" is a records question, and "it has been
+                                               sold" is a stock one. *@
+                                            <span class="pms-help">
+                                                limited by what the batch still holds
+                                            </span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="pms-help">@line.BlockedReason</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    @if (line.CanReturn)
+                                    {
+                                        @Money.Format(line.RefundIfAllReturned)
+                                        <span class="pms-help">if all returned</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pms-placeholder">&mdash;</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    @if (purchase.AnyReturnable)
+    {
+        <section class="pms-card mb-4">
+            <div class="pms-card__body">
+                <div class="row">
+                    <div class="col-lg-4 mb-4">
+                        <label class="pms-form-label" asp-for="Input.Quantity">
+                            Quantity<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <div class="input-group">
+                            <input class="form-control" asp-for="Input.Quantity" type="number"
+                                   step="0.01" min="0" required />
+                            <select class="form-select" asp-for="Input.QuantityUnit">
+                                @* Base units only: the lines on one purchase can be different
+                                   products with different packing, and a single dropdown cannot
+                                   offer "strips" for one row and "cartons" for another. The
+                                   returnable column above is formatted in the product's own
+                                   units so the two can be compared. *@
+                                <option value="Base">base units</option>
+                            </select>
+                        </div>
+                        <span class="pms-help">
+                            Must not exceed the returnable figure for the line you picked.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.Quantity"></span>
+                    </div>
+
+                    <div class="col-lg-8 mb-4">
+                        <label class="pms-form-label" asp-for="Input.Reason">
+                            Reason<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.Reason" required
+                               list="return-reasons" />
+                        <datalist id="return-reasons">
+                            @foreach (var preset in PMS.Web.Pages.Purchases.ReturnModel.ReasonPresets)
+                            {
+                                <option value="@preset"></option>
+                            }
+                        </datalist>
+                        <span class="pms-help">
+                            Goes onto the stock adjustment as
+                            &ldquo;Purchase return: &hellip;&rdquo;, so the batch history explains
+                            itself.
+                        </span>
+                        <span class="pms-field-error" asp-validation-for="Input.Reason"></span>
+                    </div>
+                </div>
+
+                <div class="report-note">
+                    <p class="mb-0">
+                        Returning stock does two things: it takes the units off the batch, with an
+                        adjustment recording why, and it reduces what this supplier is owed.
+                        <strong>It does not change what has already been paid</strong> &mdash; if
+                        the bill was settled in full, the balance goes into credit.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <div class="pms-form-actions">
+            <button type="submit" class="btn btn-primary">
+                <span class="pms-spinner" aria-hidden="true"></span>Return to supplier
+            </button>
+            <a class="btn btn-outline-secondary" asp-page="/Purchases/Detail"
+               asp-route-id="@Model.PurchaseId">Cancel</a>
+        </div>
+    }
+    else
+    {
+        <div class="pms-form-actions">
+            <a class="btn btn-outline-secondary" asp-page="/Purchases/Detail"
+               asp-route-id="@Model.PurchaseId">Back to the purchase</a>
+        </div>
+    }
+</form>

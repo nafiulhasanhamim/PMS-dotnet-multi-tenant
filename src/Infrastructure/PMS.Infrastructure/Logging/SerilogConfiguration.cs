@@ -36,6 +36,16 @@ public static class SerilogConfiguration
             configuration
                 .ReadFrom.Configuration(context.Configuration)
                 .ReadFrom.Services(services)
+                // Serilog defaults its global minimum to Information, and there is no
+                // Serilog section in appsettings to say otherwise. That gate sits in front
+                // of every sink, so the Debug console sink below could never fire and the
+                // Debug lines in the handlers went nowhere at all. Opening the gate in
+                // Development is what makes that sink mean what it says; the file sinks keep
+                // their own Information and Warning floors, so nothing extra reaches disk.
+                .MinimumLevel.Is(
+                    context.HostingEnvironment.IsDevelopment()
+                        ? LogEventLevel.Debug
+                        : LogEventLevel.Information)
                 .Enrich.FromLogContext()
                 .Enrich.WithMachineName()
                 .Enrich.WithEnvironmentName()

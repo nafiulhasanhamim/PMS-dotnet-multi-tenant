@@ -1,0 +1,55 @@
+@*
+    The icon set, in one place. Inline SVG rather than an icon font: no extra request,
+    no flash of missing glyphs, and it inherits currentColor so the active nav state
+    needs no separate rule.
+
+    Icons here are decorative - every nav item and button also carries text - so they
+    are aria-hidden. An icon-only control must supply its own aria-label.
+*@
+@model string
+@{
+    var path = Model switch
+    {
+        "grid" => "M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z",
+        "people" => "M16 11a4 4 0 10-8 0 4 4 0 008 0zM2 21a6 6 0 0112 0M17 21a5 5 0 00-3-4.58A4 4 0 1018 8",
+        "person" => "M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0",
+        "pill" => "M10.5 20.5a6 6 0 01-8.5-8.5l9.5-9.5a6 6 0 018.5 8.5l-9.5 9.5zM6.5 6.5l11 11",
+        "box" => "M21 8l-9-5-9 5v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8",
+        // Stacked layers: several batches of one product, which is what stock actually is.
+        "layers" => "M12 2L2 7l10 5 10-5-10-5zM2 12l10 5 10-5M2 17l10 5 10-5",
+        // Module 5. A trolley for the till and a receipt for the sales list: the two are next
+        // to each other in the sidebar, so they have to be distinguishable at 18px and at a
+        // glance, which two variations on a document would not be.
+        "cart" => "M3 3h2l2.4 12.1a2 2 0 002 1.6h8.5a2 2 0 002-1.6L21 7H6M10 21h.01M18 21h.01",
+        "receipt" => "M6 2h12v20l-3-2-3 2-3-2-3 2V2zM9 7h6M9 11h6M9 15h3",
+        // Module 7. A clipboard, because that is what the register physically is in a
+        // pharmacy that keeps one on paper - and it has to be distinguishable from the receipt
+        // and the alert bell at 18px.
+        "clipboard" => "M9 3h6v3H9V3zM7 5H5v16h14V5h-2M9 11h6M9 15h6",
+        // Module 4. A delivery van for Purchases - goods arriving - and two joined shapes for
+        // Suppliers. Both have to read at 18px and stay distinct from the cart and the box.
+        "truck" => "M3 16V6h11v10M14 9h4l3 3v4h-7M7 20a2 2 0 100-4 2 2 0 000 4zM18 20a2 2 0 100-4 2 2 0 000 4z",
+        "handshake" => "M6 11l3-3 3 2 3-2 3 3M2 10l4-4 3 2M22 10l-4-4-3 2M8 14l3 3 2-2 3 3",
+        // Module 8. Bars rising left to right - the one shape universally read as "reports",
+        // and distinct from the stacked layers of Stock at 18px because these do not touch.
+        "chart" => "M3 21h18M7 21V11M12 21V4M17 21v-7",
+        // Module 9. A banknote: money going OUT to people, which is what salary is. Distinct
+        // from the receipt (a sale) and the chart (reports) at 18px because it is a wide
+        // landscape rectangle where those are portrait and open.
+        "wallet" => "M2 7h20v12H2V7zM2 11h20M12 15a1.5 1.5 0 100-3 1.5 1.5 0 000 3z",
+        // Module 10. Sliders: the universal "adjust these" shape, and distinct at 18px from
+        // the chart's bars because these lie horizontally and carry handles.
+        "sliders" => "M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12M20 17h0M16 5v4M10 10v4M18 15v4",
+        "shield" => "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+        "building" => "M4 21V5a2 2 0 012-2h8a2 2 0 012 2v16M16 9h2a2 2 0 012 2v10M8 7h4M8 11h4M8 15h4M2 21h20",
+        "check" => "M20 6L9 17l-5-5",
+        "alert" => "M12 9v4M12 17h.01M10.3 3.3L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.3a2 2 0 00-3.4 0z",
+        "info" => "M12 16v-4M12 8h.01M12 22a10 10 0 100-20 10 10 0 000 20z",
+        "menu" => "M3 6h18M3 12h18M3 18h18",
+        _ => "M12 22a10 10 0 100-20 10 10 0 000 20z",
+    };
+}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <path d="@path" />
+</svg>

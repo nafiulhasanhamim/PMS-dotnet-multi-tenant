@@ -1,0 +1,75 @@
+@*
+    The platform operator shell.
+
+    Deliberately its own layout, in its own accent colour, labelled "Platform
+    administration" — because the two areas grant completely different powers and confusing
+    them is expensive. Someone who can suspend every pharmacy on the platform should never
+    have to check which app they are looking at.
+
+    It shows no pharmacy in the top bar, because a platform session belongs to none. That
+    absence is informative: an empty context strip means "you are outside every pharmacy".
+*@
+@using PMS.Web.Navigation
+@{
+    var successMessage = (Model as PmsPageModel)?.SuccessMessage;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] &middot; PMS platform</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<div class="pms-shell">
+    <nav class="pms-sidebar pms-sidebar--platform" aria-label="Platform navigation">
+        <a class="pms-sidebar__brand" asp-page="/Platform/Tenants/Index">
+            <span>PMS</span>
+        </a>
+        <p class="pms-sidebar__area mb-0">Platform administration</p>
+        <partial name="_SidebarNav" model="@SidebarModel.Of(NavRegistry.Platform)" />
+    </nav>
+
+    <div class="pms-backdrop"></div>
+
+    <div class="pms-main">
+        <header class="pms-topbar">
+            <button type="button" class="pms-sidebar-toggle" data-pms-nav-toggle
+                    aria-label="Show navigation" aria-expanded="false">
+                <partial name="_NavIcon" model="@("menu")" />
+            </button>
+
+            <div class="pms-topbar__context">
+                <span class="pms-badge pms-badge--platform">
+                    <partial name="_NavIcon" model="@("building")" />
+                    Platform administration
+                </span>
+            </div>
+
+            <div class="pms-topbar__user">
+                <span class="d-none d-sm-inline">
+                    <span class="pms-topbar__user-name">@User.FullName()</span>
+                    <span class="pms-topbar__user-role">&middot; Platform admin</span>
+                </span>
+                <form method="post" asp-page="/Platform/Logout">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Sign out</button>
+                </form>
+            </div>
+        </header>
+
+        <main class="pms-content" role="main">
+            <partial name="_Alert" model="@AlertModel.Success(successMessage)" />
+            @RenderBody()
+        </main>
+    </div>
+</div>
+
+<partial name="_ConfirmModal" />
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

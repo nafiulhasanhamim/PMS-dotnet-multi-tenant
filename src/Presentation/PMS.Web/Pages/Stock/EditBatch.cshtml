@@ -1,0 +1,131 @@
+@page "/stock/batch/{id:guid}/edit"
+@model PMS.Web.Pages.Stock.EditBatchModel
+@{
+    var batch = Model.Batch;
+    var product = Model.Product;
+    ViewData["Title"] = batch is null ? "Edit batch" : $"Edit batch {batch.BatchNumber}";
+}
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (batch is null || product is null)
+{
+    <partial name="_EmptyState" model="@(new EmptyStateModel(
+        "That batch could not be found.", null, "Back to stock", "/Stock/Index"))" />
+}
+else
+{
+    <div class="mb-2">
+        <a asp-page="/Stock/Detail" asp-route-productId="@batch.ProductId">
+            &larr; Back to @product.BrandName
+        </a>
+    </div>
+
+    <div class="pms-page-header">
+        <div>
+            <h1>Edit batch @batch.BatchNumber</h1>
+            <p class="pms-page-header__subtitle">
+                @product.BrandName · @product.PackingSummary
+            </p>
+        </div>
+    </div>
+
+    <form method="post" data-pms-guard>
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.BatchNumber">
+                            Batch number <span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.BatchNumber" />
+                        <span class="text-danger" asp-validation-for="Input.BatchNumber"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.ExpiryDate">
+                            Expiry date
+                            @if (Model.ExpiryRequired)
+                            {
+                                <span class="pms-required" aria-hidden="true">*</span>
+                            }
+                        </label>
+                        <input class="form-control" type="date" asp-for="Input.ExpiryDate" />
+                        <div class="pms-form-help">
+                            @* Unlike the add form, a past date is accepted here: a pharmacy
+                               recording stock already on its shelves will have packs that
+                               expired last month, and a fictional expiry would be worse than
+                               a real one - it looks correct and it drives the alerts. *@
+                            A past date is allowed when recording stock you already hold.
+                        </div>
+                        <span class="text-danger" asp-validation-for="Input.ExpiryDate"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.ManufactureDate">
+                            Manufacture date
+                        </label>
+                        <input class="form-control" type="date" asp-for="Input.ManufactureDate" />
+                        <span class="text-danger" asp-validation-for="Input.ManufactureDate"></span>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.PurchasePrice">
+                            Purchase price per @product.BaseUnitName
+                        </label>
+                        <input class="form-control" type="number" step="any" min="0"
+                               asp-for="Input.PurchasePrice" />
+                        <span class="text-danger" asp-validation-for="Input.PurchasePrice"></span>
+                    </div>
+
+                    @* The point of this page. A quantity that could be edited here would be a
+                       quantity that changed with no reason recorded - and the reason is the
+                       only part anybody wants six months later. *@
+                    <div class="col-md-4">
+                        <label class="pms-form-label" for="quantity-readonly">Quantity</label>
+                        <input class="form-control" id="quantity-readonly"
+                               value="@batch.FormattedQuantity" readonly disabled />
+                        <div class="pms-form-help">
+                            Quantity can only be changed through a stock adjustment, so the
+                            change is recorded with a reason.
+                            <a asp-page="/Stock/AdjustBatch" asp-route-id="@batch.Id">Adjust stock</a>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="pms-form-label" for="initial-readonly">
+                            Initial quantity
+                        </label>
+                        <input class="form-control" id="initial-readonly"
+                               value="@batch.FormattedInitialQuantity" readonly disabled />
+                        <div class="pms-form-help">
+                            What arrived. Never changes — new stock is a new batch.
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.SupplierNameText">
+                            Supplier
+                        </label>
+                        <input class="form-control" asp-for="Input.SupplierNameText" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.Notes">Notes</label>
+                        <textarea class="form-control" rows="2" asp-for="Input.Notes"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-4">
+            <button type="submit" class="btn btn-primary">
+                <span class="pms-spinner" aria-hidden="true"></span>Save changes
+            </button>
+            <a class="btn btn-outline-secondary" asp-page="/Stock/Detail"
+               asp-route-productId="@batch.ProductId">Cancel</a>
+            <a class="btn btn-outline-secondary ms-auto" asp-page="/Stock/BatchHistory"
+               asp-route-id="@batch.Id">Adjustment history</a>
+        </div>
+    </form>
+}

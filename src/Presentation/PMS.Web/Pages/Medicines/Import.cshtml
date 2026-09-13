@@ -1,0 +1,223 @@
+@page "/medicines/import"
+@model PMS.Web.Pages.Medicines.ImportModel
+@{
+    ViewData["Title"] = "Import from catalog";
+    var items = Model.Results?.Items ?? Array.Empty<CatalogMedicineSearchItem>();
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Import from catalog</h1>
+        <p class="pms-page-header__subtitle">
+            Add one medicine at a time, or tick several and set them up together. Your
+            selection is kept while you search for more.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Medicines/Index">Back to medicines</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+<partial name="_Alert" model="@AlertModel.Info(Model.SelectionMessage)" />
+
+<section class="pms-card mb-3">
+    <div class="pms-card__body">
+        <form method="get">
+            <label class="pms-form-label" for="q">Search the medicine reference catalog</label>
+            <div class="input-group">
+                <input class="form-control form-control-lg" id="q" name="q" value="@Model.Term"
+                       placeholder="Search the medicine reference catalog..." autofocus />
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+            <span class="pms-help">
+                Over 20,000 medicines available in Bangladesh. Search by brand or generic name.
+            </span>
+        </form>
+    </div>
+</section>
+
+@if (Model.HasSearched)
+{
+    @if (items.Count == 0)
+    {
+        <div class="pms-table-wrap">
+            <div class="pms-empty">
+                <p class="pms-empty__title">No matches found.</p>
+                <p class="mb-0">
+                    If this medicine isn&rsquo;t in the catalog, you can add it manually.
+                </p>
+                <div class="pms-empty__actions">
+                    <a class="btn btn-primary" asp-page="/Medicines/Create">Add manually</a>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (Model.IsSuggestion)
+        {
+            @* Approximate results are labelled as such. Without this heading someone reads a
+               fuzzy guess as a confirmed match and imports the wrong medicine. *@
+            <div class="pms-alert pms-alert--warning" role="status">
+                <partial name="_NavIcon" model="@("alert")" />
+                <div class="pms-alert__body">
+                    <strong>
+                        No exact match for &lsquo;@Model.Results!.Term&rsquo;. Did you mean:
+                    </strong>
+                    <span class="pms-help d-block">
+                        These are close matches, not exact ones. Check the generic name and
+                        strength before adding.
+                    </span>
+                </div>
+            </div>
+        }
+
+        <div class="pms-table-wrap">
+            <div class="table-responsive">
+                <table class="pms-table">
+                    <caption class="visually-hidden">Reference catalog search results</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="pms-col-select">
+                                @* Ticks every selectable row on this page. Its own form, so
+                                   the row forms stay independent - a page of twenty rows is
+                                   twenty separate posts, and nesting them would be invalid
+                                   HTML with unpredictable behaviour. *@
+                                <form method="post" asp-page-handler="ToggleAll" class="d-inline">
+                                    <input type="hidden" name="q" value="@Model.Term" />
+                                    <input type="hidden" name="p" value="@Model.PageNumber" />
+                                    <input type="hidden" name="selected"
+                                           value="@((!Model.AllOnPageSelected).ToString().ToLowerInvariant())" />
+                                    <button type="submit" class="btn btn-sm btn-link p-0"
+                                            title="@(Model.AllOnPageSelected ? "Clear this page" : "Select all on this page")">
+                                        @(Model.AllOnPageSelected ? "None" : "All")
+                                    </button>
+                                </form>
+                            </th>
+                            <th scope="col">Brand name</th>
+                            <th scope="col">Generic</th>
+                            <th scope="col">Manufacturer</th>
+                            <th scope="col">Strength</th>
+                            <th scope="col">Dosage form</th>
+                            <th scope="col" class="pms-col-actions">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in items)
+                        {
+                            @* Plain C#, no @{ }: the body of a foreach is already code
+                               context, and Razor rejects a nested code block here. *@
+                            var isSelected = Model.Selection.Contains(item.Id);
+                            <tr class="@(item.AlreadyImported ? "pms-row-inactive" : null) @(isSelected ? "pms-row-selected" : null)">
+                                <td class="pms-col-select">
+                                    @if (item.AlreadyImported)
+                                    {
+                                        @* Not selectable. Importing it again is precisely what
+                                           the "already in your catalog" flag warns against, and
+                                           the API would refuse it. *@
+                                        <span class="text-muted" aria-label="Already imported">—</span>
+                                    }
+                                    else
+                                    {
+                                        @* A form per row rather than one big form with a
+                                           submit: each tick is a POST-redirect, so the state
+                                           survives a refresh and the back button behaves. *@
+                                        <form method="post" asp-page-handler="Toggle">
+                                            <input type="hidden" name="q" value="@Model.Term" />
+                                            <input type="hidden" name="p" value="@Model.PageNumber" />
+                                            <input type="hidden" name="catalogMedicineId" value="@item.Id" />
+                                            <input type="hidden" name="brandName" value="@item.BrandName" />
+                                            <input type="hidden" name="selected"
+                                                   value="@((!isSelected).ToString().ToLowerInvariant())" />
+                                            <button type="submit"
+                                                    class="pms-tick @(isSelected ? "pms-tick--on" : null)"
+                                                    aria-pressed="@isSelected.ToString().ToLowerInvariant()"
+                                                    aria-label="@(isSelected ? $"Deselect {item.BrandName}" : $"Select {item.BrandName}")">
+                                                <span aria-hidden="true">@(isSelected ? "✓" : "")</span>
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                                <td>
+                                    @item.BrandName
+                                    @if (item.IsAntibiotic)
+                                    {
+                                        <span class="pms-badge pms-badge--danger ms-1"
+                                              title="Suggested as an antibiotic by the catalog">
+                                            AB
+                                        </span>
+                                    }
+                                </td>
+                                <td>@(item.GenericName ?? "—")</td>
+                                <td>@(item.Manufacturer ?? "—")</td>
+                                <td>@(item.Strength ?? "—")</td>
+                                <td>@(item.DosageForm ?? "—")</td>
+                                <td class="pms-col-actions">
+                                    @if (item.AlreadyImported)
+                                    {
+                                        @* Flagged rather than hidden: someone who found nothing
+                                           would conclude the catalog lacks it, when in fact
+                                           their own earlier import is what succeeded. *@
+                                        <span class="text-muted pms-small me-2">
+                                            Already in your catalog
+                                        </span>
+                                        @if (item.ExistingProductId is { } existingId)
+                                        {
+                                            <a class="btn btn-sm btn-outline-secondary"
+                                               asp-page="/Products/Detail" asp-route-id="@existingId">
+                                                View yours
+                                            </a>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <a class="btn btn-sm btn-primary"
+                                           asp-page="/Medicines/Create"
+                                           asp-route-catalogId="@item.Id">Add to my catalog</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (Model.Results is { } results && results.TotalPages > 1)
+            {
+                <nav class="pms-table-footer" aria-label="Catalogue result pages">
+                    <span class="pms-form-help">
+                        Showing @results.FirstRow–@results.LastRow of @results.Total
+                        @if (results.Capped)
+                        {
+                            @* Said plainly: the search gathers to a ceiling because the fuzzy
+                               stage scores in memory and cannot be offset. Implying a complete
+                               count would be a lie. *@
+                            <text>(the first @results.Total matches — narrow the search for more)</text>
+                        }
+                    </span>
+                    <ul class="pagination mb-0">
+                        @for (var n = 1; n <= results.TotalPages; n++)
+                        {
+                            <li class="page-item @(n == results.Page ? "active" : null)">
+                                <a class="page-link" asp-page="/Medicines/Import"
+                                   asp-route-q="@Model.Term" asp-route-p="@n">@n</a>
+                            </li>
+                        }
+                    </ul>
+                </nav>
+            }
+
+            <div class="pms-table-footer">
+                <span>Showing @items.Count result@(items.Count == 1 ? "" : "s")</span>
+                @* Kept visible even when there are results: the medicine the person actually
+                   wants genuinely might not be in the catalog. *@
+                <span>
+                    Not the medicine you wanted?
+                    <a asp-page="/Medicines/Create">Add it manually</a>
+                </span>
+            </div>
+        </div>
+    }
+}
+
+<partial name="_SelectionFooter" model="Model.Selection" />

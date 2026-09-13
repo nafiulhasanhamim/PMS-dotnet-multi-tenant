@@ -1,0 +1,368 @@
+@*
+    The product form, shared by create-medicine, create-other-item and edit.
+
+    Three things in here are deliberate rather than incidental:
+
+    1. The medicine-only fields are NOT RENDERED for a non-medicine, rather than hidden or
+       disabled. A diaper with a strength is the data corruption this module exists to
+       prevent, and a field that does not exist cannot be filled in by accident.
+
+    2. Each unit level has an ENABLING CHECKBOX. Leaving a level off is a valid answer -
+       a saline bag has no strip and no carton - and a checkbox says so where an empty text
+       box looks like a field someone forgot.
+
+    3. A LIVE SUMMARY line recalculates as they type: "1 box = 10 strips = 100 pieces".
+       Typing 240 instead of 24 is invisible in an input and obvious in that sentence.
+*@
+@using PMS.Web.Pages.Products
+@model ProductFormViewModel
+@{
+    var input = Model.Input;
+    var isEdit = Model.IsEdit;
+    var isMedicine = input.IsMedicine;
+    var baseLabel = string.IsNullOrWhiteSpace(input.BaseUnitName) ? "unit" : input.BaseUnitName;
+}
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@if (Model.FromCatalog is not null)
+{
+    <div class="pms-alert pms-alert--info" role="status">
+        <partial name="_NavIcon" model="@("info")" />
+        <div class="pms-alert__body">
+            Prices and pack sizes aren&rsquo;t in the reference catalog &mdash; please enter
+            yours below.
+        </div>
+    </div>
+}
+
+<form method="post" data-pms-guard novalidate id="product-form">
+    <input type="hidden" asp-for="Input.ProductType" />
+    <input type="hidden" asp-for="Input.CatalogMedicineId" />
+
+    @* ── Basic information ───────────────────────────────────────────────────────────── *@
+    <section class="pms-card mb-3">
+        <div class="pms-card__header">
+            <h2>@(Model.FromCatalog is not null ? "From the reference catalog" : "Basic information")</h2>
+            @if (Model.FromCatalog is not null)
+            {
+                <p class="pms-help mb-0">
+                    Pre-filled and editable &mdash; change anything that is out of date for you.
+                </p>
+            }
+        </div>
+        <div class="pms-card__body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="pms-form-label" asp-for="Input.BrandName">
+                        @(isMedicine ? "Brand name" : "Name")<span class="pms-required" aria-hidden="true">*</span>
+                    </label>
+                    <input class="form-control" asp-for="Input.BrandName" required />
+                    <span class="pms-field-error" asp-validation-for="Input.BrandName"></span>
+                </div>
+
+                @if (!isMedicine)
+                {
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.ProductType">
+                            Product type<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <select class="form-select" name="Input.ProductType" id="product-type">
+                            @foreach (var type in ProductPresentation.NonMedicineTypes)
+                            {
+                                <option value="@type" selected="@(input.ProductType == type)">
+                                    @ProductPresentation.TypeLabel(type)
+                                </option>
+                            }
+                        </select>
+                        <span class="pms-field-error" asp-validation-for="Input.ProductType"></span>
+                    </div>
+                }
+
+                @if (isMedicine)
+                {
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.GenericName">
+                            Generic name<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.GenericName" required />
+                        <span class="pms-field-error" asp-validation-for="Input.GenericName"></span>
+                    </div>
+                }
+
+                <div class="col-md-6">
+                    <label class="pms-form-label" asp-for="Input.Company">Company</label>
+                    <input class="form-control" asp-for="Input.Company" />
+                    <span class="pms-field-error" asp-validation-for="Input.Company"></span>
+                </div>
+
+                @if (isMedicine)
+                {
+                    <div class="col-md-3">
+                        <label class="pms-form-label" asp-for="Input.Strength">Strength</label>
+                        <input class="form-control" asp-for="Input.Strength" placeholder="500 mg" />
+                        <span class="pms-field-error" asp-validation-for="Input.Strength"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="pms-form-label" asp-for="Input.DosageForm">
+                            Dosage form<span class="pms-required" aria-hidden="true">*</span>
+                        </label>
+                        <input class="form-control" asp-for="Input.DosageForm" placeholder="Tablet" required />
+                        <span class="pms-field-error" asp-validation-for="Input.DosageForm"></span>
+                    </div>
+                }
+
+                <div class="col-md-6">
+                    <label class="pms-form-label" asp-for="Input.Category">Category</label>
+                    <input class="form-control" asp-for="Input.Category" placeholder="Painkiller" />
+                    <span class="pms-help">Your own descriptor, for grouping. Optional.</span>
+                    <span class="pms-field-error" asp-validation-for="Input.Category"></span>
+                </div>
+            </div>
+
+            @if (isMedicine)
+            {
+                <hr class="my-4" />
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" asp-for="Input.IsAntibiotic"
+                           id="is-antibiotic" data-pms-antibiotic
+                           data-pms-antibiotic-initial="@input.IsAntibiotic.ToString().ToLowerInvariant()" />
+                    <label class="form-check-label" for="is-antibiotic">
+                        This is an antibiotic (regulated sale)
+                    </label>
+                    @if (Model.FromCatalog is not null)
+                    {
+                        @* The moment a machine-derived classification becomes a human
+                           decision. Deliberately hard to skip past. *@
+                        <span class="pms-help">
+                            Suggested from the reference catalog &mdash; please confirm this is
+                            correct.
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="pms-help">
+                            Antibiotics cannot be sold by an employee, and each sale records a
+                            prescription.
+                        </span>
+                    }
+                    <span class="pms-field-error" asp-validation-for="Input.IsAntibiotic"></span>
+                </div>
+
+                @if (isEdit)
+                {
+                    <div class="pms-alert pms-alert--warning mt-3" role="status"
+                         data-pms-antibiotic-warning hidden>
+                        <partial name="_NavIcon" model="@("alert")" />
+                        <div class="pms-alert__body">
+                            Changing antibiotic status affects how this product is sold and
+                            reported. Please confirm this is correct.
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </section>
+
+    @* ── Unit setup ─────────────────────────────────────────────────────────────────── *@
+    <section class="pms-card mb-3">
+        <div class="pms-card__header">
+            <h2>@(Model.FromCatalog is not null ? "Your pharmacy's details" : "How is this sold?")</h2>
+            @if (Model.FromCatalog is not null)
+            {
+                <p class="pms-help mb-0">Required &mdash; the catalog doesn&rsquo;t have these.</p>
+            }
+        </div>
+        <div class="pms-card__body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="pms-form-label" asp-for="Input.Preset">How is this sold?</label>
+                    <select class="form-select" asp-for="Input.Preset" data-pms-preset>
+                        <option value="@UnitPreset.ThreeLevel">Piece &rarr; strip &rarr; box (standard medicine)</option>
+                        <option value="@UnitPreset.UnitAndBulk">Unit + bulk pack</option>
+                        <option value="@UnitPreset.SingleUnit">Single unit only</option>
+                        <option value="@UnitPreset.Custom">Custom</option>
+                    </select>
+                    <span class="pms-help">Sets up the fields below. You can adjust anything.</span>
+                </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="pms-form-label" asp-for="Input.BaseUnitName">
+                        Smallest unit you sell<span class="pms-required" aria-hidden="true">*</span>
+                    </label>
+                    <input class="form-control" asp-for="Input.BaseUnitName"
+                           data-pms-base-unit placeholder="piece" required />
+                    <span class="pms-help">The individual item a customer can buy.</span>
+                    <span class="pms-field-error" asp-validation-for="Input.BaseUnitName"></span>
+                </div>
+            </div>
+
+            @* Middle level *@
+            <div class="mt-4">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" asp-for="Input.HasMidUnit"
+                           id="has-mid" data-pms-level-toggle="mid" />
+                    <label class="form-check-label" for="has-mid">
+                        This product also comes in a middle-size pack
+                    </label>
+                </div>
+                <div class="row g-3 mt-2 ms-3" data-pms-level="mid">
+                    <div class="col-md-5">
+                        <label class="pms-form-label" asp-for="Input.MidUnitName">Middle unit name</label>
+                        <input class="form-control" asp-for="Input.MidUnitName"
+                               data-pms-mid-unit placeholder="strip" />
+                        <span class="pms-field-error" asp-validation-for="Input.MidUnitName"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="pms-form-label" asp-for="Input.BasePerMid" data-pms-mid-count-label>
+                            How many @ProductPresentation.TypeLabel(input.ProductType).ToLowerInvariant() units in one?
+                        </label>
+                        <input class="form-control" type="number" min="2" asp-for="Input.BasePerMid"
+                               data-pms-base-per-mid />
+                        <span class="pms-field-error" asp-validation-for="Input.BasePerMid"></span>
+                    </div>
+                </div>
+            </div>
+
+            @* Bulk level *@
+            <div class="mt-3">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" asp-for="Input.HasLargeUnit"
+                           id="has-large" data-pms-level-toggle="large" />
+                    <label class="form-check-label" for="has-large">
+                        This product also comes in a bulk pack
+                    </label>
+                </div>
+                <div class="row g-3 mt-2 ms-3" data-pms-level="large">
+                    <div class="col-md-5">
+                        <label class="pms-form-label" asp-for="Input.LargeUnitName">Bulk unit name</label>
+                        <input class="form-control" asp-for="Input.LargeUnitName"
+                               data-pms-large-unit placeholder="carton" />
+                        <span class="pms-field-error" asp-validation-for="Input.LargeUnitName"></span>
+                    </div>
+                    <div class="col-md-4">
+                        @* The question names the unit being counted, because whether that is
+                           strips or bottles decides the number typed - and it changes with
+                           the middle-level checkbox. *@
+                        <label class="pms-form-label" asp-for="Input.MidPerLarge" data-pms-large-count-label>
+                            How many in one?
+                        </label>
+                        <input class="form-control" type="number" min="2" asp-for="Input.MidPerLarge"
+                               data-pms-mid-per-large />
+                        <span class="pms-field-error" asp-validation-for="Input.MidPerLarge"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pms-alert pms-alert--info mt-4 mb-0" role="status">
+                <partial name="_NavIcon" model="@("info")" />
+                <div class="pms-alert__body" data-pms-packing-summary>
+                    @ProductPresentation.DescribePacking(
+                        input.BaseUnitName,
+                        input.HasMidUnit ? input.MidUnitName : null,
+                        input.HasLargeUnit ? input.LargeUnitName : null,
+                        input.BasePerMid,
+                        input.MidPerLarge)
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @* ── Pricing ────────────────────────────────────────────────────────────────────── *@
+    <section class="pms-card mb-3">
+        <div class="pms-card__header">
+            <h2>Pricing</h2>
+        </div>
+        <div class="pms-card__body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="pms-form-label" asp-for="Input.PricePerBase">
+                        <span data-pms-price-base-label>Price per @baseLabel</span><span class="pms-required" aria-hidden="true">*</span>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">&#2547;</span>
+                        <input class="form-control" type="number" step="0.01" min="0"
+                               asp-for="Input.PricePerBase" required />
+                    </div>
+                    <span class="pms-help">
+                        Selling a single unit loose is often priced slightly higher per-unit
+                        than a full pack.
+                    </span>
+                    <span class="pms-field-error" asp-validation-for="Input.PricePerBase"></span>
+                </div>
+
+                <div class="col-md-4" data-pms-level="mid">
+                    <label class="pms-form-label" asp-for="Input.PricePerMid">
+                        <span data-pms-price-mid-label>Price per pack</span>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">&#2547;</span>
+                        <input class="form-control" type="number" step="0.01" min="0"
+                               asp-for="Input.PricePerMid" />
+                    </div>
+                    <span class="pms-field-error" asp-validation-for="Input.PricePerMid"></span>
+                </div>
+
+                <div class="col-md-4" data-pms-level="large">
+                    <label class="pms-form-label" asp-for="Input.PricePerLarge">
+                        <span data-pms-price-large-label>Price per bulk pack</span>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text">&#2547;</span>
+                        <input class="form-control" type="number" step="0.01" min="0"
+                               asp-for="Input.PricePerLarge" />
+                    </div>
+                    <span class="pms-field-error" asp-validation-for="Input.PricePerLarge"></span>
+                </div>
+            </div>
+
+            @if (isEdit)
+            {
+                <div class="pms-alert pms-alert--info mt-3 mb-0" role="status">
+                    <partial name="_NavIcon" model="@("info")" />
+                    <div class="pms-alert__body">
+                        Price changes apply to future sales only. Past sales are not affected.
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+
+    @* ── Inventory ──────────────────────────────────────────────────────────────────── *@
+    <section class="pms-card mb-3">
+        <div class="pms-card__header">
+            <h2>Inventory settings</h2>
+        </div>
+        <div class="pms-card__body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="pms-form-label" asp-for="Input.ReorderLevel">
+                        Reorder level (in
+                        <span data-pms-reorder-label>@ProductPresentation.PluralUnit(baseLabel)</span>)
+                    </label>
+                    <input class="form-control" type="number" min="0" asp-for="Input.ReorderLevel" />
+                    <span class="pms-help">
+                        Low-stock alert triggers when total quantity drops below this.
+                    </span>
+                    <span class="pms-field-error" asp-validation-for="Input.ReorderLevel"></span>
+                </div>
+                <div class="col-md-4">
+                    <label class="pms-form-label" asp-for="Input.ShelfLocation">Shelf location</label>
+                    <input class="form-control" asp-for="Input.ShelfLocation" placeholder="A-1" />
+                    <span class="pms-field-error" asp-validation-for="Input.ShelfLocation"></span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="pms-form-actions">
+        <button type="submit" class="btn btn-primary">
+            <span class="pms-spinner" aria-hidden="true"></span>@(isEdit ? "Save changes" : "Save product")
+        </button>
+        <a class="btn btn-outline-secondary" href="@Model.CancelUrl">Cancel</a>
+    </div>
+</form>

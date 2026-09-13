@@ -1,0 +1,19 @@
+@*
+    One alert card. Rendered small on the dashboard and large on the hub - the difference is a
+    class on the container, not a second copy of the markup.
+
+    Colour comes from the model, which turns it off entirely when the count is zero. A pharmacy
+    with nothing wrong should not be looking at four warning-coloured boxes; colour that is
+    always on stops carrying information, and people learn to ignore it.
+*@
+@model AlertCardModel
+
+<a class="@Model.Css" asp-page="@Model.Page">
+    <span class="pms-alert-card__count">@Model.Count</span>
+    <span class="pms-alert-card__title">@Model.Title</span>
+
+    @if (Model.Preview is { } preview)
+    {
+        <span class="pms-alert-card__preview">@preview</span>
+    }
+</a>

@@ -1,0 +1,41 @@
+@*
+    "Showing X-Y of Z" plus the controls.
+
+    The controls appear only when there is more than one page, but the count line always
+    does: knowing a list holds 4 rows and not 400 is worth a line of text on its own.
+*@
+@model PaginationModel
+<div class="pms-table-footer">
+    <span>
+        @if (Model.TotalCount == 0)
+        {
+            <text>No rows</text>
+        }
+        else
+        {
+            <text>Showing @Model.FirstRow&ndash;@Model.LastRow of @Model.TotalCount</text>
+        }
+    </span>
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Pagination">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item @(Model.HasPrevious ? null : "disabled")">
+                    <a class="page-link" asp-page="@Model.Page"
+                       asp-all-route-data="@Model.RouteFor(Model.CurrentPage - 1)"
+                       aria-label="Previous page"
+                       tabindex="@(Model.HasPrevious ? null : "-1")">Previous</a>
+                </li>
+                <li class="page-item disabled" aria-current="page">
+                    <span class="page-link">Page @Model.CurrentPage of @Model.TotalPages</span>
+                </li>
+                <li class="page-item @(Model.HasNext ? null : "disabled")">
+                    <a class="page-link" asp-page="@Model.Page"
+                       asp-all-route-data="@Model.RouteFor(Model.CurrentPage + 1)"
+                       aria-label="Next page"
+                       tabindex="@(Model.HasNext ? null : "-1")">Next</a>
+                </li>
+            </ul>
+        </nav>
+    }
+</div>

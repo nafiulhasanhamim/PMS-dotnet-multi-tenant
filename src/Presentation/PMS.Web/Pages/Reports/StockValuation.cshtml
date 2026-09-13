@@ -1,0 +1,177 @@
+@page "/reports/stock-valuation"
+@model PMS.Web.Pages.Reports.StockValuationModel
+@{
+    ViewData["Title"] = "Stock valuation";
+
+    var rows = Model.Report.Rows;
+    var summary = Model.Report.Summary;
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Stock valuation</h1>
+        <p class="pms-page-header__subtitle">
+            What is on the shelves right now, at what it cost to buy.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-all-route-data="Model.RouteValues">Export CSV</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+<div class="pms-print-only pms-print-header">
+    <h1>Stock valuation at cost</h1>
+    <p class="mb-0">As at @DateTime.UtcNow.ToString("d MMMM yyyy")</p>
+</div>
+
+@if (TempData["ExportFailed"] is string exportError)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(exportError)" />
+}
+
+@if (Model.FormError is not null)
+{
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+}
+
+<form method="get" class="report-filters pms-no-print">
+    <div class="report-filter">
+        <label class="pms-form-label" for="type">Product type</label>
+        <select class="form-select" id="type" name="type">
+            <option value="" selected="@(Model.ProductType is null)">All</option>
+            <option value="Medicine" selected="@(Model.ProductType == ProductType.Medicine)">
+                Medicines
+            </option>
+            <option value="Other" selected="@(Model.ProductType == ProductType.Other)">
+                Other items
+            </option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a class="btn btn-link" asp-page="/Reports/StockValuation">Reset</a>
+    </div>
+</form>
+
+<div class="stat-cards">
+    <div class="stat-card stat-card--emphasis">
+        <span class="stat-card__label">Stock value</span>
+        <span class="stat-card__value">@Money.Format(summary.TotalValueAtCost)</span>
+        <span class="stat-card__note">money tied up in sellable stock</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Products</span>
+        <span class="stat-card__value">@Money.Count(summary.ProductCount)</span>
+        <span class="stat-card__note">holding stock of any kind</span>
+    </div>
+    <div class="stat-card @(summary.ExpiredValueAtCost > 0 ? "stat-card--danger" : null)">
+        <span class="stat-card__label">Expired, written off</span>
+        <span class="stat-card__value">@Money.Format(summary.ExpiredValueAtCost)</span>
+        <span class="stat-card__note">
+            not counted in the stock value &mdash; it cannot be sold
+        </span>
+    </div>
+</div>
+
+<section class="report-section">
+    @if (rows.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No stock to value",
+            "Nothing is on the shelves under this filter."))" />
+    }
+    else
+    {
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <caption class="visually-hidden">
+                    Stock at cost, most valuable first. Expired stock is listed separately and
+                    excluded from the value.
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Product</th>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="text-end">In stock</th>
+                        <th scope="col" class="text-end">Average cost</th>
+                        <th scope="col" class="text-end">Value at cost</th>
+                        <th scope="col" class="text-end">Expired</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows.Data)
+                    {
+                        <tr class="@(row.QuantityInBaseUnits == 0 ? "pms-row-danger" : null)">
+                            <td>
+                                <a asp-page="/Stock/Detail" asp-route-productId="@row.ProductId"
+                                   class="pms-cell-link">
+                                    <span class="pms-cart__name">@row.BrandName</span>
+                                    @if (!string.IsNullOrWhiteSpace(row.GenericName))
+                                    {
+                                        <span class="pms-form-help">@row.GenericName</span>
+                                    }
+                                </a>
+                            </td>
+                            <td>
+                                <span class="pms-badge pms-badge--neutral">
+                                    @(row.ProductType == ProductType.Medicine
+                                        ? "Medicine" : "Other")
+                                </span>
+                            </td>
+                            <td class="text-end">@row.FormattedQuantity</td>
+                            <td class="text-end text-muted">
+                                @* Four decimals. A per-unit cost derived from a bulk pack is
+                                   usually fractional, and two places would not reproduce the
+                                   value beside it. *@
+                                @Money.PerUnit(row.WeightedAverageCost)
+                            </td>
+                            <td class="text-end">@Money.Format(row.TotalValueAtCost)</td>
+                            <td class="text-end">
+                                @if (row.HasExpired)
+                                {
+                                    <span class="figure-negative">
+                                        @Money.Format(row.ExpiredValueAtCost)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            rows, "/Reports/StockValuation", Model.RouteValues))" />
+    }
+</section>
+
+<div class="report-note">
+    <h2 class="h6">How this is valued</h2>
+    <ul>
+        <li>
+            <strong>At cost, not at retail.</strong> This is money spent, not money expected
+            &mdash; what the pharmacy would have to spend again to hold the same stock.
+        </li>
+        <li>
+            <strong>Expired stock is excluded from the value and shown separately.</strong> It
+            cannot be sold, so counting it as an asset would overstate the one figure an owner
+            reads as money tied up.
+        </li>
+        <li>
+            <strong>Average cost is weighted by quantity.</strong> Ten units at one price and a
+            hundred at another average toward the hundred, which is what the value depends on.
+        </li>
+        <li>
+            A snapshot of right now. There is no history of stock levels, so this report cannot
+            answer what the shelves were worth last month.
+        </li>
+    </ul>
+</div>

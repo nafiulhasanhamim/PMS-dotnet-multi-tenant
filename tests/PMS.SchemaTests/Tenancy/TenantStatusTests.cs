@@ -3,6 +3,7 @@ using PMS.Application.Interfaces;
 using PMS.Domain.Entities;
 using PMS.Persistence.Contexts;
 using PMS.Persistence.Services;
+using DomainTenantStatus = PMS.Domain.Enums.TenantStatus;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -24,10 +25,10 @@ public class TenantStatusTests
         var db = $"status_{Guid.NewGuid():N}";
         await using var context = NewContext(db);
 
-        var tenant = new Tenant("City Care", "citycare");
+        var tenant = new Tenant("City Care", "citycare.com");
         if (!isActive)
         {
-            tenant.Deactivate();
+            tenant.SetStatus(DomainTenantStatus.Suspended);
         }
         tenant.IsDeleted = deleted;
 
@@ -107,7 +108,7 @@ public class TenantStatusTests
 
         await using (var context = NewContext(db))
         {
-            var tenant = new Tenant("City Care", "citycare");
+            var tenant = new Tenant("City Care", "citycare.com");
             context.Tenants.Add(tenant);
             await context.SaveChangesAsync();
             tenantId = tenant.Id;
@@ -116,7 +117,7 @@ public class TenantStatusTests
         await using (var context = NewContext(db))
         {
             var tenant = await context.Tenants.SingleAsync(t => t.Id == tenantId);
-            tenant.Deactivate();
+            tenant.SetStatus(DomainTenantStatus.Suspended);
             await context.SaveChangesAsync();
         }
 
@@ -124,7 +125,7 @@ public class TenantStatusTests
         {
             // Still there, still readable, just not usable by its own users.
             var tenant = await context.Tenants.SingleAsync(t => t.Id == tenantId);
-            tenant.IsActive.Should().BeFalse();
+            tenant.Status.Should().Be(DomainTenantStatus.Suspended);
             tenant.Name.Should().Be("City Care");
 
             (await new TenantStatusValidator(context).CheckAsync(tenantId))
@@ -139,7 +140,7 @@ public class TenantStatusTests
 
         await using (var context = NewContext(db))
         {
-            (await context.Tenants.SingleAsync(t => t.Id == id)).Activate();
+            (await context.Tenants.SingleAsync(t => t.Id == id)).SetStatus(DomainTenantStatus.Active);
             await context.SaveChangesAsync();
         }
 

@@ -1,0 +1,19 @@
+@*
+    What an empty table says. Never a blank rectangle: it names what is missing and, where
+    there is something to do about it, offers the action right there.
+*@
+@model EmptyStateModel
+<div class="pms-empty">
+    <p class="pms-empty__title">@Model.Title</p>
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <p class="mb-0">@Model.Description</p>
+    }
+    @if (Model.ActionPage is not null && Model.ActionText is not null)
+    {
+        <div class="pms-empty__actions">
+            <a class="btn btn-primary" asp-page="@Model.ActionPage"
+               asp-all-route-data="@Model.ActionRoute">@Model.ActionText</a>
+        </div>
+    }
+</div>

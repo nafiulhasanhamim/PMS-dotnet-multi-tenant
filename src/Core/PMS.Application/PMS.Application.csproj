@@ -13,6 +13,9 @@
     <!-- Validation DI Extensions -->
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
 
+    <!-- Fuzzy matching for the catalogue search fallback -->
+    <PackageReference Include="FuzzySharp" />
+
     <!-- Object Mapping -->
     <PackageReference Include="Mapster" />
     <PackageReference Include="Mapster.DependencyInjection" />

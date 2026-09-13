@@ -1,0 +1,174 @@
+@page "/reports/dead-stock"
+@model PMS.Web.Pages.Reports.DeadStockModel
+@{
+    ViewData["Title"] = "Dead stock";
+
+    var report = Model.Report;
+    var rows = report.Rows;
+    var summary = report.Summary;
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Dead stock</h1>
+        <p class="pms-page-header__subtitle">
+            Products holding stock that has not sold in @summary.ThresholdDays days &mdash; or
+            has never sold at all.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-all-route-data="Model.RouteValues">Export CSV</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+<div class="pms-print-only pms-print-header">
+    <h1>Dead stock report</h1>
+    <p class="mb-0">Not sold in @summary.ThresholdDays days</p>
+</div>
+
+@if (TempData["ExportFailed"] is string exportError)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(exportError)" />
+}
+
+@if (Model.FormError is not null)
+{
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+}
+
+<form method="get" class="report-filters pms-no-print">
+    <div class="report-filter">
+        <label class="pms-form-label" for="days">Not sold in</label>
+        <select class="form-select" id="days" name="days">
+            @foreach (var days in Model.Thresholds)
+            {
+                <option value="@days" selected="@(days == summary.ThresholdDays)">
+                    @days days
+                </option>
+            }
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="type">Product type</label>
+        <select class="form-select" id="type" name="type">
+            <option value="" selected="@(Model.ProductType is null)">All</option>
+            <option value="Medicine" selected="@(Model.ProductType == ProductType.Medicine)">
+                Medicines
+            </option>
+            <option value="Other" selected="@(Model.ProductType == ProductType.Other)">
+                Other items
+            </option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a class="btn btn-link" asp-page="/Reports/DeadStock">Reset</a>
+    </div>
+</form>
+
+<div class="stat-cards">
+    <div class="stat-card">
+        <span class="stat-card__label">Products not moving</span>
+        <span class="stat-card__value">@Money.Count(summary.ProductCount)</span>
+        <span class="stat-card__note">across the whole report, not this page</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Never sold</span>
+        <span class="stat-card__value">@Money.Count(summary.NeverSoldCount)</span>
+        <span class="stat-card__note">bought and never once sold</span>
+    </div>
+    <div class="stat-card stat-card--emphasis">
+        <span class="stat-card__label">Capital tied up</span>
+        <span class="stat-card__value">@Money.Format(summary.TotalCapitalTiedUp)</span>
+        <span class="stat-card__note">at what it cost to buy</span>
+    </div>
+</div>
+
+<section class="report-section">
+    @if (rows.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "Nothing is sitting idle",
+            "Every product holding stock has sold within the window."))" />
+    }
+    else
+    {
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <caption class="visually-hidden">
+                    Products with stock that has not sold recently, never-sold products first.
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Product</th>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="text-end">In stock</th>
+                        <th scope="col">Last sold</th>
+                        <th scope="col" class="text-end">Days idle</th>
+                        <th scope="col" class="text-end">Value at cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows.Data)
+                    {
+                        @* Never-sold rows are marked, not just sorted first. They are the ones
+                           worth acting on, and on page two the sort order no longer says so. *@
+                        <tr class="@(row.NeverSold ? "pms-row-warning" : null)">
+                            <td>
+                                <a asp-page="/Stock/Detail" asp-route-productId="@row.ProductId"
+                                   class="pms-cell-link">
+                                    <span class="pms-cart__name">@row.BrandName</span>
+                                    @if (!string.IsNullOrWhiteSpace(row.GenericName))
+                                    {
+                                        <span class="pms-form-help">@row.GenericName</span>
+                                    }
+                                </a>
+                            </td>
+                            <td>
+                                <span class="pms-badge pms-badge--neutral">
+                                    @(row.ProductType == ProductType.Medicine
+                                        ? "Medicine" : "Other")
+                                </span>
+                            </td>
+                            <td class="text-end">@row.FormattedQuantity</td>
+                            <td>
+                                @if (row.NeverSold)
+                                {
+                                    <strong>Never sold</strong>
+                                }
+                                else
+                                {
+                                    @row.LastSoldOn?.ToString("d MMM yyyy")
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (row.DaysSinceLastSale is { } days)
+                                {
+                                    @Money.Count(days)
+                                }
+                                else
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                            </td>
+                            <td class="text-end">@Money.Format(row.StockValueAtCost)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            rows, "/Reports/DeadStock", Model.RouteValues))" />
+    }
+</section>
+
+<p class="report-section__note">
+    Expired stock is included here. It has not sold and it no longer can, which makes it the
+    deadest stock on the shelf rather than an exception &mdash; the
+    <a asp-page="/Alerts/Expired">expired stock list</a> is where to act on it.
+</p>

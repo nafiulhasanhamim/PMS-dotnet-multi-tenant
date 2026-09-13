@@ -1,0 +1,229 @@
+@page "/reports/daily-sales"
+@model PMS.Web.Pages.Reports.DailySalesModel
+@inject DisplayTimeZone Clock
+@{
+    ViewData["Title"] = "Daily sales report";
+
+    var report = Model.Report;
+
+    @*
+        The API buckets by UTC hour, because every date filter in the system is bounded in UTC.
+        The shift into the reader's zone happens here, which is the same division of labour every
+        timestamp in this application already uses: the server stores and filters in UTC, and the
+        one layer that knows a person is looking at the screen converts.
+
+        The offset is taken for the report's own date rather than for "now", so a report read in
+        January about a day in June is labelled with June's offset.
+    *@
+    var offsetHours = (int)Clock.Zone
+        .GetUtcOffset(report.Date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc))
+        .TotalHours;
+
+    var hourly = report.Hourly
+        .Select(h => new
+        {
+            Local = ((h.Hour + offsetHours) % 24 + 24) % 24,
+            h.TransactionCount,
+            h.Sales,
+        })
+        .OrderBy(h => h.Local)
+        .ToList();
+
+    var chart = new ChartModel
+    {
+        Points = hourly
+            .Select(h => new ChartPoint(
+                h.Local % 3 == 0 ? $"{h.Local:00}" : string.Empty,
+                h.Sales,
+                $"{h.Local:00}:00 - {Money.Format(h.Sales)} over {h.TransactionCount} sales"))
+            .ToList(),
+        Height = 160,
+        EmptyMessage = "No sales on this day.",
+    };
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Daily sales</h1>
+        <p class="pms-page-header__subtitle">
+            @report.Date.ToString("dddd, d MMMM yyyy")
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-all-route-data="Model.RouteValues">Export CSV</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+<div class="pms-print-only pms-print-header">
+    <h1>Daily sales report</h1>
+    <p class="mb-1"><strong>@Model.PharmacyName</strong></p>
+    <p class="mb-0">@report.Date.ToString("dddd, d MMMM yyyy")</p>
+</div>
+
+@if (TempData["ExportFailed"] is string exportError)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(exportError)" />
+}
+
+@if (Model.FormError is not null)
+{
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+}
+
+<form method="get" class="report-filters pms-no-print">
+    <div class="report-filter">
+        <label class="pms-form-label" for="date">Date</label>
+        <input type="date" class="form-control" id="date" name="date"
+               value="@report.Date.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Show</button>
+        <a class="btn btn-link" asp-page="/Reports/DailySales"
+           asp-route-date="@DateTime.UtcNow.ToString("yyyy-MM-dd")">Today</a>
+    </div>
+</form>
+
+<div class="stat-cards">
+    <div class="stat-card">
+        <span class="stat-card__label">Total sales</span>
+        <span class="stat-card__value">@Money.Format(report.TotalSales)</span>
+        <span class="stat-card__note">@Money.Count(report.TransactionCount) transactions</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Gross profit</span>
+        <span class="stat-card__value @Money.Tone(report.GrossProfit)">
+            @Money.Signed(report.GrossProfit)
+        </span>
+        <span class="stat-card__note">@Money.Percent(report.MarginPercent) margin</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Discount given</span>
+        <span class="stat-card__value">@Money.Format(report.TotalDiscount)</span>
+        <span class="stat-card__note">
+            Average basket @Money.Format(report.AverageBasket)
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-card__label">Returns</span>
+        <span class="stat-card__value">@Money.Format(report.TotalRefunded)</span>
+        <span class="stat-card__note">
+            @Money.Count(report.ReturnCount) returned, costing
+            @Money.Format(report.ReturnImpact) of profit
+        </span>
+    </div>
+</div>
+
+<section class="report-section">
+    <h2 class="h6">Sales through the day</h2>
+    <p class="report-section__note">
+        Hours shown in @Clock.Zone.StandardName.
+    </p>
+    <partial name="_BarChart" model="chart" />
+</section>
+
+<section class="report-section">
+    <h2 class="h6">Every sale</h2>
+
+    @if (report.Sales.Count == 0)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No sales on this day",
+            "Nothing was rung up. Cancelled sales are not shown here at all."))" />
+    }
+    else
+    {
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Time</th>
+                        <th scope="col">Invoice</th>
+                        <th scope="col">Cashier</th>
+                        <th scope="col" class="text-end">Subtotal</th>
+                        <th scope="col" class="text-end">Discount</th>
+                        <th scope="col" class="text-end">Net total</th>
+                        <th scope="col" class="text-end">Cost</th>
+                        <th scope="col" class="text-end">Profit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var sale in report.Sales)
+                    {
+                        <tr>
+                            <td>@Clock.ToLocal(sale.SaleDate).ToString("HH:mm")</td>
+                            <td>
+                                <a asp-page="/Sales/Detail" asp-route-id="@sale.SaleId">
+                                    @sale.InvoiceNumber
+                                </a>
+                            </td>
+                            <td>
+                                @if (sale.CashierName is { } cashier)
+                                {
+                                    @cashier
+                                }
+                                else
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                            </td>
+                            <td class="text-end">@Money.Format(sale.Subtotal)</td>
+                            <td class="text-end">
+                                @if (sale.DiscountAmount == 0)
+                                {
+                                    <span class="pms-placeholder">&mdash;</span>
+                                }
+                                else
+                                {
+                                    @Html.Raw("&minus;")@Money.Format(sale.DiscountAmount)
+                                }
+                            </td>
+                            <td class="text-end">@Money.Format(sale.NetTotal)</td>
+                            <td class="text-end text-muted">@Money.Format(sale.Cost)</td>
+                            <td class="text-end @Money.Tone(sale.Profit)">
+                                @Money.Signed(sale.Profit)
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th scope="row" colspan="5">Total</th>
+                        <td class="text-end">@Money.Format(report.TotalSales)</td>
+                        <td class="text-end text-muted">
+                            @Money.Format(report.Sales.Sum(s => s.Cost))
+                        </td>
+                        <td class="text-end @Money.Tone(report.Sales.Sum(s => s.Profit))">
+                            @Money.Signed(report.Sales.Sum(s => s.Profit))
+                        </td>
+                    </tr>
+                    @if (report.ReturnImpact != 0)
+                    {
+                        @*
+                            Shown as its own line rather than folded into the profit column above.
+                            The returns on this day may reverse sales from other days, so they
+                            belong to the day's profit but not to any row in this table - and a
+                            total that did not reconcile with the column above it would look like
+                            an arithmetic error.
+                        *@
+                        <tr>
+                            <th scope="row" colspan="7">Less returns processed today</th>
+                            <td class="text-end figure-negative">
+                                &minus;@Money.Format(report.ReturnImpact)
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row" colspan="7">Gross profit for the day</th>
+                            <td class="text-end @Money.Tone(report.GrossProfit)">
+                                @Money.Signed(report.GrossProfit)
+                            </td>
+                        </tr>
+                    }
+                </tfoot>
+            </table>
+        </div>
+    }
+</section>

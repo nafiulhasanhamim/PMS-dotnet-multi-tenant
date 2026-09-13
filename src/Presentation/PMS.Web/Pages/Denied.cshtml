@@ -1,0 +1,32 @@
+@page "/denied"
+@model DeniedModel
+@{
+    ViewData["Title"] = "Permission denied";
+    Layout = "_AuthLayout";
+}
+
+<div class="pms-auth__brand">PMS</div>
+<p class="pms-auth__area">Permission denied</p>
+
+<partial name="_Alert" model="@AlertModel.Warning(
+    string.IsNullOrWhiteSpace(Model.Reason)
+        ? "You do not have permission to view that page."
+        : Model.Reason)" />
+
+<p class="text-muted">
+    If you think you should have access, ask an administrator at your pharmacy to check your
+    role.
+</p>
+
+<div class="d-grid gap-2">
+    @if (Model.IsPlatformContext)
+    {
+        <a class="btn btn-platform" asp-page="/Platform/Tenants/Index">Back to pharmacies</a>
+        <a class="btn btn-outline-secondary" asp-page="/Platform/Login">Platform sign in</a>
+    }
+    else
+    {
+        <a class="btn btn-primary" asp-page="/Index">Back to dashboard</a>
+        <a class="btn btn-outline-secondary" asp-page="/Login">Sign in</a>
+    }
+</div>

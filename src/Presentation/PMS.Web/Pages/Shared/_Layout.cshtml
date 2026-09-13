@@ -1,0 +1,83 @@
+@*
+    The tenant app shell: sidebar + top bar + content.
+
+    The top bar leads with the pharmacy name, and that placement is the point. Someone with
+    access to two pharmacies has no other way to tell which one they are about to change,
+    and "which pharmacy am I in" is not a question anyone should answer by reading a URL.
+*@
+@using PMS.Web.Navigation
+@inject AlertBadgeProvider AlertBadges
+@{
+    var role = User.Role();
+    var tenantName = User.TenantName();
+    var tenantDomain = User.TenantDomain();
+    var roleText = role is null ? null : StatusPresentation.ForRole(role.Value).Text;
+    var successMessage = (Model as PmsPageModel)?.SuccessMessage;
+
+    // Cached for a minute per pharmacy, and silently empty if the API is unreachable — a badge
+    // is a decoration, and a layout that threw because it could not draw one would take every
+    // page in the application down with it. See AlertBadgeProvider.
+    var navBadges = await AlertBadges.GetAsync(Context.RequestAborted);
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] &middot; PMS</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<div class="pms-shell">
+    <nav class="pms-sidebar" aria-label="Main navigation">
+        <a class="pms-sidebar__brand" asp-page="/Index">
+            <span>PMS</span>
+        </a>
+        <p class="pms-sidebar__area mb-0">Pharmacy</p>
+        <partial name="_SidebarNav"
+                 model="@(new SidebarModel(NavRegistry.ForTenantRole(role), navBadges))" />
+    </nav>
+
+    <div class="pms-backdrop"></div>
+
+    <div class="pms-main">
+        <header class="pms-topbar">
+            <button type="button" class="pms-sidebar-toggle" data-pms-nav-toggle
+                    aria-label="Show navigation" aria-expanded="false">
+                <partial name="_NavIcon" model="@("menu")" />
+            </button>
+
+            <div class="pms-topbar__context">
+                <span>@tenantName</span>
+                @if (!string.IsNullOrWhiteSpace(tenantDomain))
+                {
+                    <span class="pms-topbar__context-domain">@tenantDomain</span>
+                }
+            </div>
+
+            <div class="pms-topbar__user">
+                <span class="d-none d-sm-inline">
+                    <span class="pms-topbar__user-name">@User.FullName()</span>
+                    <span class="pms-topbar__user-role">&middot; @roleText</span>
+                </span>
+                <form method="post" asp-page="/Logout">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Sign out</button>
+                </form>
+            </div>
+        </header>
+
+        <main class="pms-content" role="main">
+            <partial name="_Alert" model="@AlertModel.Success(successMessage)" />
+            @RenderBody()
+        </main>
+    </div>
+</div>
+
+<partial name="_ConfirmModal" />
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

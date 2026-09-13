@@ -72,7 +72,13 @@ public class ExceptionMiddleware
         context.Response.ContentType = "application/problem+json";
         context.Response.StatusCode = statusCode;
 
-        await context.Response.WriteAsync(JsonSerializer.Serialize(problemDetails, JsonOptions));
+        // Serialize against the RUNTIME type, not the declared one. `problemDetails` is typed
+        // as ProblemDetails, and System.Text.Json writes only the declared type's properties —
+        // which silently dropped the `errors` dictionary off every ValidationProblemDetails,
+        // leaving clients a 400 that said "one or more validation errors occurred" and nothing
+        // about which field.
+        await context.Response.WriteAsync(
+            JsonSerializer.Serialize(problemDetails, problemDetails.GetType(), JsonOptions));
     }
 
     private static (int StatusCode, ProblemDetails ProblemDetails) HandleValidationException(ValidationException exception)

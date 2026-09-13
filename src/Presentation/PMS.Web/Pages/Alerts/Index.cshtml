@@ -1,0 +1,47 @@
+@page "/alerts"
+@model PMS.Web.Pages.Alerts.IndexModel
+@{
+    ViewData["Title"] = "Alerts";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Alerts</h1>
+        <p class="pms-page-header__subtitle">
+            @if (Model.Summary.HasAnything)
+            {
+                <text>What needs attention across this pharmacy&rsquo;s stock.</text>
+            }
+            else
+            {
+                <text>Nothing needs attention. Stock is within its reorder levels and nothing
+                is near its expiry date.</text>
+            }
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="pms-alert-hub">
+    @foreach (var card in Model.Cards)
+    {
+        <section class="pms-card">
+            <div class="pms-card__body">
+                <div class="@card.Css pms-alert-card--large">
+                    <span class="pms-alert-card__count">@card.Count</span>
+                    <span class="pms-alert-card__title">@card.Title</span>
+                </div>
+
+                <p class="pms-form-help mt-3 mb-3">@card.Description</p>
+
+                @if (card.Preview is { } preview)
+                {
+                    <p class="mb-3">@preview</p>
+                }
+
+                <a class="btn btn-sm btn-outline-primary" asp-page="@card.Page">View all</a>
+            </div>
+        </section>
+    }
+</div>

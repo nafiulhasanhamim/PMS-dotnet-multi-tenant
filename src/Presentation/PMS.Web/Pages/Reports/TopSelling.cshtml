@@ -1,0 +1,182 @@
+@page "/reports/top-selling"
+@model PMS.Web.Pages.Reports.TopSellingModel
+@{
+    ViewData["Title"] = "Top selling products";
+
+    var rows = Model.Rows;
+
+    @* The top ten of whatever is on this page, charted. Only on page one: a bar chart headed
+       "top selling" drawn from rows 26 to 50 would be actively misleading. *@
+    var chart = new ChartModel
+    {
+        Points = rows.Page == 1
+            ? rows.Data.Take(10)
+                .Select(r => new ChartPoint(
+                    r.BrandName.Length > 10 ? r.BrandName[..9] + "." : r.BrandName,
+                    Model.SortBy switch
+                    {
+                        TopSellingSort.Revenue => r.Revenue,
+                        TopSellingSort.Profit => r.Profit,
+                        _ => r.QuantitySoldInBaseUnits,
+                    },
+                    $"{r.BrandName} - {r.FormattedQuantity}, "
+                        + $"{Money.Format(r.Revenue)} revenue, {Money.Signed(r.Profit)} profit"))
+                .ToList()
+            : [],
+        Height = 170,
+        EmptyMessage = "Nothing sold in this period.",
+    };
+}
+
+<div class="pms-page-header pms-no-print">
+    <div>
+        <h1>Top selling products</h1>
+        <p class="pms-page-header__subtitle">
+            Net of returns &mdash; a product sold forty times and returned ten shows thirty.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page-handler="Export"
+           asp-all-route-data="Model.RouteValues">Export CSV</a>
+        <button type="button" class="btn btn-outline-secondary" onclick="window.print();">
+            Print
+        </button>
+    </div>
+</div>
+
+<div class="pms-print-only pms-print-header">
+    <h1>Top selling products</h1>
+    <p class="mb-1"><strong>@Model.PharmacyName</strong></p>
+    <p class="mb-0">
+        @Model.From?.ToString("d MMM yyyy") &ndash; @Model.To?.ToString("d MMM yyyy")
+    </p>
+</div>
+
+@if (TempData["ExportFailed"] is string exportError)
+{
+    <partial name="_Alert" model="@AlertModel.Warning(exportError)" />
+}
+
+@if (Model.FormError is not null)
+{
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+}
+
+<form method="get" class="report-filters pms-no-print">
+    <div class="report-filter">
+        <label class="pms-form-label" for="from">From</label>
+        <input type="date" class="form-control" id="from" name="from"
+               value="@Model.From?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="to">To</label>
+        <input type="date" class="form-control" id="to" name="to"
+               value="@Model.To?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="sort">Rank by</label>
+        <select class="form-select" id="sort" name="sort">
+            <option value="Quantity" selected="@(Model.SortBy == TopSellingSort.Quantity)">
+                Quantity sold
+            </option>
+            <option value="Revenue" selected="@(Model.SortBy == TopSellingSort.Revenue)">
+                Revenue
+            </option>
+            <option value="Profit" selected="@(Model.SortBy == TopSellingSort.Profit)">
+                Profit
+            </option>
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="type">Product type</label>
+        <select class="form-select" id="type" name="type">
+            <option value="" selected="@(Model.ProductType is null)">All</option>
+            <option value="Medicine" selected="@(Model.ProductType == ProductType.Medicine)">
+                Medicines
+            </option>
+            <option value="Other" selected="@(Model.ProductType == ProductType.Other)">
+                Other items
+            </option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a class="btn btn-link" asp-page="/Reports/TopSelling">Reset</a>
+    </div>
+</form>
+
+@if (!chart.IsEmpty)
+{
+    <section class="report-section">
+        <h2 class="h6">
+            Top ten by
+            @(Model.SortBy switch
+            {
+                TopSellingSort.Revenue => "revenue",
+                TopSellingSort.Profit => "profit",
+                _ => "quantity",
+            })
+        </h2>
+        <partial name="_BarChart" model="chart" />
+    </section>
+}
+
+<section class="report-section">
+    @if (rows.IsEmpty)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "Nothing sold in this period",
+            "Widen the date range, or clear the product type filter."))" />
+    }
+    else
+    {
+        <div class="pms-table-wrap">
+            <table class="pms-table">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Product</th>
+                        <th scope="col">Type</th>
+                        <th scope="col" class="text-end">Quantity</th>
+                        <th scope="col" class="text-end">Revenue</th>
+                        <th scope="col" class="text-end">Profit</th>
+                        <th scope="col" class="text-end">Margin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ var rank = rows.FirstRow; }
+                    @foreach (var row in rows.Data)
+                    {
+                        <tr>
+                            <td class="text-muted">@rank</td>
+                            <td>
+                                <a asp-page="/Stock/Detail" asp-route-productId="@row.ProductId">
+                                    @row.BrandName
+                                </a>
+                                @if (row.GenericName is { } generic)
+                                {
+                                    <span class="pms-form-help">@generic</span>
+                                }
+                            </td>
+                            <td>
+                                @(row.ProductType == ProductType.Medicine ? "Medicine" : "Other")
+                            </td>
+                            <td class="text-end">@row.FormattedQuantity</td>
+                            <td class="text-end">@Money.Format(row.Revenue)</td>
+                            <td class="text-end @Money.Tone(row.Profit)">
+                                @Money.Signed(row.Profit)
+                            </td>
+                            <td class="text-end @Money.Tone(row.MarginPercent)">
+                                @Money.Percent(row.MarginPercent)
+                            </td>
+                        </tr>
+                        rank++;
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            rows, "/Reports/TopSelling", Model.RouteValues))" />
+    }
+</section>

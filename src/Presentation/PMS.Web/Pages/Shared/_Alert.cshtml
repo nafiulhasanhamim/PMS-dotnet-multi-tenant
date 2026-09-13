@@ -1,0 +1,43 @@
+@*
+    A banner. Colour is never the only signal: each kind carries an icon and a
+    screen-reader-only label, and the message itself states what happened — so it still
+    works for someone who cannot distinguish the colours, or on a greyscale printout.
+*@
+@model AlertModel
+@if (!string.IsNullOrWhiteSpace(Model.Message))
+{
+    var css = Model.Kind switch
+    {
+        AlertKind.Success => "pms-alert--success",
+        AlertKind.Danger => "pms-alert--danger",
+        AlertKind.Warning => "pms-alert--warning",
+        _ => "pms-alert--info",
+    };
+    var icon = Model.Kind switch
+    {
+        AlertKind.Success => "check",
+        AlertKind.Danger => "alert",
+        AlertKind.Warning => "alert",
+        _ => "info",
+    };
+    var label = Model.Kind switch
+    {
+        AlertKind.Success => "Success:",
+        AlertKind.Danger => "Error:",
+        AlertKind.Warning => "Warning:",
+        _ => "Information:",
+    };
+    <div class="pms-alert @css @(Model.Dismissible ? "alert fade show" : null)"
+         role="@(Model.Kind == AlertKind.Danger ? "alert" : "status")">
+        <partial name="_NavIcon" model="@icon" />
+        <div class="pms-alert__body">
+            <span class="visually-hidden">@label</span>
+            @Model.Message
+        </div>
+        @if (Model.Dismissible)
+        {
+            <button type="button" class="btn-close" data-bs-dismiss="alert"
+                    aria-label="Dismiss this message"></button>
+        }
+    </div>
+}

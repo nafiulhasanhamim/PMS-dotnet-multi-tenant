@@ -1,0 +1,120 @@
+@page "/salary/advances/create"
+@model PMS.Web.Pages.Salary.Advances.CreateModel
+@{
+    ViewData["Title"] = "Record an advance";
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Record an advance</h1>
+        <p class="pms-page-header__subtitle">
+            <a asp-page="/Salary/Advances/Index">&larr; Advances</a>
+        </p>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<div class="row">
+    <div class="col-lg-7">
+        <section class="pms-card">
+            <div class="pms-card__body">
+                @if (Model.Employees.Count == 0)
+                {
+                    <partial name="_EmptyState" model="@(new EmptyStateModel(
+                        "Nobody is on the payroll",
+                        "An advance comes out of a salary, so the employee needs a salary profile "
+                        + "first.",
+                        "Add profile",
+                        "/Salary/Profiles/Edit"))" />
+                }
+                else
+                {
+                    <form method="post" data-pms-guard novalidate>
+                        <div asp-validation-summary="ModelOnly" class="pms-field-error"></div>
+
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.ProfileId">
+                                Employee <span class="pms-required" aria-hidden="true">*</span>
+                            </label>
+                            @*
+                                Each option carries the employee's outstanding total on a data
+                                attribute, so the note below updates the instant somebody is
+                                chosen. Loading it with the form rather than fetching on change
+                                means the figure is always there, including with JavaScript off -
+                                the options themselves name it.
+                            *@
+                            <select class="form-select" asp-for="Input.ProfileId"
+                                    data-pms-advance-employee>
+                                <option value="">Choose an employee</option>
+                                @foreach (var employee in Model.Employees)
+                                {
+                                    <option value="@employee.ProfileId"
+                                            data-outstanding="@employee.UnsettledAdvanceTotal.ToString("0.00")"
+                                            data-salary="@employee.MonthlyBaseSalary.ToString("0.00")"
+                                            selected="@(Model.Input.ProfileId == employee.ProfileId)">
+                                        @employee.EmployeeName@(employee.Designation is null ? "" : $" - {employee.Designation}")
+                                        @(employee.UnsettledAdvanceTotal > 0m
+                                            ? $"({Money.Format(employee.UnsettledAdvanceTotal)} outstanding)"
+                                            : "")
+                                    </option>
+                                }
+                            </select>
+                            <span class="pms-help" data-pms-advance-outstanding>
+                                Their outstanding advance total appears here once you choose
+                                somebody.
+                            </span>
+                            <span class="pms-field-error" asp-validation-for="Input.ProfileId"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.Amount">
+                                Amount <span class="pms-required" aria-hidden="true">*</span>
+                            </label>
+                            <input class="form-control" asp-for="Input.Amount" type="number"
+                                   step="0.01" min="0.01" inputmode="decimal" autofocus />
+                            <span class="pms-help">
+                                There is no cap. If this is more than a month's pay, the excess
+                                simply carries into the month after.
+                            </span>
+                            <span class="pms-field-error" asp-validation-for="Input.Amount"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.AdvanceDate">Date</label>
+                            <input class="form-control" asp-for="Input.AdvanceDate" type="date" />
+                            <span class="pms-help">
+                                <strong>The day the cash actually changed hands.</strong> This is
+                                the date the expense falls on in the profit report, not the month
+                                it is eventually deducted in.
+                            </span>
+                            <span class="pms-field-error" asp-validation-for="Input.AdvanceDate"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="pms-form-label" asp-for="Input.Reason">Reason</label>
+                            <input class="form-control" asp-for="Input.Reason"
+                                   placeholder="Medical emergency" />
+                            <span class="pms-help">
+                                Optional, and worth filling in: it is what makes the line on the
+                                generation screen mean something three months from now.
+                            </span>
+                            <span class="pms-field-error" asp-validation-for="Input.Reason"></span>
+                        </div>
+
+                        <div class="pms-form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <span class="pms-spinner" aria-hidden="true"></span>Record advance
+                            </button>
+                            <a class="btn btn-link" asp-page="/Salary/Index">Cancel</a>
+                        </div>
+                    </form>
+                }
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/salary-advance.js" asp-append-version="true"></script>
+}

@@ -1,0 +1,357 @@
+@page "/billing"
+@model PMS.Web.Pages.Billing.IndexModel
+@{
+    ViewData["Title"] = "New sale";
+    var cart = Model.Input.Items ?? new List<PMS.Web.Pages.Billing.CartRowInput>();
+
+    // Module 7. Off renders no panel at all; Optional renders one whose fields are all optional;
+    // Required renders the one Module 5 shipped. The mode comes from the API with the rest of
+    // the caller's limits, and the server refuses the sale on its own reading of it regardless
+    // of what this draws.
+    var capturesPrescriptions = Model.Limits.CapturesPrescriptions;
+    var prescriptionRequired = Model.Limits.RequiresPrescription;
+    var requiredClass = prescriptionRequired ? "pms-required" : null;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>New sale</h1>
+        <p class="pms-page-header__subtitle">
+            Type to search, Enter to add. Prices and stock come from the shelf as it stands now.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-outline-secondary" asp-page="/Sales/Index">Sales</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@* One form for the whole bill. The cart rows are real inputs the script adds and removes, so
+   an ordinary POST carries them - no JSON body, no fetch, and the antiforgery token and the
+   validation redisplay work the same way they do on every other form in the app. *@
+<form method="post" id="billing-form" class="pms-billing">
+    <div class="pms-billing__main">
+
+        @* ── Search ──────────────────────────────────────────────────────────────────── *@
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <label class="pms-form-label" for="product-search">Add a product</label>
+                <div class="pms-search">
+                    <input type="text" class="form-control form-control-lg" id="product-search"
+                           autocomplete="off" role="combobox" aria-expanded="false"
+                           aria-controls="search-results" aria-autocomplete="list"
+                           placeholder="Search by brand or generic name..." />
+
+                    @* Results are rendered by the script. Listbox semantics rather than a
+                       styled div, so a screen reader announces the count and the highlighted
+                       option as the cashier arrows through them. *@
+                    <ul class="pms-search__results" id="search-results" role="listbox"
+                        aria-label="Search results" hidden></ul>
+                </div>
+                <p class="pms-form-help" id="search-help">
+                    Type to search, Enter to add. Arrow keys move through the results.
+                </p>
+            </div>
+        </div>
+
+        @* ── Cart ────────────────────────────────────────────────────────────────────── *@
+        <div class="pms-card mb-3">
+            <div class="pms-card__body">
+                <h2 class="pms-card__title">Items</h2>
+
+                <div class="pms-table-wrap">
+                    <table class="pms-table pms-cart" id="cart-table">
+                        <caption class="visually-hidden">
+                            Items on this bill, with quantity, unit and line total.
+                        </caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Product</th>
+                                <th scope="col" class="pms-cart__qty">Quantity</th>
+                                <th scope="col">Unit</th>
+                                <th scope="col" class="text-end">Unit price</th>
+                                <th scope="col" class="text-end">Line total</th>
+                                <th scope="col"><span class="visually-hidden">Remove</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cart-body">
+                            @* Rows the server is redisplaying after a rejection. The script owns
+                               this body from here on; these exist so a refused sale does not
+                               cost the cashier their cart. *@
+                            @for (var i = 0; i < cart.Count; i++)
+                            {
+                                var row = cart[i];
+                                <tr class="pms-cart__row" data-cart-row
+                                    data-product-id="@row.ProductId"
+                                    data-available="@row.AvailableInBaseUnits"
+                                    data-antibiotic="@(row.IsAntibiotic ? "true" : "false")"
+                                    data-units="@row.UnitOptionsJson">
+                                    <td>
+                                        <input type="hidden" name="Input.Items[@i].ProductId" value="@row.ProductId" />
+                                        <input type="hidden" name="Input.Items[@i].BrandName" value="@row.BrandName" />
+                                        <input type="hidden" name="Input.Items[@i].Strength" value="@row.Strength" />
+                                        <input type="hidden" name="Input.Items[@i].UnitName" value="@row.UnitName" />
+                                        <input type="hidden" name="Input.Items[@i].UnitPrice" value="@row.UnitPrice.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                                        <input type="hidden" name="Input.Items[@i].AvailableInBaseUnits" value="@row.AvailableInBaseUnits" />
+                                        <input type="hidden" name="Input.Items[@i].FormattedAvailable" value="@row.FormattedAvailable" />
+                                        <input type="hidden" name="Input.Items[@i].IsAntibiotic" value="@(row.IsAntibiotic ? "true" : "false")" />
+                                        <input type="hidden" name="Input.Items[@i].UnitOptionsJson" value="@row.UnitOptionsJson" />
+
+                                        <span class="pms-cart__name">@row.BrandName</span>
+                                        @if (!string.IsNullOrWhiteSpace(row.Strength))
+                                        {
+                                            <span class="pms-form-help">@row.Strength</span>
+                                        }
+                                        @if (row.IsAntibiotic)
+                                        {
+                                            <span class="pms-badge pms-badge--warning">AB</span>
+                                        }
+                                    </td>
+                                    <td class="pms-cart__qty">
+                                        <input type="number" class="form-control" min="1" step="1"
+                                               name="Input.Items[@i].Quantity" value="@row.Quantity"
+                                               data-cart-quantity
+                                               aria-label="Quantity of @row.BrandName" />
+                                        <span class="pms-form-help" data-cart-available>
+                                            @row.FormattedAvailable available
+                                        </span>
+                                        <span class="pms-field-error" data-cart-error hidden></span>
+                                    </td>
+                                    <td>
+                                        <select class="form-select" name="Input.Items[@i].UnitLevel"
+                                                data-cart-unit aria-label="Unit for @row.BrandName">
+                                            @* Rebuilt by the script from data-units on load. *@
+                                            <option value="@row.UnitLevel" selected>@row.UnitName</option>
+                                        </select>
+                                    </td>
+                                    <td class="text-end" data-cart-price>@row.UnitPrice.ToString("N2")</td>
+                                    <td class="text-end" data-cart-line-total>0.00</td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                data-cart-remove
+                                                aria-label="Remove @row.BrandName from the bill">
+                                            Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="cart-empty" class="pms-empty" hidden="@(cart.Count > 0)">
+                    <p>Search for a product above to start a bill.</p>
+                </div>
+            </div>
+        </div>
+
+        @*
+            ── Prescription: only while the cart holds an antibiotic, and only if this pharmacy
+               collects prescription details at all ─────────────────────────────────────────
+
+            Absent entirely under Off. Not hidden with CSS, not rendered-and-ignored: a pharmacy
+            that does not record prescriptions should not have a prescription form on its till
+            screen, and one that appears with every field optional and no consequence is a form
+            people learn to scroll past.
+        *@
+        @if (capturesPrescriptions)
+        {
+        <div class="pms-card pms-card--prescription mb-3" id="prescription-panel"
+             data-prescription-required="@(prescriptionRequired ? "true" : "false")"
+             hidden="@(!cart.Any(row => row.IsAntibiotic))">
+            <div class="pms-card__body">
+                <h2 class="pms-card__title">
+                    Prescription details
+                    <span class="pms-form-help">
+                        @(prescriptionRequired
+                            ? "(required for antibiotics)"
+                            : "(optional — record what you have)")
+                    </span>
+                </h2>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PatientName">
+                            Patient name
+                        </label>
+                        <input class="form-control" asp-for="Input.PatientName" autocomplete="off" />
+                        <span class="pms-field-error" asp-validation-for="Input.PatientName"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PatientPhone">
+                            Patient phone
+                        </label>
+                        <input class="form-control" asp-for="Input.PatientPhone" autocomplete="off" />
+                        <span class="pms-field-error" asp-validation-for="Input.PatientPhone"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.DoctorName">
+                            Doctor name
+                        </label>
+                        <input class="form-control" asp-for="Input.DoctorName" autocomplete="off" />
+                        <span class="pms-field-error" asp-validation-for="Input.DoctorName"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PrescriptionNumber">
+                            Prescription number
+                        </label>
+                        <input class="form-control" asp-for="Input.PrescriptionNumber" autocomplete="off" />
+                        <span class="pms-field-error" asp-validation-for="Input.PrescriptionNumber"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pms-form-label @requiredClass" asp-for="Input.PrescriptionDate">
+                            Prescription date
+                        </label>
+                        <input class="form-control" type="date" asp-for="Input.PrescriptionDate" />
+                        <span class="pms-field-error" asp-validation-for="Input.PrescriptionDate"></span>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   asp-for="Input.PrescriptionVerified" id="verified" />
+                            <label class="form-check-label @requiredClass" for="verified">
+                                I have verified the prescription
+                            </label>
+                        </div>
+                        <span class="pms-field-error" asp-validation-for="Input.PrescriptionVerified"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        }
+
+        @* ── Customer: collapsed, because it is usually skipped ──────────────────────── *@
+        <details class="pms-card mb-3" @(string.IsNullOrWhiteSpace(Model.Input.CustomerName)
+                                          && string.IsNullOrWhiteSpace(Model.Input.CustomerPhone)
+                                          ? null : "open")>
+            <summary class="pms-card__body pms-card__summary">
+                Customer details <span class="pms-form-help">(optional)</span>
+            </summary>
+            <div class="pms-card__body pt-0">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.CustomerName">Name</label>
+                        <input class="form-control" asp-for="Input.CustomerName" autocomplete="off" />
+                        <span class="pms-field-error" asp-validation-for="Input.CustomerName"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="pms-form-label" asp-for="Input.CustomerPhone">Phone</label>
+                        <input class="form-control" asp-for="Input.CustomerPhone" autocomplete="off" />
+                        <span class="pms-field-error" asp-validation-for="Input.CustomerPhone"></span>
+                    </div>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    @* ── Bill summary: sticky, because it is what the cashier reads out ──────────────── *@
+    <aside class="pms-billing__summary" aria-label="Bill summary">
+        <div class="pms-card pms-bill">
+            <div class="pms-card__body">
+                <h2 class="pms-card__title">Bill</h2>
+
+                <dl class="pms-bill__lines">
+                    <dt>Subtotal</dt>
+                    <dd data-bill-subtotal>0.00</dd>
+                </dl>
+
+                <div class="pms-bill__discount">
+                    <label class="pms-form-label" asp-for="Input.DiscountValue">Discount</label>
+                    <div class="input-group">
+                        <select class="form-select" asp-for="Input.DiscountType"
+                                aria-label="Discount type" data-discount-type>
+                            <option value="@DiscountType.Percent">%</option>
+                            <option value="@DiscountType.Flat">Taka</option>
+                        </select>
+                        <input type="number" class="form-control" min="0" step="0.01"
+                               asp-for="Input.DiscountValue" data-discount-value
+                               aria-describedby="discount-cap" />
+                    </div>
+                    <dl class="pms-bill__lines">
+                        <dt>Discount</dt>
+                        <dd data-bill-discount>0.00</dd>
+                    </dl>
+
+                    @* The cap comes from the API, which is also what enforces it. *@
+                    <p class="pms-form-help" id="discount-cap"
+                       data-max-discount-percent="@(Model.Limits.MaxDiscountPercent?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "")">
+                        @Model.Limits.CapDescription
+                    </p>
+                    <span class="pms-field-error" data-discount-error hidden></span>
+                    <span class="pms-field-error" asp-validation-for="Input.DiscountValue"></span>
+                </div>
+
+                <dl class="pms-bill__lines pms-bill__net">
+                    <dt>Net payable</dt>
+                    <dd data-bill-net>0.00</dd>
+                </dl>
+
+                <div class="pms-bill__cash">
+                    <label class="pms-form-label" asp-for="Input.CashReceived">Cash received</label>
+                    <input type="number" class="form-control form-control-lg" min="0" step="0.01"
+                           asp-for="Input.CashReceived" data-cash-received />
+                    <span class="pms-field-error" asp-validation-for="Input.CashReceived"></span>
+                    <span class="pms-field-error" data-cash-error hidden></span>
+                </div>
+
+                <dl class="pms-bill__lines pms-bill__change">
+                    <dt>Change</dt>
+                    <dd data-bill-change>0.00</dd>
+                </dl>
+
+                <button type="submit" class="btn btn-primary btn-lg w-100" id="complete-sale" disabled>
+                    <span class="pms-spinner" aria-hidden="true"></span>Complete sale
+                </button>
+
+                @* Says why the button is disabled. A disabled control with no explanation is
+                   the most common way a fast screen becomes a slow one - the cashier clicks,
+                   nothing happens, and they start looking for the problem. *@
+                <p class="pms-form-help" data-complete-blocked aria-live="polite">
+                    Add an item to start.
+                </p>
+            </div>
+        </div>
+    </aside>
+</form>
+
+@* The row template the script clones. Inside a <template> so its inputs are inert until
+   cloned - a name attribute in the live DOM would post an empty row on every sale. *@
+<template id="cart-row-template">
+    <tr class="pms-cart__row" data-cart-row>
+        <td>
+            <input type="hidden" data-field="ProductId" />
+            <input type="hidden" data-field="BrandName" />
+            <input type="hidden" data-field="Strength" />
+            <input type="hidden" data-field="UnitName" />
+            <input type="hidden" data-field="UnitPrice" />
+            <input type="hidden" data-field="AvailableInBaseUnits" />
+            <input type="hidden" data-field="FormattedAvailable" />
+            <input type="hidden" data-field="IsAntibiotic" />
+            <input type="hidden" data-field="UnitOptionsJson" />
+            <span class="pms-cart__name" data-cart-name></span>
+            <span class="pms-form-help" data-cart-strength></span>
+            <span class="pms-badge pms-badge--warning" data-cart-ab hidden>AB</span>
+        </td>
+        <td class="pms-cart__qty">
+            <input type="number" class="form-control" min="1" step="1" value="1"
+                   data-field="Quantity" data-cart-quantity />
+            <span class="pms-form-help" data-cart-available></span>
+            <span class="pms-field-error" data-cart-error hidden></span>
+        </td>
+        <td>
+            <select class="form-select" data-field="UnitLevel" data-cart-unit></select>
+        </td>
+        <td class="text-end" data-cart-price>0.00</td>
+        <td class="text-end" data-cart-line-total>0.00</td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-cart-remove>
+                Remove
+            </button>
+        </td>
+    </tr>
+</template>
+
+@section Scripts {
+    <script src="~/js/billing.js" asp-append-version="true"></script>
+}

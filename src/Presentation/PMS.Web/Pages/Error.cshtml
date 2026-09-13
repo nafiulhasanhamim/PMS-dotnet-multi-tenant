@@ -1,0 +1,22 @@
+@page "/error"
+@model ErrorModel
+@{
+    ViewData["Title"] = Model.Title;
+    Layout = "_AuthLayout";
+}
+
+<div class="pms-auth__brand">PMS</div>
+<p class="pms-auth__area">@Model.Title</p>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.Message)" />
+
+@if (!string.IsNullOrWhiteSpace(Model.RequestId))
+{
+    <p class="pms-help">
+        Reference: <span class="pms-mono">@Model.RequestId</span>
+    </p>
+}
+
+<div class="d-grid gap-2 mt-4">
+    <a class="btn btn-primary" asp-page="/Index">Back to dashboard</a>
+</div>

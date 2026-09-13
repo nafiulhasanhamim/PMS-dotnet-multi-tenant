@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Presentation\PMS.WebApi\PMS.WebApi.csproj" />
+    <ProjectReference Include="..\..\Presentation\PMS.Web\PMS.Web.csproj" />
   </ItemGroup>
 
 </Project>

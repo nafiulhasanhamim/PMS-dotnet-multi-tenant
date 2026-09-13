@@ -1,0 +1,119 @@
+@page "/salary"
+@model PMS.Web.Pages.Salary.IndexModel
+@{
+    ViewData["Title"] = "Salary";
+    var summary = Model.Summary;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Salary</h1>
+        <p class="pms-page-header__subtitle">
+            Who is on the payroll, what they are paid, and what they have already been advanced.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Salary/Generate">Generate salary</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+@*
+    Two figures, and they point in opposite directions: one is money the pharmacy owes its staff,
+    the other is money its staff owe back. Showing them side by side is the point - an owner
+    reading "12,000 outstanding" needs to know which way it goes.
+*@
+<div class="stat-cards mb-4">
+    <div class="stat-card @(summary.UnpaidEntryCount > 0 ? "stat-card--emphasis" : null)">
+        <span class="stat-card__label">Unpaid salaries</span>
+        <span class="stat-card__value">@Money.Format(summary.UnpaidEntryTotal)</span>
+        <span class="stat-card__note">
+            @summary.UnpaidEntryCount generated @(summary.UnpaidEntryCount == 1 ? "entry" : "entries")
+            not yet paid
+        </span>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-card__label">Outstanding advances</span>
+        <span class="stat-card__value">@Money.Format(summary.UnsettledAdvanceTotal)</span>
+        <span class="stat-card__note">
+            @summary.UnsettledAdvanceCount
+            @(summary.UnsettledAdvanceCount == 1 ? "advance" : "advances")
+            still to come out of a salary
+        </span>
+    </div>
+
+    <div class="stat-card">
+        <span class="stat-card__label">On the payroll</span>
+        <span class="stat-card__value">@summary.ActiveProfileCount</span>
+        <span class="stat-card__note">active salary profiles</span>
+    </div>
+</div>
+
+<div class="report-cards">
+    <a class="report-card" asp-page="/Salary/Profiles/Index">
+        <h2>Salary profiles</h2>
+        <p>
+            Who draws a salary and how much. Someone who leaves is deactivated here, which keeps
+            every month they were paid for intact.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Salary/Advances/Create">
+        <h2>Record an advance</h2>
+        <p>
+            Cash handed over mid-month. Record it when you give it &mdash; an advance remembered
+            at month-end is an advance that gets paid twice.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Salary/Generate">
+        <h2>Generate salary</h2>
+        <p>
+            A month's payroll in one pass, with each person's outstanding advances already
+            deducted and shown item by item.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Salary/Entries/Index">
+        <h2>Salary history</h2>
+        <p>
+            Every month generated, what was paid and when, with a printable slip for each.
+        </p>
+    </a>
+
+    <a class="report-card" asp-page="/Salary/Advances/Index">
+        <h2>Advances</h2>
+        <p>
+            What has been handed over and what is still outstanding, with the month each
+            settled advance came out of.
+        </p>
+    </a>
+</div>
+
+<div class="report-note">
+    <h2 class="h6">How these figures reach the profit report</h2>
+    <ul>
+        <li>
+            <strong>A salary counts on the day it is paid</strong>, not the month it covers. An
+            August salary paid on 2 September is a September expense. That is cash-basis
+            accounting: the report follows money out of the till, so a month you are behind on
+            paying staff will look unusually profitable and the catch-up month will dip.
+        </li>
+        <li>
+            <strong>An advance counts on the day it was handed over</strong>, whatever month it
+            is eventually deducted in. The cash left the register then.
+        </li>
+        <li>
+            The two never double-count. A &#x9F3;2,000 advance against a &#x9F3;15,000 salary is
+            &#x9F3;2,000 in the month it was given and &#x9F3;13,000 in the month the salary was
+            paid &mdash; &#x9F3;15,000 in total, split across the months the money actually moved.
+        </li>
+        <li>
+            <strong>A generated salary costs nothing until it is marked paid.</strong> Generating
+            a month early does not move any figure on the profit report.
+        </li>
+    </ul>
+</div>

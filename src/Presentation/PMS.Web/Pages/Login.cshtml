@@ -1,0 +1,107 @@
+@page "/login"
+@model LoginModel
+@{
+    ViewData["Title"] = "Sign in";
+    Layout = "_AuthLayout";
+}
+
+<div class="pms-auth__brand">PMS</div>
+
+@if (Model.HasPharmacy)
+{
+    <p class="pms-auth__area">Pharmacy sign in</p>
+
+    @if (Model.ShowSessionEnded)
+    {
+        <partial name="_Alert" model="@AlertModel.Warning("Your session ended. Please sign in again.")" />
+    }
+    <partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+    @* The pharmacy is named plainly. Nobody should type a password without seeing which
+       pharmacy it is about to be sent to — especially anyone with access to two. *@
+    <div class="pms-alert pms-alert--info mb-3" role="status">
+        <partial name="_NavIcon" model="@("building")" />
+        <div class="pms-alert__body">
+            Signing in to <strong>@Model.HostPharmacyDisplay</strong>
+        </div>
+    </div>
+
+    <form method="post" data-pms-guard novalidate>
+        @* Carried from the address, not typed. See LoginModel.OnPostAsync, which re-reads it
+           from the host and ignores whatever arrives here. *@
+        <input type="hidden" asp-for="Input.DomainName" />
+
+        <div class="mb-3">
+            <label class="pms-form-label" asp-for="Input.Email">
+                Email<span class="pms-required" aria-hidden="true">*</span>
+            </label>
+            <input class="form-control" type="email" asp-for="Input.Email"
+                   autocomplete="username" autofocus required />
+            <span class="pms-field-error" asp-validation-for="Input.Email"></span>
+        </div>
+
+        <div class="mb-3">
+            <label class="pms-form-label" asp-for="Input.Password">
+                Password<span class="pms-required" aria-hidden="true">*</span>
+            </label>
+            <input class="form-control" type="password" asp-for="Input.Password"
+                   autocomplete="current-password" required />
+            <span class="pms-field-error" asp-validation-for="Input.Password"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">
+            <span class="pms-spinner" aria-hidden="true"></span>Sign in
+        </button>
+    </form>
+
+    <div class="pms-auth__footer">
+        <p class="mb-2">
+            <a asp-page="/Login" asp-route-find="true">Sign in to a different pharmacy</a>
+        </p>
+        Administering the platform? <a asp-page="/Platform/Login">Sign in here</a>.
+    </div>
+}
+else
+{
+    @* Signpost. No credential fields here at all: this address names no pharmacy, so there is
+       nothing to sign in to yet. The box below navigates; it does not log anyone in. *@
+    <p class="pms-auth__area">Find your pharmacy</p>
+
+    @if (Model.ShowSessionEnded)
+    {
+        <partial name="_Alert" model="@AlertModel.Warning("Your session ended. Please sign in again.")" />
+    }
+
+    <p class="text-muted">
+        Each pharmacy has its own web address. Open the link your pharmacy gave you and you
+        will only need your email and password.
+    </p>
+
+    <form method="post" asp-page-handler="Find" novalidate>
+        <div class="mb-3">
+            <label class="pms-form-label" asp-for="Input.PharmacyName">
+                Pharmacy name
+            </label>
+            <div class="input-group">
+                <input class="form-control" asp-for="Input.PharmacyName"
+                       placeholder="popular-pharmacy" aria-describedby="findHelp"
+                       autocomplete="organization" autofocus />
+                @if (!string.IsNullOrEmpty(Model.BaseDomain))
+                {
+                    <span class="input-group-text pms-mono">.@Model.BaseDomain</span>
+                }
+            </div>
+            <span id="findHelp" class="pms-help">
+                The short name your pharmacy was set up with. If your pharmacy uses its own web
+                address instead, open that address directly.
+            </span>
+            <span class="pms-field-error" asp-validation-for="Input.PharmacyName"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Continue</button>
+    </form>
+
+    <div class="pms-auth__footer">
+        Administering the platform? <a asp-page="/Platform/Login">Sign in here</a>.
+    </div>
+}

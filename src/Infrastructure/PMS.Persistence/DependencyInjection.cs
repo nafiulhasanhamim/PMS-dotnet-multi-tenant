@@ -54,6 +54,56 @@ public static class DependencyInjection
         services.AddScoped<AuditableEntityInterceptor>();
         services.AddScoped<TenantEntityInterceptor>();
         services.AddScoped<ITenantStatusValidator, TenantStatusValidator>();
+        services.AddScoped<IIdentityQueries, IdentityQueries>();
+        services.AddScoped<IPlatformQueries, PlatformQueries>();
+        services.AddScoped<ITenantUserQueries, TenantUserQueries>();
+
+        // Module 2: the product catalogue, and the two-stage catalogue search behind it.
+        services.AddScoped<IProductQueries, ProductQueries>();
+        services.AddScoped<ICatalogSearchQueries, CatalogSearchQueries>();
+
+        // Module 3: batches, adjustments and the FEFO reads over them.
+        services.AddScoped<IStockQueries, StockQueries>();
+
+        // Module 5: billing. The invoice-number generator is scoped like everything else here
+        // because it reads the tenant from the request context.
+        services.AddScoped<ISaleQueries, SaleQueries>();
+        services.AddScoped<IInvoiceNumberGenerator, InvoiceNumberGenerator>();
+
+        // Module 6: expiry and low-stock alerts. Reads only - no entity of its own.
+        services.AddScoped<IAlertQueries, AlertQueries>();
+
+        // Module 7: the antibiotic register, and the per-tenant setting behind it. TenantSettings
+        // is scoped because its lifetime IS its cache - one read per request, so a change is in
+        // force on the very next one. See that class.
+        services.AddScoped<IAntibioticQueries, AntibioticQueries>();
+        // Module 10. Scoped, and the scope IS the cache - see SettingsService for why
+        // nothing is held across requests. This replaced ITenantSettings, which read the
+        // antibiotic mode and the pharmacy name off the Tenant row; both are settings now.
+        services.AddScoped<ISettingsService, SettingsService>();
+
+        // Writes settings for a pharmacy that is NOT the caller's, on the platform
+        // tenant-creation path. See SettingsSeeder for why that needs its own seam.
+        services.AddScoped<ISettingsSeeder, SettingsSeeder>();
+
+        // Module 4: suppliers and purchases. The balance service is registered before the two
+        // query services because both depend on it — and it is the only place the outstanding
+        // formula exists, which is what stops the supplier page and Module 8's dues report
+        // drifting apart.
+        services.AddScoped<ISupplierBalanceQueries, SupplierBalanceQueries>();
+        services.AddScoped<ISupplierQueries, SupplierQueries>();
+        services.AddScoped<IPurchaseQueries, PurchaseQueries>();
+        services.AddScoped<IPurchaseNumberGenerator, PurchaseNumberGenerator>();
+
+        // Module 8: the reports. OperatingExpenses was the Module 9 seam - it returned zero and
+        // was registered and called for real, so finishing Module 9 meant replacing that one
+        // class rather than editing eight reports. It now sums paid salaries and advances.
+        services.AddScoped<IReportQueries, ReportQueries>();
+        services.AddScoped<IOperatingExpenses, OperatingExpenses>();
+
+        // Module 9: salary management.
+        services.AddScoped<ISalaryQueries, SalaryQueries>();
+
         services.AddScoped<DomainEventDispatcherInterceptor>();
 
         // Register ApplicationDbContext (primary database with full write capabilities)

@@ -1,0 +1,148 @@
+@page "/purchases"
+@model PMS.Web.Pages.Purchases.IndexModel
+@{
+    ViewData["Title"] = "Purchases";
+    var purchases = Model.Purchases;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Purchases</h1>
+        <p class="pms-page-header__subtitle">
+            Deliveries recorded against a supplier's bill. Each one created the batches it
+            brought in.
+        </p>
+    </div>
+    <div class="pms-page-header__actions">
+        <a class="btn btn-primary" asp-page="/Purchases/Create">New purchase</a>
+    </div>
+</div>
+
+<partial name="_Alert" model="@AlertModel.Success(Model.SuccessMessage)" />
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="report-filters">
+    <div class="report-filter">
+        <label class="pms-form-label" for="supplier">Supplier</label>
+        <select class="form-select" id="supplier" name="supplier">
+            <option value="">All suppliers</option>
+            @foreach (var option in Model.Suppliers)
+            {
+                <option value="@option.Id" selected="@(Model.SupplierId == option.Id)">
+                    @option.Label
+                </option>
+            }
+        </select>
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="from">From</label>
+        <input type="date" class="form-control" id="from" name="from"
+               value="@Model.From?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="to">To</label>
+        <input type="date" class="form-control" id="to" name="to"
+               value="@Model.To?.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="report-filter">
+        <label class="pms-form-label" for="status">Payment status</label>
+        <select class="form-select" id="status" name="status">
+            <option value="All" selected="@(Model.Status == PurchaseStatusFilter.All)">All</option>
+            <option value="Unpaid" selected="@(Model.Status == PurchaseStatusFilter.Unpaid)">
+                Unpaid
+            </option>
+            <option value="PartiallyPaid"
+                    selected="@(Model.Status == PurchaseStatusFilter.PartiallyPaid)">
+                Partially paid
+            </option>
+            <option value="Paid" selected="@(Model.Status == PurchaseStatusFilter.Paid)">Paid</option>
+        </select>
+    </div>
+    <div class="report-filter report-filter--actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        @if (Model.HasFilters)
+        {
+            <a class="btn btn-link" asp-page="/Purchases/Index">Clear</a>
+        }
+    </div>
+</form>
+
+@if (purchases.IsEmpty)
+{
+    @if (Model.HasFilters)
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No purchases match",
+            "Try a wider date range, or clear the filters."))" />
+    }
+    else
+    {
+        <partial name="_EmptyState" model="@(new EmptyStateModel(
+            "No purchases recorded yet",
+            "Record a delivery to book stock in and track what you owe.",
+            "New purchase",
+            "/Purchases/Create"))" />
+    }
+}
+else
+{
+    <div class="pms-table-wrap">
+        <table class="pms-table">
+            <thead>
+                <tr>
+                    <th scope="col">Purchase</th>
+                    <th scope="col">Supplier</th>
+                    <th scope="col">Date</th>
+                    <th scope="col" class="text-end">Total</th>
+                    <th scope="col" class="text-end">Paid</th>
+                    <th scope="col" class="text-end">Due</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var purchase in purchases.Data)
+                {
+                    var status = StatusPresentation.ForPurchase(purchase.Status);
+                    <tr>
+                        <td>
+                            <a asp-page="/Purchases/Detail" asp-route-id="@purchase.Id">
+                                @purchase.PurchaseNumber
+                            </a>
+                            <span class="pms-help">
+                                @Money.Count(purchase.LineCount)
+                                item@(purchase.LineCount == 1 ? "" : "s")
+                            </span>
+                        </td>
+                        <td>
+                            <a asp-page="/Suppliers/Detail" asp-route-id="@purchase.SupplierId">
+                                @purchase.SupplierName
+                            </a>
+                        </td>
+                        <td>@purchase.PurchaseDate.ToString("d MMM yyyy")</td>
+                        <td class="text-end">@Money.Format(purchase.TotalAmount)</td>
+                        <td class="text-end">@Money.Format(purchase.AmountPaid)</td>
+                        <td class="text-end @Money.Tone(purchase.Due)">
+                            @Money.Signed(purchase.Due)
+                            @if (purchase.HasGeneralPayment)
+                            {
+                                <span class="pms-help">
+                                    after @Money.Format(purchase.GeneralPaymentApplied) general
+                                </span>
+                            }
+                            @if (purchase.HasCreditSettled)
+                            {
+                                <span class="pms-help">
+                                    @Money.Format(purchase.CreditSettled) credit settled
+                                </span>
+                            }
+                        </td>
+                        <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+        purchases, "/Purchases/Index", Model.RouteValues))" />
+}

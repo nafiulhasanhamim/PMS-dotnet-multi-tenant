@@ -3,6 +3,7 @@ using PMS.Infrastructure.Caching;
 using PMS.Infrastructure.Dapper;
 using PMS.Infrastructure.Email;
 using PMS.Infrastructure.Http;
+using PMS.Infrastructure.Security;
 using PMS.Infrastructure.Services;
 using PMS.Infrastructure.Storage;
 using PMS.SharedKernel.Behaviors;
@@ -63,7 +64,11 @@ public static class DependencyInjection
         // Register core services explicitly (they use marker interfaces but may need manual registration for clarity)
         services.AddSingleton<IDateTime, DateTimeService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
-        services.AddScoped<ITenantContext, TenantContext>();
+        services.AddScoped<ICurrentTenantService, CurrentTenantService>();
+
+        // Authentication building blocks
+        services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
 
         // Register access logging services
         services.AddScoped<IAccessLoggerService, AccessLoggerService>();

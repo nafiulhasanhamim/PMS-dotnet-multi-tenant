@@ -1,0 +1,154 @@
+@page "/stock"
+@model PMS.Web.Pages.Stock.IndexModel
+@{
+    ViewData["Title"] = "Stock";
+    var canWrite = User.IsTenantAdmin() || User.Role() == UserRole.Pharmacist;
+}
+
+<div class="pms-page-header">
+    <div>
+        <h1>Stock</h1>
+        <p class="pms-page-header__subtitle">
+            What is on the shelves, by product. Open a product to see its individual batches.
+        </p>
+    </div>
+    @if (canWrite)
+    {
+        <div class="pms-page-header__actions">
+            <a class="btn btn-primary" asp-page="/Stock/Add">Add stock</a>
+        </div>
+    }
+</div>
+
+<partial name="_Alert" model="@AlertModel.Danger(Model.FormError)" />
+
+<form method="get" class="pms-card mb-3">
+    <div class="pms-card__body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="pms-form-label" for="q">Search</label>
+                <input class="form-control" id="q" name="q" value="@Model.Search"
+                       placeholder="Search by brand or generic name..." />
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="stock">Stock status</label>
+                <select class="form-select" id="stock" name="stock">
+                    <option value="@StockStatusFilter.All"
+                            selected="@(Model.StockStatus == StockStatusFilter.All)">All</option>
+                    <option value="@StockStatusFilter.InStock"
+                            selected="@(Model.StockStatus == StockStatusFilter.InStock)">In stock</option>
+                    <option value="@StockStatusFilter.OutOfStock"
+                            selected="@(Model.StockStatus == StockStatusFilter.OutOfStock)">Out of stock</option>
+                    <option value="@StockStatusFilter.LowStock"
+                            selected="@(Model.StockStatus == StockStatusFilter.LowStock)">Low stock</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="expiry">Expiry</label>
+                <select class="form-select" id="expiry" name="expiry">
+                    <option value="@ExpiryStatusFilter.All"
+                            selected="@(Model.ExpiryStatus == ExpiryStatusFilter.All)">All</option>
+                    <option value="@ExpiryStatusFilter.ExpiringSoon"
+                            selected="@(Model.ExpiryStatus == ExpiryStatusFilter.ExpiringSoon)">Expiring soon</option>
+                    <option value="@ExpiryStatusFilter.Expired"
+                            selected="@(Model.ExpiryStatus == ExpiryStatusFilter.Expired)">Expired</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="pms-form-label" for="type">Product type</label>
+                <select class="form-select" id="type" name="type">
+                    <option value="@StockProductTypeFilter.All"
+                            selected="@(Model.ProductType == StockProductTypeFilter.All)">All</option>
+                    <option value="@StockProductTypeFilter.Medicine"
+                            selected="@(Model.ProductType == StockProductTypeFilter.Medicine)">Medicines</option>
+                    <option value="@StockProductTypeFilter.Other"
+                            selected="@(Model.ProductType == StockProductTypeFilter.Other)">Other items</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Search</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="pms-table-wrap">
+    @if (Model.Stock.IsEmpty)
+    {
+        @if (Model.HasFilters)
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No products match your filters."))" />
+            <div class="pms-empty pt-0">
+                <a asp-page="/Stock/Index">Clear filters</a>
+            </div>
+        }
+        else
+        {
+            <partial name="_EmptyState" model="@(new EmptyStateModel(
+                "No stock yet",
+                "Click Add stock to record your first batch.",
+                canWrite ? "Add stock" : null,
+                canWrite ? "/Stock/Add" : null))" />
+        }
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="pms-table">
+                <caption class="visually-hidden">Stock levels by product</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Product</th>
+                        <th scope="col">Generic name</th>
+                        <th scope="col">Total quantity</th>
+                        <th scope="col">Batches</th>
+                        <th scope="col">Nearest expiry</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Stock.Data)
+                    {
+                        var status = StockPresentation.StatusBadge(row.Status);
+                        @* The state comes from the API, not from a comparison here: the
+                           amber window belongs to the pharmacy and is defined server-side. *@
+                        var expiry = StockPresentation.ExpiryCell(
+                            row.NearestExpiryDate, row.DaysUntilNearestExpiry,
+                            row.NearestExpiryState);
+                        <tr>
+                            <td>
+                                <a asp-page="/Stock/Detail" asp-route-productId="@row.ProductId">
+                                    @row.BrandName
+                                </a>
+                                @if (row.IsAntibiotic)
+                                {
+                                    <span class="pms-badge pms-badge--danger ms-1"
+                                          title="Regulated antibiotic">AB</span>
+                                }
+                            </td>
+                            <td>@(row.GenericName ?? "—")</td>
+                            <td>
+                                @row.FormattedQuantity
+                                @if (row.HasExpiredStock)
+                                {
+                                    @* Expired stock is not counted in the total, so its
+                                       presence has to be said out loud - otherwise the row
+                                       would simply under-report what is physically there. *@
+                                    <div class="pms-form-help pms-expiry--expired">
+                                        + @row.FormattedExpiredQuantity expired
+                                    </div>
+                                }
+                            </td>
+                            <td>@row.BatchCount</td>
+                            <td class="@expiry.Css" title="@expiry.Title">@expiry.Text</td>
+                            <td><span class="pms-badge @status.Css">@status.Text</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_ApiPagination" model="@(ApiPaginationModel.For(
+            Model.Stock, "/Stock/Index", Model.RouteValues))" />
+    }
+</div>

@@ -1,0 +1,2085 @@
+/* ============================================================================
+   PMS design system
+   ----------------------------------------------------------------------------
+   Layered on Bootstrap 5, not replacing it. Bootstrap supplies the grid, forms,
+   tables, modals and utilities; this file sets the tokens and the handful of
+   patterns Bootstrap has no opinion about (app shell, sidebar, page header).
+
+   The character to hold on to: this is a business tool used all day by people
+   who are not thinking about the software. Closer to well-made accounting
+   software than to a consumer app. Clarity and speed over flourish.
+
+   Do not add a second CSS framework. Do not introduce jQuery — Bootstrap 5's
+   bundle needs none, and neither does anything here.
+   ============================================================================ */
+
+:root {
+    /* ---- Brand ------------------------------------------------------------
+       One primary, used for primary actions and the active nav state. Nothing
+       else competes with it, so "the blue thing" always means "the action". */
+    --pms-primary: #1f6fb2;
+    --pms-primary-dark: #185a91;
+    --pms-primary-light: #e8f1f8;
+
+    /* Platform administration uses a distinct accent so there is never any
+       doubt about which area you are in. Deliberately not the tenant blue. */
+    --pms-platform: #4a3b8c;
+    --pms-platform-dark: #3b2f70;
+    --pms-platform-light: #eeebf7;
+
+    /* ---- Semantic ---------------------------------------------------------
+       Used sparingly and consistently. Always paired with text or an icon —
+       never colour alone, both for accessibility and because the status badges
+       later modules lean on heavily have to survive being printed. */
+    --pms-success: #1a7f4b;
+    --pms-success-bg: #e6f4ec;
+    --pms-warning: #96620a;
+    --pms-warning-bg: #fdf3e2;
+    --pms-danger: #b3261e;
+    --pms-danger-bg: #fbeae9;
+    --pms-info: #1f6fb2;
+    --pms-info-bg: #e8f1f8;
+
+    /* ---- Neutrals --------------------------------------------------------- */
+    --pms-text: #1f2328;
+    --pms-text-muted: #5c6570;
+    --pms-text-faint: #8b949e;
+    --pms-border: #dde1e6;
+    --pms-border-strong: #c3c9d0;
+    --pms-surface: #ffffff;
+    --pms-canvas: #f5f6f8;
+    --pms-table-head: #f7f8fa;
+    --pms-row-hover: #f2f7fb;
+
+    /* ---- Type scale -------------------------------------------------------
+       Base 15px. Nothing readable goes below 13px. Medium weight (500) for
+       headings rather than bold — 700 headings read as dated in a tool like
+       this, and the size difference already carries the hierarchy. */
+    --pms-font-base: 0.9375rem;   /* 15px */
+    --pms-font-sm: 0.8125rem;     /* 13px — the floor */
+    --pms-font-lg: 1rem;          /* 16px */
+    --pms-font-h1: 1.5rem;        /* 24px — page title */
+    --pms-font-h2: 1.125rem;      /* 18px — section heading */
+    --pms-weight-heading: 500;
+
+    /* ---- Spacing ---------------------------------------------------------- */
+    --pms-space-1: 0.25rem;
+    --pms-space-2: 0.5rem;
+    --pms-space-3: 0.75rem;
+    --pms-space-4: 1rem;
+    --pms-space-5: 1.5rem;
+    --pms-space-6: 2rem;
+
+    --pms-radius: 6px;
+    --pms-sidebar-width: 232px;
+    --pms-topbar-height: 56px;
+
+    /* Bootstrap overrides, so its own components pick up the palette. */
+    --bs-primary: var(--pms-primary);
+    --bs-primary-rgb: 31, 111, 178;
+    --bs-body-color: var(--pms-text);
+    --bs-body-bg: var(--pms-canvas);
+    --bs-border-color: var(--pms-border);
+    --bs-link-color: var(--pms-primary);
+    --bs-link-hover-color: var(--pms-primary-dark);
+}
+
+/* ============================================================================
+   Base
+   ============================================================================ */
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: var(--pms-font-base);
+    line-height: 1.5;
+    color: var(--pms-text);
+    background-color: var(--pms-canvas);
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, .pms-h1 {
+    font-size: var(--pms-font-h1);
+    font-weight: var(--pms-weight-heading);
+    line-height: 1.3;
+    margin: 0;
+}
+
+h2, .pms-h2 {
+    font-size: var(--pms-font-h2);
+    font-weight: var(--pms-weight-heading);
+    line-height: 1.4;
+    margin: 0;
+}
+
+h3 {
+    font-size: var(--pms-font-lg);
+    font-weight: var(--pms-weight-heading);
+}
+
+small, .pms-small {
+    font-size: var(--pms-font-sm);
+}
+
+.text-muted {
+    color: var(--pms-text-muted) !important;
+}
+
+a {
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Anchors that are not text links.
+   Plenty of controls here are <a> for navigation but read as buttons, tabs or
+   page numbers. The rule above is `a:hover` (specificity 0,1,1), which outranks
+   Bootstrap's own `.btn { text-decoration: none }` (0,1,0) - so without this,
+   every link-shaped button grew a link underline on hover. Listed explicitly
+   rather than as `a:not(.btn):hover`, so a new control class can be added here
+   in one line. */
+.btn:hover,
+.btn:focus,
+.page-link:hover,
+.page-link:focus,
+.pms-badge:hover,
+.pms-sidebar__link:hover,
+.pms-sidebar__brand:hover,
+.nav-link:hover {
+    text-decoration: none;
+}
+
+/* Visible focus everywhere. Removing this breaks keyboard use, which is how
+   counter staff actually move through a form. */
+:focus-visible {
+    outline: 2px solid var(--pms-primary);
+    outline-offset: 2px;
+}
+
+/* ============================================================================
+   App shell — sidebar + topbar + content
+   ============================================================================ */
+
+.pms-shell {
+    min-height: 100vh;
+}
+
+.pms-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--pms-sidebar-width);
+    background: #16232e;
+    color: #cdd6df;
+    display: flex;
+    flex-direction: column;
+    z-index: 1030;
+}
+
+.pms-sidebar--platform {
+    background: #241d45;
+}
+
+.pms-sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-2);
+    height: var(--pms-topbar-height);
+    padding: 0 var(--pms-space-4);
+    color: #fff;
+    font-size: var(--pms-font-lg);
+    font-weight: var(--pms-weight-heading);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pms-sidebar__brand:hover {
+    color: #fff;
+    text-decoration: none;
+}
+
+.pms-sidebar__area {
+    padding: var(--pms-space-3) var(--pms-space-4) var(--pms-space-2);
+    font-size: var(--pms-font-sm);
+    letter-spacing: 0.02em;
+    color: #8fa0b0;
+}
+
+.pms-sidebar__nav {
+    list-style: none;
+    margin: 0;
+    padding: var(--pms-space-2) var(--pms-space-2) var(--pms-space-4);
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+
+.pms-sidebar__link {
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-3);
+    padding: var(--pms-space-2) var(--pms-space-3);
+    margin-bottom: 2px;
+    border-radius: var(--pms-radius);
+    color: #cdd6df;
+    font-size: var(--pms-font-base);
+}
+
+.pms-sidebar__link:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    text-decoration: none;
+}
+
+.pms-sidebar__link.active {
+    background: var(--pms-primary);
+    color: #fff;
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-sidebar--platform .pms-sidebar__link.active {
+    background: var(--pms-platform);
+}
+
+.pms-sidebar__link svg {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+}
+
+.pms-main {
+    margin-left: var(--pms-sidebar-width);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.pms-topbar {
+    height: var(--pms-topbar-height);
+    background: var(--pms-surface);
+    border-bottom: 1px solid var(--pms-border);
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-4);
+    padding: 0 var(--pms-space-5);
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+/* The pharmacy name. Prominent on purpose: someone with access to two
+   pharmacies must never have to wonder which one they are changing. */
+.pms-topbar__context {
+    font-size: var(--pms-font-lg);
+    font-weight: var(--pms-weight-heading);
+    color: var(--pms-text);
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-2);
+    min-width: 0;
+}
+
+.pms-topbar__context-domain {
+    font-size: var(--pms-font-sm);
+    font-weight: 400;
+    color: var(--pms-text-muted);
+}
+
+.pms-topbar__user {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-3);
+    font-size: var(--pms-font-base);
+    min-width: 0;
+}
+
+.pms-topbar__user-name {
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-topbar__user-role {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-content {
+    flex: 1 1 auto;
+    padding: var(--pms-space-5);
+    max-width: 1360px;
+    width: 100%;
+}
+
+.pms-sidebar-toggle {
+    display: none;
+}
+
+.pms-backdrop {
+    display: none;
+}
+
+/* Responsive down to tablet width. Below 1024px the sidebar becomes an
+   overlay; full phone optimisation is explicitly out of scope for v1. */
+@media (max-width: 1023.98px) {
+    .pms-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.15s ease-out;
+    }
+
+    .pms-shell.pms-shell--nav-open .pms-sidebar {
+        transform: translateX(0);
+    }
+
+    .pms-main {
+        margin-left: 0;
+    }
+
+    .pms-sidebar-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--pms-border);
+        border-radius: var(--pms-radius);
+        background: var(--pms-surface);
+        color: var(--pms-text);
+    }
+
+    .pms-shell.pms-shell--nav-open .pms-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+        z-index: 1025;
+    }
+
+    .pms-content {
+        padding: var(--pms-space-4);
+    }
+}
+
+/* ============================================================================
+   Page header — title left, primary action right. Every page uses this.
+   ============================================================================ */
+
+.pms-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--pms-space-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--pms-space-5);
+}
+
+.pms-page-header__subtitle {
+    margin: var(--pms-space-1) 0 0;
+    color: var(--pms-text-muted);
+    font-size: var(--pms-font-base);
+}
+
+.pms-page-header__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-2);
+}
+
+/* ============================================================================
+   Cards and sections
+   ============================================================================ */
+
+.pms-card {
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+}
+
+.pms-card__header {
+    padding: var(--pms-space-4) var(--pms-space-5);
+    border-bottom: 1px solid var(--pms-border);
+}
+
+.pms-card__body {
+    padding: var(--pms-space-5);
+}
+
+.pms-card__footer {
+    padding: var(--pms-space-4) var(--pms-space-5);
+    border-top: 1px solid var(--pms-border);
+    background: var(--pms-table-head);
+}
+
+/* Read-only key/value display, as on the tenant detail and profile pages. */
+.pms-detail-list {
+    display: grid;
+    grid-template-columns: minmax(140px, 200px) 1fr;
+    gap: var(--pms-space-3) var(--pms-space-4);
+    margin: 0;
+}
+
+.pms-detail-list dt {
+    font-weight: 400;
+    color: var(--pms-text-muted);
+}
+
+.pms-detail-list dd {
+    margin: 0;
+}
+
+@media (max-width: 575.98px) {
+    .pms-detail-list {
+        grid-template-columns: 1fr;
+        gap: var(--pms-space-1) 0;
+    }
+
+    .pms-detail-list dd {
+        margin-bottom: var(--pms-space-3);
+    }
+}
+
+/* ============================================================================
+   Forms — labels above inputs, required marked, errors beneath
+   ============================================================================ */
+
+.pms-form-label {
+    display: block;
+    margin-bottom: var(--pms-space-1);
+    font-size: var(--pms-font-base);
+    font-weight: var(--pms-weight-heading);
+    color: var(--pms-text);
+}
+
+.pms-required {
+    color: var(--pms-danger);
+    margin-left: 2px;
+}
+
+.form-control,
+.form-select {
+    font-size: var(--pms-font-base);
+    padding: 0.4375rem 0.625rem;
+    border-color: var(--pms-border-strong);
+    border-radius: var(--pms-radius);
+    color: var(--pms-text);
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--pms-primary);
+    box-shadow: 0 0 0 3px var(--pms-primary-light);
+}
+
+.pms-help {
+    display: block;
+    margin-top: var(--pms-space-1);
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* Field-level errors, directly beneath their input. */
+.pms-field-error {
+    display: block;
+    margin-top: var(--pms-space-1);
+    font-size: var(--pms-font-sm);
+    color: var(--pms-danger);
+}
+
+.form-control.input-validation-error,
+.form-select.input-validation-error,
+.pms-input-invalid {
+    border-color: var(--pms-danger);
+}
+
+.pms-form-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-3);
+    margin-top: var(--pms-space-5);
+}
+
+/* ============================================================================
+   Buttons
+   ============================================================================ */
+
+.btn {
+    font-size: var(--pms-font-base);
+    border-radius: var(--pms-radius);
+    padding: 0.4375rem 0.875rem;
+}
+
+.btn-sm {
+    font-size: var(--pms-font-sm);
+    padding: 0.25rem 0.5625rem;
+}
+
+.btn-primary {
+    background-color: var(--pms-primary);
+    border-color: var(--pms-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--pms-primary-dark);
+    border-color: var(--pms-primary-dark);
+}
+
+.btn-platform {
+    background-color: var(--pms-platform);
+    border-color: var(--pms-platform);
+    color: #fff;
+}
+
+.btn-platform:hover,
+.btn-platform:focus {
+    background-color: var(--pms-platform-dark);
+    border-color: var(--pms-platform-dark);
+    color: #fff;
+}
+
+.btn-danger {
+    background-color: var(--pms-danger);
+    border-color: var(--pms-danger);
+}
+
+/* Spinner state while a form is in flight, so nothing looks re-clickable. */
+.btn .pms-spinner {
+    display: none;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-right: var(--pms-space-2);
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: pms-spin 0.6s linear infinite;
+    vertical-align: -2px;
+}
+
+.btn.pms-busy .pms-spinner {
+    display: inline-block;
+}
+
+@keyframes pms-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn .pms-spinner {
+        animation-duration: 1.6s;
+    }
+}
+
+/* ============================================================================
+   Tables — one style everywhere
+   ============================================================================ */
+
+.pms-table-wrap {
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    overflow: hidden;
+}
+
+.pms-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+}
+
+.pms-table thead th {
+    background: var(--pms-table-head);
+    border-bottom: 1px solid var(--pms-border);
+    padding: var(--pms-space-3) var(--pms-space-4);
+    font-size: var(--pms-font-sm);
+    font-weight: var(--pms-weight-heading);
+    color: var(--pms-text-muted);
+    text-align: left;
+    white-space: nowrap;
+}
+
+.pms-table tbody td {
+    padding: var(--pms-space-3) var(--pms-space-4);
+    border-bottom: 1px solid var(--pms-border);
+    vertical-align: middle;
+}
+
+.pms-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.pms-table tbody tr:hover {
+    background: var(--pms-row-hover);
+}
+
+.pms-table .pms-col-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Deactivated rows: de-emphasised but still readable — never so faint that
+   someone has to lean in to check who they just switched off. */
+.pms-row-inactive td {
+    color: var(--pms-text-muted);
+}
+
+.pms-table-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--pms-space-4);
+    flex-wrap: wrap;
+    padding: var(--pms-space-3) var(--pms-space-4);
+    border-top: 1px solid var(--pms-border);
+    background: var(--pms-table-head);
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--pms-font-sm);
+}
+
+/* ============================================================================
+   Badges — status is always a badge, never bare text
+   ============================================================================ */
+
+.pms-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--pms-space-1);
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    font-size: var(--pms-font-sm);
+    font-weight: var(--pms-weight-heading);
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.pms-badge--success {
+    background: var(--pms-success-bg);
+    color: var(--pms-success);
+    border-color: rgba(26, 127, 75, 0.25);
+}
+
+.pms-badge--warning {
+    background: var(--pms-warning-bg);
+    color: var(--pms-warning);
+    border-color: rgba(150, 98, 10, 0.25);
+}
+
+.pms-badge--danger {
+    background: var(--pms-danger-bg);
+    color: var(--pms-danger);
+    border-color: rgba(179, 38, 30, 0.25);
+}
+
+.pms-badge--info {
+    background: var(--pms-info-bg);
+    color: var(--pms-info);
+    border-color: rgba(31, 111, 178, 0.25);
+}
+
+.pms-badge--neutral {
+    background: #eef0f3;
+    color: var(--pms-text-muted);
+    border-color: var(--pms-border);
+}
+
+.pms-badge--platform {
+    background: var(--pms-platform-light);
+    color: var(--pms-platform);
+    border-color: rgba(74, 59, 140, 0.25);
+}
+
+/* ============================================================================
+   Alerts and empty states
+   ============================================================================ */
+
+.pms-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--pms-space-3);
+    padding: var(--pms-space-3) var(--pms-space-4);
+    border: 1px solid transparent;
+    border-radius: var(--pms-radius);
+    margin-bottom: var(--pms-space-4);
+    font-size: var(--pms-font-base);
+}
+
+.pms-alert svg {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+}
+
+.pms-alert--success {
+    background: var(--pms-success-bg);
+    border-color: rgba(26, 127, 75, 0.3);
+    color: #10502f;
+}
+
+.pms-alert--danger {
+    background: var(--pms-danger-bg);
+    border-color: rgba(179, 38, 30, 0.3);
+    color: #7d1b15;
+}
+
+.pms-alert--warning {
+    background: var(--pms-warning-bg);
+    border-color: rgba(150, 98, 10, 0.3);
+    color: #6b4507;
+}
+
+.pms-alert--info {
+    background: var(--pms-info-bg);
+    border-color: rgba(31, 111, 178, 0.3);
+    color: #154b78;
+}
+
+.pms-alert__body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pms-empty {
+    padding: var(--pms-space-6) var(--pms-space-5);
+    text-align: center;
+    color: var(--pms-text-muted);
+}
+
+.pms-empty__title {
+    font-size: var(--pms-font-lg);
+    font-weight: var(--pms-weight-heading);
+    color: var(--pms-text);
+    margin-bottom: var(--pms-space-2);
+}
+
+.pms-empty__actions {
+    margin-top: var(--pms-space-4);
+}
+
+/* ============================================================================
+   Standalone auth layout — centred card, no sidebar
+   ============================================================================ */
+
+.pms-auth {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--pms-space-5);
+    background: var(--pms-canvas);
+}
+
+.pms-auth__card {
+    width: 100%;
+    max-width: 26rem;
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.05);
+    overflow: hidden;
+}
+
+/* A coloured rule at the top of the card, in the area's accent. It is the
+   fastest possible answer to "which login am I on?" — but it is never the only
+   answer: each page also names its area in text. */
+.pms-auth__accent {
+    height: 4px;
+    background: var(--pms-primary);
+}
+
+.pms-auth__accent--platform {
+    background: var(--pms-platform);
+}
+
+.pms-auth__body {
+    padding: var(--pms-space-6) var(--pms-space-5) var(--pms-space-5);
+}
+
+.pms-auth__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--pms-space-2);
+    font-size: var(--pms-font-lg);
+    font-weight: var(--pms-weight-heading);
+    margin-bottom: var(--pms-space-2);
+}
+
+.pms-auth__area {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+    margin-bottom: var(--pms-space-5);
+}
+
+.pms-auth__area--platform {
+    color: var(--pms-platform);
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-auth__footer {
+    margin-top: var(--pms-space-5);
+    padding-top: var(--pms-space-4);
+    border-top: 1px solid var(--pms-border);
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* ============================================================================
+   Modals — Bootstrap's, with the destructive action in red
+   ============================================================================ */
+
+.modal-content {
+    border-radius: var(--pms-radius);
+    border-color: var(--pms-border);
+}
+
+.modal-title {
+    font-size: var(--pms-font-h2);
+    font-weight: var(--pms-weight-heading);
+}
+
+.modal-body {
+    font-size: var(--pms-font-base);
+}
+
+.pms-placeholder {
+    border: 1px dashed var(--pms-border-strong);
+    border-radius: var(--pms-radius);
+    padding: var(--pms-space-5);
+    color: var(--pms-text-muted);
+    background: var(--pms-surface);
+}
+
+/* ── Expiry colour coding (Module 3) ─────────────────────────────────────────────────────
+   Red once expired, amber inside the alert window. Never colour alone: every cell using
+   these also carries a title, and the words "expired" / "expiring soon" are available to a
+   screen reader, because two warm colours are exactly what a colour-blind reader cannot
+   separate.
+
+   The state is decided by the API, not by these classes - see StockPresentation.ExpiryCell. */
+.pms-expiry--expired {
+    color: var(--pms-danger);
+    font-weight: 600;
+}
+
+.pms-expiry--soon {
+    color: var(--pms-warning);
+    font-weight: 600;
+}
+
+/* ── The access matrix (platform) ────────────────────────────────────────────────────────
+   Tick and dash cells. Deliberately quiet: a wall of green ticks reads as decoration, and
+   what a reader is scanning for is the gaps. */
+.pms-access--yes {
+    color: var(--pms-success);
+    font-weight: 600;
+}
+
+.pms-access--no {
+    color: var(--pms-text-muted);
+}
+
+/* The card for the role currently filtered on. */
+.pms-card--selected {
+    border-color: var(--pms-border-strong);
+    box-shadow: inset 0 0 0 1px var(--pms-border-strong);
+}
+
+/* ── Catalogue selection (bulk import) ───────────────────────────────────────────────────
+   The tick is a real button, not a checkbox, because each row posts its own form: a
+   checkbox would need JavaScript to submit and would do nothing without it. aria-pressed
+   carries the state to a screen reader, so the visual tick is not the only signal. */
+.pms-col-select {
+    width: 3rem;
+    text-align: center;
+}
+
+.pms-tick {
+    width: 1.4rem;
+    height: 1.4rem;
+    padding: 0;
+    line-height: 1;
+    border: 1px solid var(--pms-border-strong);
+    border-radius: 4px;
+    background: var(--pms-surface);
+    cursor: pointer;
+}
+
+.pms-tick--on {
+    background: var(--pms-success);
+    border-color: var(--pms-success);
+    color: #fff;
+}
+
+.pms-row-selected {
+    background: var(--pms-success-bg);
+}
+
+/* Fixed to the bottom so it is reachable after ticking the last row of a long page, rather
+   than requiring a scroll back to the top. */
+.pms-selection-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--pms-space-3);
+    padding: var(--pms-space-3) var(--pms-space-4);
+    margin-top: var(--pms-space-4);
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border-strong);
+    border-radius: 6px;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.pms-selection-bar__actions {
+    display: flex;
+    gap: var(--pms-space-2);
+    align-items: center;
+}
+
+/* ── The price grid ─────────────────────────────────────────────────────────────────────
+   The amber tint marks rows the catalogue's classifier flagged as antibiotics. Its job is to
+   pull the eye to the classifications that need a human decision - so it is deliberately
+   subtle: a strong colour on forty of fifty rows draws attention to nothing. */
+.pms-row-antibiotic {
+    background: var(--pms-warning-bg);
+}
+
+.pms-row-error {
+    box-shadow: inset 3px 0 0 var(--pms-danger);
+}
+
+.pms-grid__price {
+    max-width: 8rem;
+}
+
+.pms-grid__units {
+    min-width: 12rem;
+    font-size: 0.875rem;
+}
+
+.pms-grid__override summary {
+    cursor: pointer;
+    font-size: 0.8125rem;
+    color: var(--pms-text-muted);
+}
+
+.pms-grid__override-body {
+    padding: var(--pms-space-2);
+    margin-top: var(--pms-space-2);
+    border: 1px solid var(--pms-border);
+    border-radius: 4px;
+    min-width: 14rem;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Module 5 — billing, invoice and returns
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* A card heading. Module 5 is the first place a card needs one inside its body rather than in
+   a __header strip, because the billing screen stacks four cards and a bordered strip on each
+   would turn the page into a grid of boxes. */
+.pms-card__title {
+    font-size: var(--pms-font-h2);
+    font-weight: var(--pms-weight-heading);
+    margin: 0 0 var(--pms-space-4);
+}
+
+.pms-card__title .pms-form-help {
+    font-weight: 400;
+    margin-left: var(--pms-space-2);
+}
+
+/* A <details> card: the summary is the clickable header. */
+.pms-card__summary {
+    cursor: pointer;
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-card__summary::marker {
+    color: var(--pms-text-muted);
+}
+
+/* The prescription panel. Amber-tinted so it reads as a different kind of thing from the rest
+   of the form — it is a legal record, not a preference, and it appears and disappears as the
+   cart changes, which is disorienting unless it looks distinct. */
+.pms-card--prescription {
+    border-color: #e8c88a;
+    background: var(--pms-warning-bg);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────────────────────── */
+
+.pms-billing {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: var(--pms-space-5);
+    align-items: start;
+}
+
+/* One column below 992px. The summary moves under the cart rather than shrinking: the net
+   payable and the change are the two numbers read out loud, and squeezing them into a narrow
+   column is how they get misread. */
+@media (max-width: 991.98px) {
+    .pms-billing {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.pms-billing__main {
+    min-width: 0;
+}
+
+.pms-billing__summary {
+    position: sticky;
+
+    /* Clears the fixed topbar, so scrolling a long cart never hides the total. */
+    top: calc(var(--pms-topbar-height) + var(--pms-space-4));
+}
+
+@media (max-width: 991.98px) {
+    .pms-billing__summary {
+        position: static;
+    }
+}
+
+/* ── Search and its results ─────────────────────────────────────────────────────────────── */
+
+.pms-search {
+    position: relative;
+}
+
+.pms-search__results {
+    position: absolute;
+    z-index: 20;
+    inset-inline: 0;
+    top: calc(100% + 2px);
+    margin: 0;
+    padding: var(--pms-space-1);
+    list-style: none;
+    max-height: 22rem;
+    overflow-y: auto;
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border-strong);
+    border-radius: var(--pms-radius);
+    box-shadow: 0 8px 24px rgb(31 35 40 / 12%);
+}
+
+.pms-search__option {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--pms-space-3);
+    padding: var(--pms-space-2) var(--pms-space-3);
+    border-radius: var(--pms-radius);
+    cursor: pointer;
+}
+
+.pms-search__option:hover,
+.pms-search__option[aria-selected="true"] {
+    background: var(--pms-row-hover);
+}
+
+/* An unsellable product is shown, dimmed, with its reason — never hidden. A cashier who sees
+   nothing concludes the pharmacy does not stock the thing and tells the customer so. */
+.pms-search__option--blocked {
+    cursor: not-allowed;
+    color: var(--pms-text-muted);
+}
+
+.pms-search__option--blocked:hover,
+.pms-search__option--blocked[aria-selected="true"] {
+    background: var(--pms-canvas);
+}
+
+.pms-search__option--blocked .pms-search__name {
+    text-decoration: none;
+}
+
+.pms-search__name {
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-search__meta {
+    display: block;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-search__reason {
+    display: block;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-warning);
+}
+
+.pms-search__right {
+    text-align: right;
+    white-space: nowrap;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* ── The cart ───────────────────────────────────────────────────────────────────────────── */
+
+.pms-cart__qty {
+    width: 11rem;
+}
+
+.pms-cart__name {
+    display: block;
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-cart__row--invalid {
+    background: var(--pms-danger-bg);
+}
+
+/* ── The bill summary ───────────────────────────────────────────────────────────────────── */
+
+.pms-bill__lines {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--pms-space-3);
+    margin: 0 0 var(--pms-space-3);
+}
+
+.pms-bill__lines dt {
+    font-weight: 400;
+    color: var(--pms-text-muted);
+}
+
+.pms-bill__lines dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-bill__discount {
+    padding: var(--pms-space-3) 0;
+    border-top: 1px solid var(--pms-border);
+    border-bottom: 1px solid var(--pms-border);
+    margin-bottom: var(--pms-space-3);
+}
+
+/* Net payable and change are the two figures said out loud. Large and bold, and tabular so a
+   column of digits does not shift as it updates. */
+.pms-bill__net dt,
+.pms-bill__net dd,
+.pms-bill__change dt,
+.pms-bill__change dd {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--pms-text);
+}
+
+.pms-bill__cash {
+    margin-bottom: var(--pms-space-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   The invoice, on screen and on paper
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+.pms-invoice {
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    padding: var(--pms-space-6);
+    max-width: 52rem;
+}
+
+.pms-invoice__head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--pms-space-5);
+    padding-bottom: var(--pms-space-4);
+    border-bottom: 2px solid var(--pms-text);
+    margin-bottom: var(--pms-space-5);
+}
+
+.pms-invoice__pharmacy {
+    font-size: var(--pms-font-h2);
+    font-weight: 600;
+    margin: 0;
+}
+
+.pms-invoice__meta {
+    text-align: right;
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-invoice__meta strong {
+    color: var(--pms-text);
+}
+
+.pms-invoice__totals {
+    margin-top: var(--pms-space-5);
+    margin-left: auto;
+    max-width: 20rem;
+}
+
+.pms-invoice__totals dl {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 0 var(--pms-space-2);
+}
+
+.pms-invoice__totals dt {
+    font-weight: 400;
+    color: var(--pms-text-muted);
+}
+
+.pms-invoice__totals dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-invoice__totals .pms-invoice__net dt,
+.pms-invoice__totals .pms-invoice__net dd {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--pms-text);
+    border-top: 1px solid var(--pms-border);
+    padding-top: var(--pms-space-2);
+}
+
+.pms-invoice__prescription {
+    margin-top: var(--pms-space-5);
+    padding: var(--pms-space-4);
+    border: 1px solid #e8c88a;
+    border-radius: var(--pms-radius);
+    background: var(--pms-warning-bg);
+}
+
+.pms-invoice__cancelled {
+    margin-bottom: var(--pms-space-4);
+}
+
+/* ── Print: A4 by default ───────────────────────────────────────────────────────────────── */
+
+@media print {
+    /* Everything that is not the invoice. The shell, the nav, the buttons: a customer's copy
+       of a receipt with a sidebar printed down the left of it is the classic sign of a web app
+       that never had its print stylesheet written. */
+    .pms-sidebar,
+    .pms-topbar,
+    .pms-page-header__actions,
+    .pms-no-print,
+    .pms-alert {
+        display: none !important;
+    }
+
+    .pms-shell,
+    .pms-main,
+    .pms-content {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+    .pms-invoice {
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        max-width: none;
+    }
+
+    /* Black on white. A tinted panel costs a customer their toner and reproduces as grey mush
+       on a cheap printer; the border alone still separates the block. */
+    .pms-invoice__prescription {
+        background: #fff !important;
+        border-color: #000;
+    }
+
+    .pms-table {
+        border-collapse: collapse;
+    }
+
+    .pms-table th,
+    .pms-table td {
+        border-bottom: 1px solid #999;
+    }
+
+    a[href]::after {
+        content: "";
+    }
+
+    @page {
+        size: A4;
+        margin: 14mm;
+    }
+}
+
+/* ── Print: thermal roll ────────────────────────────────────────────────────────────────────
+
+   Most pharmacy counters print to an 80mm thermal roll, not to A4. There is no media feature
+   for "is a receipt printer", so this keys off the narrow page width the driver reports, which
+   is what the printer's own paper size produces. Getting the driver and paper size set up is
+   the user's environment; what this does is make sure the page does not arrive laid out for a
+   sheet four times the width.
+   ───────────────────────────────────────────────────────────────────────────────────────────── */
+
+@media print and (max-width: 100mm) {
+    @page {
+        size: 80mm auto;
+        margin: 3mm;
+    }
+
+    html,
+    body {
+        font-size: 11px;
+    }
+
+    .pms-invoice__head {
+        display: block;
+        border-bottom: 1px dashed #000;
+    }
+
+    .pms-invoice__meta {
+        text-align: left;
+        margin-top: 2mm;
+    }
+
+    .pms-invoice__totals {
+        max-width: none;
+        margin-left: 0;
+    }
+
+    /* A roll has no room for a five-column table. Batch and strength columns go; quantity,
+       description and amount are what a customer checks against their change. */
+    .pms-invoice__optional {
+        display: none !important;
+    }
+
+    .pms-table th,
+    .pms-table td {
+        padding: 1mm 0;
+        border-bottom: 0;
+    }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Module 6 — expiry and low-stock alerts
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* The sidebar badge. Small, and only present when the count is non-zero — a nav item wearing a
+   permanent "0" is noise that teaches people to stop looking at the number. */
+.pms-sidebar__badge {
+    margin-left: auto;
+    min-width: 1.5rem;
+    padding: 0 var(--pms-space-2);
+    border-radius: 999px;
+    background: var(--pms-danger);
+    color: #fff;
+    font-size: var(--pms-font-sm);
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: center;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────────────────────── */
+
+.pms-alert-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--pms-space-3);
+}
+
+@media (max-width: 991.98px) {
+    .pms-alert-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .pms-alert-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.pms-alert-hub {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--pms-space-4);
+}
+
+@media (max-width: 767.98px) {
+    .pms-alert-hub {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.pms-alert-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    padding: var(--pms-space-4);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    background: var(--pms-surface);
+    color: var(--pms-text);
+    text-decoration: none;
+}
+
+.pms-alert-card:hover {
+    border-color: var(--pms-border-strong);
+    text-decoration: none;
+}
+
+.pms-alert-card__count {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-alert-card__title {
+    font-weight: var(--pms-weight-heading);
+}
+
+.pms-alert-card__preview {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* A card with nothing to report is plain. This is the rule the whole set of colours depends on:
+   four coloured boxes that are always coloured carry no information, and the first thing anyone
+   learns from them is to stop looking. */
+.pms-alert-card--quiet .pms-alert-card__count {
+    color: var(--pms-text-faint);
+    font-weight: 500;
+}
+
+.pms-alert-card--warning {
+    border-color: #e8c88a;
+    background: var(--pms-warning-bg);
+}
+
+.pms-alert-card--warning .pms-alert-card__count {
+    color: var(--pms-warning);
+}
+
+.pms-alert-card--danger {
+    border-color: #e9b3af;
+    background: var(--pms-danger-bg);
+}
+
+.pms-alert-card--danger .pms-alert-card__count {
+    color: var(--pms-danger);
+}
+
+/* The hub renders the same card larger, inside a section that carries the description. */
+.pms-alert-card--large {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--pms-space-3);
+}
+
+.pms-alert-card--large .pms-alert-card__count {
+    font-size: 2.25rem;
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────────────────────────── */
+
+/* Tinted rows rather than a coloured dot in one cell: the severity is a property of the whole
+   row, and a pharmacist scanning the list is reading down it rather than across. Colour is
+   never the only signal - the days column says the same thing in words. */
+.pms-row-warning > td {
+    background: var(--pms-warning-bg);
+}
+
+.pms-row-danger > td {
+    background: var(--pms-danger-bg);
+}
+
+/* A link that fills its cell, so the product name and the generic beneath it are one target
+   rather than two. */
+.pms-cell-link {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+}
+
+.pms-cell-link:hover .pms-cart__name {
+    text-decoration: underline;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════
+   Module 7 — antibiotic register and its setting
+   ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── The mode indicator ─────────────────────────────────────────────────────────────────── */
+
+.pms-mode-notice {
+    padding: var(--pms-space-3) var(--pms-space-4);
+    margin-bottom: var(--pms-space-3);
+    border-left: 3px solid var(--pms-border-strong);
+    background: var(--pms-table-head);
+}
+
+.pms-mode-notice__line {
+    display: flex;
+    gap: var(--pms-space-3);
+    align-items: baseline;
+}
+
+/* ── The register table ─────────────────────────────────────────────────────────────────── */
+
+/*
+   Styled as a record rather than a dashboard. No zebra striping, no status colours, nothing
+   decorative: this page may be printed and handed to an inspector, and every bit of colour that
+   is not carrying information competes with the one bit that is - the red flag, which appears
+   only under Required.
+
+   Dense but legible: tighter padding than the other grids because there are nine columns and a
+   reader is scanning down one of them, but the font floor is untouched.
+*/
+.pms-register {
+    font-size: var(--pms-font-sm);
+}
+
+.pms-register th,
+.pms-register td {
+    padding: var(--pms-space-2) var(--pms-space-3);
+    vertical-align: top;
+}
+
+.pms-register tbody tr:hover > td {
+    background: var(--pms-row-hover);
+}
+
+.pms-register-summary {
+    color: var(--pms-text-muted);
+    margin-bottom: var(--pms-space-3);
+}
+
+/* ── The settings page ──────────────────────────────────────────────────────────────────── */
+
+.pms-mode-option {
+    padding: var(--pms-space-3) 0;
+    border-bottom: 1px solid var(--pms-border);
+}
+
+.pms-mode-option:last-child {
+    border-bottom: 0;
+}
+
+.pms-mode-option .pms-form-help {
+    margin: var(--pms-space-1) 0 0 1.65rem;
+}
+
+/* ── The dashboard figure ───────────────────────────────────────────────────────────────── */
+
+/*
+   Neutral on purpose. A pharmacy dispensing antibiotics is a pharmacy doing its job; the figure
+   is something an owner wants to know and a regulator may ask about, not a problem to fix.
+   Colouring it amber would file it alongside expired stock.
+*/
+.pms-info-card {
+    display: inline-flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    padding: var(--pms-space-4);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    background: var(--pms-surface);
+    color: var(--pms-text);
+    text-decoration: none;
+}
+
+.pms-info-card:hover {
+    border-color: var(--pms-border-strong);
+    text-decoration: none;
+}
+
+.pms-info-card__label {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.pms-info-card__value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.pms-info-card__hint {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+/* ── Print ──────────────────────────────────────────────────────────────────────────────── */
+
+/* Shown only on paper. The screen has the filter bar and the summary line; the printed page
+   needs a header that says whose register this is, because a sheet on a desk has no address bar
+   and no navigation to infer it from. */
+.pms-print-only {
+    display: none;
+}
+
+/* ===========================================================================
+   Module 8 — reports and profit
+   =========================================================================== */
+
+/* ---- The landing page ----------------------------------------------------
+   Cards rather than a list: each report needs a sentence explaining what it
+   answers, because "dead stock" and "stock valuation" are not self-evident to
+   somebody opening the section for the first time. */
+.report-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--pms-space-4);
+    margin-bottom: var(--pms-space-6);
+}
+
+.report-card {
+    display: block;
+    padding: var(--pms-space-4);
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.report-card:hover,
+.report-card:focus-visible {
+    border-color: var(--pms-primary);
+    box-shadow: 0 1px 6px rgba(31, 111, 178, 0.12);
+    color: inherit;
+}
+
+.report-card h2 {
+    font-size: var(--pms-font-lg);
+    font-weight: var(--pms-weight-heading);
+    color: var(--pms-primary);
+    margin: 0 0 var(--pms-space-2);
+}
+
+.report-card p {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+    margin: 0;
+}
+
+/* A report that cannot be built yet. Visibly inert rather than hidden: a gap
+   somebody notices and asks about is better than a report they assume exists
+   and cannot find. */
+.report-card--disabled {
+    background: var(--pms-canvas);
+    border-style: dashed;
+    cursor: default;
+}
+
+.report-card--disabled h2 {
+    color: var(--pms-text-muted);
+}
+
+/* ---- Filters ------------------------------------------------------------- */
+.report-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--pms-space-3);
+    padding: var(--pms-space-3) var(--pms-space-4);
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    margin-bottom: var(--pms-space-4);
+}
+
+.report-filter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    min-width: 9rem;
+}
+
+.report-filter--actions {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--pms-space-2);
+    margin-left: auto;
+}
+
+/* ---- Headline figures ----------------------------------------------------
+   The numbers somebody opened the page for, before the table they came from. */
+.stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--pms-space-3);
+    margin-bottom: var(--pms-space-5);
+}
+
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pms-space-1);
+    padding: var(--pms-space-3) var(--pms-space-4);
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+}
+
+.stat-card--emphasis {
+    border-color: var(--pms-primary);
+    background: var(--pms-primary-light);
+}
+
+.stat-card--danger {
+    border-color: var(--pms-danger);
+    background: var(--pms-danger-bg);
+}
+
+.stat-card__label {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.stat-card__value {
+    font-size: 1.375rem;
+    font-weight: var(--pms-weight-heading);
+    /* Tabular figures, so a column of these lines up digit for digit. */
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-card__note {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-faint);
+}
+
+/* ---- Sections ------------------------------------------------------------ */
+.report-section {
+    margin-bottom: var(--pms-space-5);
+}
+
+.report-section > h2 {
+    color: var(--pms-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: var(--pms-font-sm);
+    margin-bottom: var(--pms-space-2);
+}
+
+.report-section__note {
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+    margin-top: var(--pms-space-2);
+}
+
+.report-note {
+    padding: var(--pms-space-4);
+    background: var(--pms-canvas);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    font-size: var(--pms-font-sm);
+    color: var(--pms-text-muted);
+}
+
+.report-note ul {
+    margin: 0;
+    padding-left: var(--pms-space-5);
+}
+
+.report-note li + li {
+    margin-top: var(--pms-space-2);
+}
+
+/* ---- Figures -------------------------------------------------------------
+   Colour is never the only signal: Money.Signed puts a real minus sign on a
+   negative, so these read correctly in monochrome and to anyone who cannot
+   distinguish the two hues. */
+.figure-negative {
+    color: var(--pms-danger);
+}
+
+.figure-positive {
+    color: var(--pms-success);
+}
+
+/* Every money column in a report is right-aligned and tabular, so the decimal
+   points form a line the eye can run down. */
+.pms-table td.text-end,
+.pms-table th.text-end {
+    font-variant-numeric: tabular-nums;
+}
+
+/* A day on which nothing happened. Kept in the table rather than skipped, so a
+   quiet Friday reads as quiet rather than missing. */
+.row-quiet > td {
+    color: var(--pms-text-faint);
+}
+
+/* ---- Charts --------------------------------------------------------------
+   Server-rendered inline SVG; see ChartModel for why there is no charting
+   library. The SVG is aria-hidden and always accompanied by its own table. */
+.chart {
+    background: var(--pms-surface);
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    padding: var(--pms-space-3) var(--pms-space-4) var(--pms-space-2);
+}
+
+.chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.chart-axis {
+    stroke: var(--pms-border-strong);
+    stroke-width: 1;
+    /* The bar chart stretches its SVG non-uniformly, which would thicken a
+       horizontal rule unpredictably. This keeps it one pixel. */
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-bar {
+    fill: var(--pms-primary);
+}
+
+.chart-bar:hover {
+    fill: var(--pms-primary-dark);
+}
+
+.chart-line {
+    fill: none;
+    stroke: var(--pms-primary);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-area {
+    fill: var(--pms-primary);
+    opacity: 0.12;
+    stroke: none;
+}
+
+.chart-dot {
+    fill: var(--pms-primary);
+}
+
+.chart-profit.chart-bar,
+.chart-profit.chart-dot,
+.chart-profit.chart-area {
+    fill: var(--pms-success);
+}
+
+.chart-profit.chart-line {
+    stroke: var(--pms-success);
+}
+
+.chart-labels {
+    display: flex;
+    margin-top: var(--pms-space-1);
+}
+
+.chart-label {
+    /* Equal share of the row, so label n sits under bar n. */
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.6875rem;
+    color: var(--pms-text-faint);
+    text-align: center;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.chart-empty {
+    padding: var(--pms-space-5);
+    text-align: center;
+    color: var(--pms-text-muted);
+    background: var(--pms-canvas);
+    border: 1px dashed var(--pms-border);
+    border-radius: var(--pms-radius);
+    margin: 0;
+}
+
+@media print {
+    .pms-print-only {
+        display: block;
+    }
+
+    .pms-print-header {
+        margin-bottom: 6mm;
+        padding-bottom: 3mm;
+        border-bottom: 2px solid #000;
+    }
+
+    .pms-print-header h1 {
+        font-size: 14pt;
+        margin-bottom: 2mm;
+    }
+
+    /* The mode indicator stays, without its tint: an inspector reading a page of dashes in the
+       prescription columns needs the line that explains why they are dashes. */
+    .pms-mode-notice {
+        background: #fff !important;
+        border-left: 0;
+        border-bottom: 1px solid #000;
+        padding-left: 0;
+        margin-bottom: 4mm;
+    }
+
+    .pms-register {
+        font-size: 8pt;
+        width: 100%;
+    }
+
+    .pms-register th,
+    .pms-register td {
+        padding: 1mm 2mm;
+        border-bottom: 1px solid #999;
+    }
+
+    /* A flagged row still has to read as flagged on a monochrome printer, so it keeps a rule
+       rather than relying on the tint surviving. */
+    .pms-register .pms-row-danger > td {
+        background: #fff !important;
+        border-left: 2px solid #000;
+    }
+
+    .pms-table-wrap {
+        overflow: visible !important;
+    }
+}
+
+/* ---- Module 8: reports in print ------------------------------------------
+   These pages get printed and filed, so the figures have to survive losing
+   colour and losing the sidebar. */
+/* ===========================================================================
+   Module 4 — suppliers and purchases
+   =========================================================================== */
+
+/* One repeatable row of the new-purchase form. Boxed rather than a bare table
+   row: each one carries two sub-rows of inputs and its own helper text, and
+   without a boundary the eye cannot tell where one item ends. */
+.purchase-line {
+    padding: var(--pms-space-3) var(--pms-space-4) 0;
+    border: 1px solid var(--pms-border);
+    border-radius: var(--pms-radius);
+    margin-bottom: var(--pms-space-3);
+    background: var(--pms-canvas);
+}
+
+.purchase-line + .purchase-line {
+    margin-top: 0;
+}
+
+/* The running total. Sits below the rows and is deliberately the largest thing
+   on the form after the heading — it is the figure being agreed with a
+   supplier. */
+.purchase-total {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: var(--pms-space-3);
+    padding-top: var(--pms-space-3);
+    border-top: 1px solid var(--pms-border-strong);
+    font-size: var(--pms-font-lg);
+}
+
+.purchase-total strong {
+    font-size: 1.375rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The line total inside a row: read-only, but aligned with the inputs beside it
+   so the row does not look ragged. */
+.purchase-line .line-total {
+    font-variant-numeric: tabular-nums;
+    font-weight: var(--pms-weight-heading);
+    padding-top: 0.375rem;
+}
+
+@media print {
+    .purchase-line,
+    .purchase-total {
+        background: #fff !important;
+        border-color: #999 !important;
+    }
+}
+
+@media print {
+    .report-filters,
+    .report-cards {
+        display: none !important;
+    }
+
+    .stat-cards {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 2mm;
+        margin-bottom: 4mm;
+    }
+
+    .stat-card {
+        border: 1px solid #000 !important;
+        background: #fff !important;
+        padding: 2mm;
+    }
+
+    .stat-card__value {
+        font-size: 11pt;
+    }
+
+    .stat-card__label,
+    .stat-card__note {
+        font-size: 7pt;
+        color: #000 !important;
+    }
+
+    /* The chart prints. That is most of why it is SVG rather than a canvas a
+       script would have to draw after the print dialog had already opened. */
+    .chart {
+        border: 1px solid #999 !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .chart-bar,
+    .chart-dot,
+    .chart-area {
+        fill: #444 !important;
+    }
+
+    .chart-line {
+        stroke: #444 !important;
+    }
+
+    /* A negative figure keeps its minus sign from Money.Signed, so losing the
+       red loses nothing. */
+    .figure-negative,
+    .figure-positive {
+        color: #000 !important;
+    }
+
+    .report-note {
+        border: 1px solid #999 !important;
+        background: #fff !important;
+        font-size: 8pt;
+        break-inside: avoid;
+    }
+
+    .report-section {
+        break-inside: auto;
+    }
+
+    .report-section > h2 {
+        color: #000 !important;
+    }
+}
