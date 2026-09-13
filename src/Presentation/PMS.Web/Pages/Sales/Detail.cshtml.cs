@@ -29,6 +29,16 @@ public class DetailModel : PmsPageModel
     public SaleDetail Sale { get; private set; } = null!;
 
     public BillingLimits Limits { get; private set; } = BillingLimits.None;
+    /// <summary>
+    /// The pharmacy's own name, address, phone and licence, from settings since Module 10.
+    ///
+    /// <para>Falls back to <c>TenantSettings.Fallback</c> if the call fails - the page still
+    /// prints, and the view substitutes the cookie's tenant name for the placeholder one so the
+    /// header is never blank. A document that cannot name the pharmacy is not one anybody can
+    /// hand over.</para>
+    /// </summary>
+    public TenantSettings Pharmacy { get; private set; } = TenantSettings.Fallback;
+
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken ct)
     {
@@ -43,6 +53,9 @@ public class DetailModel : PmsPageModel
 
         var limits = await _api.GetBillingLimitsAsync(ct);
         Limits = limits.Value ?? BillingLimits.None;
+
+        var settings = await _api.GetSettingsAsync(ct);
+        Pharmacy = settings.Value ?? TenantSettings.Fallback;
 
         return Page();
     }

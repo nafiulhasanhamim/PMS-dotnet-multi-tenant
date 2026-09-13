@@ -3,28 +3,23 @@ using PMS.Application.Common.DTOs;
 namespace PMS.Application.Common.Stock;
 
 /// <summary>
-/// The numbers this module judges stock by.
+/// The rules this module judges stock by — the shape of them, not the numbers.
 ///
-/// <para><b>Constants for now, and named as one place on purpose.</b> All of these belong to
-/// the pharmacy — a shop turning over paracetamol weekly wants a different expiry horizon from
-/// one stocking slow-moving supplies — and they move to per-tenant Settings in a later
-/// module.
-/// Gathering them here means that change edits one file and a handful of call sites that
-/// already pass the value as a parameter, rather than hunting literal 90s through queries,
-/// pages and alerts.</para>
+/// <para><b>Module 10 took the two configurable numbers out of this class.</b> The expiry window
+/// and the dead-stock threshold belong to the pharmacy — a shop turning over paracetamol weekly
+/// wants a different horizon from one stocking slow-moving surgical supplies — and they now come
+/// from <c>ISettingsService</c>, with their fallback defaults declared once in
+/// <c>SettingKeys</c>. Gathering them here first is what made that a small change: the call
+/// sites already passed the value as a parameter.</para>
+///
+/// <para><b>What is still constant here is deliberate.</b> The amber and red thresholds on an
+/// expiry row, and the point at which adding stock to a nearly-expired batch asks for
+/// confirmation, are judgements about how to <em>present</em> a risk rather than how much risk a
+/// pharmacy will carry. Module 10's brief is explicit that settings not in its table should not
+/// be invented, and these would be three more knobs nobody asked for.</para>
 /// </summary>
 public static class StockPolicy
 {
-    /// <summary>
-    /// How many days ahead counts as "expiring soon": the amber window on every screen and the
-    /// basis of the expiry filter.
-    ///
-    /// <para>Ninety days because that is roughly the point at which a pharmacy can still act —
-    /// return it to the supplier, discount it, or stop reordering. A shorter window tells them
-    /// only after it is too late to do anything but write it off.</para>
-    /// </summary>
-    public const int ExpiringSoonWindowDays = 90;
-
     /// <summary>
     /// Days remaining at which an expiry row turns red.
     ///
@@ -45,24 +40,41 @@ public static class StockPolicy
     public const int ExpiryWarningDays = 30;
 
     /// <summary>
-    /// The windows the expiring-soon page offers in its dropdown.
+    /// The windows the expiring-soon page offers regardless of what the pharmacy has configured.
     ///
-    /// <para>Here rather than in the Razor page so that the API and the screen cannot disagree
-    /// about what is selectable, and so the set moves to Settings with everything else.</para>
+    /// <para>Here rather than in the Razor page so the API and the screen cannot disagree about
+    /// what is selectable.</para>
     /// </summary>
-    public static readonly IReadOnlyList<int> SelectableExpiryWindows = [30, 60, 90, 180];
+    public static readonly IReadOnlyList<int> StandardExpiryWindows = [30, 60, 90, 180];
 
     /// <summary>
-    /// Whether <paramref name="days"/> is a window a caller may ask for.
+    /// The windows a caller may ask for, given this pharmacy's configured one.
+    ///
+    /// <para><b>The configured window is always offered</b>, even when it is not one of the four
+    /// standard choices. A pharmacy that set 45 days and then found the dropdown could not show
+    /// 45 would have a settings screen that its own alert page disagreed with.</para>
+    /// </summary>
+    public static IReadOnlyList<int> SelectableExpiryWindows(int configuredWindowDays) =>
+        StandardExpiryWindows.Contains(configuredWindowDays)
+            ? StandardExpiryWindows
+            : StandardExpiryWindows.Append(configuredWindowDays).Order().ToList();
+
+    /// <summary>
+    /// Whether <paramref name="days"/> is a window a caller may ask for, falling back to the
+    /// pharmacy's configured window.
     ///
     /// <para>Bounded rather than free-form: an unbounded <c>days</c> parameter is a request for
-    /// every batch in the pharmacy dressed up as an alert query, and the page has four fixed
-    /// choices anyway.</para>
+    /// every batch in the pharmacy dressed up as an alert query.</para>
     /// </summary>
-    public static int CoerceExpiryWindow(int? days) =>
-        days is { } value && SelectableExpiryWindows.Contains(value)
+    /// <param name="configuredWindowDays">
+    /// From <c>ISettingsService</c>, key <c>expiry_alert_window_days</c>. Passed in rather than
+    /// read here so this class stays a pure function of its inputs and the settings read happens
+    /// once per request at the handler.
+    /// </param>
+    public static int CoerceExpiryWindow(int? days, int configuredWindowDays) =>
+        days is { } value && SelectableExpiryWindows(configuredWindowDays).Contains(value)
             ? value
-            : ExpiringSoonWindowDays;
+            : configuredWindowDays;
 
     /// <summary>
     /// How urgent a row is, from the days left on it. Negative days are already expired, and
@@ -75,31 +87,31 @@ public static class StockPolicy
         _ => AlertSeverity.Normal,
     };
 
-    /// <summary>
-    /// How long a product can go unsold before Module 8's dead-stock report lists it.
-    ///
-    /// <para>Here with the expiry window rather than in the reports module, because it is the
-    /// same kind of number: a judgement about stock that belongs to the pharmacy and moves to
-    /// per-tenant Settings with the rest. A shop turning over paracetamol weekly means something
-    /// different by "dead" from one stocking slow-moving surgical supplies.</para>
-    ///
-    /// <para>Ninety days matches the expiry window, and not by accident — a quarter is roughly
-    /// the horizon on which a pharmacy can still act on either problem.</para>
-    /// </summary>
-    public const int DeadStockThresholdDays = 90;
+    /// <summary>The thresholds the dead-stock report offers regardless of configuration.</summary>
+    public static readonly IReadOnlyList<int> StandardDeadStockThresholds = [30, 60, 90, 180];
 
-    /// <summary>The thresholds the dead-stock report offers in its dropdown.</summary>
-    public static readonly IReadOnlyList<int> SelectableDeadStockThresholds = [30, 60, 90, 180];
+    /// <summary>
+    /// The dead-stock thresholds a caller may ask for, given this pharmacy's configured one.
+    /// Always includes the configured value, for the same reason the expiry windows do.
+    /// </summary>
+    public static IReadOnlyList<int> SelectableDeadStockThresholds(int configuredThresholdDays) =>
+        StandardDeadStockThresholds.Contains(configuredThresholdDays)
+            ? StandardDeadStockThresholds
+            : StandardDeadStockThresholds.Append(configuredThresholdDays).Order().ToList();
 
     /// <summary>
     /// Whether <paramref name="days"/> is a dead-stock threshold a caller may ask for. Bounded
-    /// for the same reason the expiry window is: an unbounded value turns an alert query into a
-    /// request for the whole catalogue.
+    /// for the same reason the expiry window is: an unbounded value turns a report into a request
+    /// for the whole catalogue.
     /// </summary>
-    public static int CoerceDeadStockThreshold(int? days) =>
-        days is { } value && SelectableDeadStockThresholds.Contains(value)
+    /// <param name="configuredThresholdDays">
+    /// From <c>ISettingsService</c>, key <c>dead_stock_threshold_days</c>.
+    /// </param>
+    public static int CoerceDeadStockThreshold(int? days, int configuredThresholdDays) =>
+        days is { } value
+        && SelectableDeadStockThresholds(configuredThresholdDays).Contains(value)
             ? value
-            : DeadStockThresholdDays;
+            : configuredThresholdDays;
 
     /// <summary>
     /// How close to expiry a batch has to be before <em>adding</em> stock to it is treated as

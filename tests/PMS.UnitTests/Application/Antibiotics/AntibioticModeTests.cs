@@ -1,6 +1,7 @@
 using FluentAssertions;
 using PMS.Application.Common.Antibiotics;
 using PMS.Application.Common.Billing;
+using PMS.Application.Common.Settings;
 using PMS.Domain.Entities;
 using PMS.Domain.Enums;
 using Xunit;
@@ -173,25 +174,46 @@ public class AntibioticModeTests
     public void A_sale_with_no_prescription_call_reports_none()
         => SaleWithALine().HasPrescription.Should().BeFalse();
 
-    // ── The tenant setting ───────────────────────────────────────────────────────────────
+    // ── The setting ──────────────────────────────────────────────────────────────────────
+    //
+    // Module 10 moved this off the Tenant row into AppSettings, where every other per-pharmacy
+    // preference lives - see migration 016. The property these cases used to read is gone, so
+    // they now check the same thing one level up: what a pharmacy gets when nothing has set it.
 
     [Fact]
     public void A_new_pharmacy_starts_in_Off()
     {
-        // The acceptance criterion, at the level where it is cheapest to check.
-        var tenant = new Tenant("Probe Pharmacy", "probe-pharmacy");
+        // The acceptance criterion, at the level where it is cheapest to check. Off because it
+        // is what an unconfigured pharmacy is actually doing; a default claiming otherwise is one
+        // somebody turns off on their first day, having first entered a fake patient name to get
+        // past it.
+        var definition = SettingKeys.Find(SettingKeys.AntibioticPrescriptionMode);
 
-        tenant.AntibioticPrescriptionMode.Should().Be(AntibioticPrescriptionMode.Off);
+        definition.Should().NotBeNull();
+        definition!.Default.Should().Be(nameof(AntibioticPrescriptionMode.Off));
     }
 
     [Fact]
-    public void Changing_the_mode_does_not_touch_anything_else()
+    public void The_setting_is_stored_by_name_and_every_mode_round_trips()
     {
+        // Stored as the enum's NAME rather than its number, so a settings table read by a person
+        // during an incident says "Required" instead of "2". That only helps if every name parses
+        // back to the mode it came from.
+        foreach (var mode in Enum.GetValues<AntibioticPrescriptionMode>())
+        {
+            Enum.TryParse<AntibioticPrescriptionMode>(mode.ToString(), ignoreCase: true, out var back)
+                .Should().BeTrue();
+
+            back.Should().Be(mode);
+        }
+    }
+
+    [Fact]
+    public void A_new_pharmacy_is_still_created_on_trial()
+    {
+        // What the old mode test also asserted in passing, kept because nothing else covers it.
         var tenant = new Tenant("Probe Pharmacy", "probe-pharmacy");
 
-        tenant.SetAntibioticPrescriptionMode(AntibioticPrescriptionMode.Required);
-
-        tenant.AntibioticPrescriptionMode.Should().Be(AntibioticPrescriptionMode.Required);
         tenant.Name.Should().Be("Probe Pharmacy");
         tenant.Status.Should().Be(TenantStatus.Trial, "a new pharmacy starts on trial");
     }

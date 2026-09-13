@@ -39,21 +39,6 @@ public sealed class Tenant : BaseAuditableAggregateRoot<Guid>, ISoftDelete
     public string? SubscriptionPlan { get; private set; }
 
     /// <inheritdoc />
-    /// <summary>
-    /// How strictly this pharmacy captures prescriptions for antibiotic sales.
-    ///
-    /// <para><b>TODO: this belongs in tenant settings, not on the tenant row.</b> It is the
-    /// first per-pharmacy <em>preference</em> the system has had — everything else here
-    /// identifies or governs the tenant rather than configuring it — and when a Settings module
-    /// arrives this column should move into it. It is here rather than in a constant because
-    /// the one thing it must be from day one is per-pharmacy: two pharmacies on the same
-    /// deployment genuinely operate differently, and a global switch would force the stricter
-    /// one to loosen or the looser one to fabricate data.</para>
-    ///
-    /// <para>Module 5's billing rules read this on every sale. See
-    /// <see cref="AntibioticPrescriptionMode"/> for why the default is Off.</para>
-    /// </summary>
-    public AntibioticPrescriptionMode AntibioticPrescriptionMode { get; private set; }
 
     public bool IsDeleted { get; set; }
 
@@ -95,17 +80,6 @@ public sealed class Tenant : BaseAuditableAggregateRoot<Guid>, ISoftDelete
     }
 
     public void SetStatus(TenantStatus status) => Status = status;
-
-    /// <summary>
-    /// Changes how strictly this pharmacy captures antibiotic prescriptions.
-    ///
-    /// <para>Takes effect on the next sale. Nothing is recomputed for past sales, and nothing
-    /// should be: a sale made under Off was correct under the rules in force when it happened,
-    /// and rewriting history to match a setting changed afterwards would be the opposite of
-    /// what a register is for.</para>
-    /// </summary>
-    public void SetAntibioticPrescriptionMode(AntibioticPrescriptionMode mode) =>
-        AntibioticPrescriptionMode = mode;
 
     public void SetSubscriptionPlan(string? plan) => SubscriptionPlan = plan?.Trim();
 

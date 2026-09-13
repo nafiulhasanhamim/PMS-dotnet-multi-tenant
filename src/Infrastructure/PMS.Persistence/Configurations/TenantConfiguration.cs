@@ -20,7 +20,6 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(t => t.SubscriptionPlan).HasMaxLength(100);
         // Module 7. Stored as an int, defaulting to Off - see the enum and migration 012 for
         // why the default is the loosest setting rather than the strictest.
-        builder.Property(t => t.AntibioticPrescriptionMode).IsRequired().HasConversion<int>();
 
         builder.Property(t => t.IsDeleted).IsRequired();
         builder.Property(t => t.DeletedBy).HasMaxLength(256);

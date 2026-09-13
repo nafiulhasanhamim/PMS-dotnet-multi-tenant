@@ -1,4 +1,5 @@
 using PMS.Application.Common.DTOs;
+using PMS.Application.Common.Settings;
 using PMS.Application.Common.Stock;
 using PMS.Application.Common.Units;
 using PMS.Application.Interfaces;
@@ -19,6 +20,7 @@ public sealed class AdjustBatchCommandHandler
     private readonly IRepository<StockAdjustment, IApplicationDbContext> _adjustments;
     private readonly ICurrentUserService _currentUser;
     private readonly IDateTime _clock;
+    private readonly ISettingsService _settings;
     private readonly ILogger<AdjustBatchCommandHandler> _logger;
 
     public AdjustBatchCommandHandler(
@@ -27,6 +29,7 @@ public sealed class AdjustBatchCommandHandler
         IRepository<StockAdjustment, IApplicationDbContext> adjustments,
         ICurrentUserService currentUser,
         IDateTime clock,
+        ISettingsService settings,
         ILogger<AdjustBatchCommandHandler> logger)
     {
         _batches = batches;
@@ -34,6 +37,7 @@ public sealed class AdjustBatchCommandHandler
         _adjustments = adjustments;
         _currentUser = currentUser;
         _clock = clock;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -189,8 +193,14 @@ public sealed class AdjustBatchCommandHandler
             adjustment.QuantityBeforeInBaseUnits, adjustment.QuantityAfterInBaseUnits,
             product.BaseUnitName, delta, userId.Value, request.Reason.Trim());
 
+        var window = await _settings.GetIntAsync(
+            SettingKeys.ExpiryAlertWindowDays, cancellationToken);
+
         return new BatchAdjustedDto(
-            StockMapping.ToDto(batch, product, includePurchasePrice: true, today: _clock.UtcDateToday()),
+            StockMapping.ToDto(
+                batch, product, includePurchasePrice: true,
+                today: _clock.UtcDateToday(),
+                expiringSoonWindowDays: window),
             new StockAdjustmentDto(
                 adjustment.Id,
                 batch.Id,

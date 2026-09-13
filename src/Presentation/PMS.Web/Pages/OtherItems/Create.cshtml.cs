@@ -27,7 +27,9 @@ public class CreateModel : ProductWritePageModel
 
     protected override string CancelUrl => "/other-items";
 
-    public void OnGet() => Input = ProductFormInput.NewFor(ProductType.PersonalCare);
+    public async Task OnGetAsync(CancellationToken ct) =>
+        Input = ProductFormInput.NewFor(
+            ProductType.PersonalCare, await DefaultReorderLevelAsync(_api, ct));
 
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {

@@ -796,7 +796,11 @@ public sealed class PmsApiClient
         }
 
         // Never empty: the caller concatenates "&page=..." onto it.
-        return query.Count == 0 ? "thresholdDays=90" : string.Join('&', query);
+        //
+        // Naming no threshold is what makes the API use the pharmacy's own, so the empty case
+        // sends a harmless filter rather than a number this layer invented. Before Module 10 it
+        // sent thresholdDays=90, which would now override a pharmacy that had configured 30.
+        return query.Count == 0 ? "productType=" : string.Join('&', query);
     }
 
     private static string MonthQuery(int? month, int? year)
@@ -1168,4 +1172,26 @@ public sealed class PmsApiClient
 
     public Task<ApiResult<SalarySummary>> GetSalarySummaryAsync(CancellationToken ct = default) =>
         SendAsync<SalarySummary>(HttpMethod.Get, "api/salary/summary", null, ct);
+
+    // ── Module 10: settings and the dashboard ────────────────────────────────────────────
+
+    /// <summary>
+    /// Every setting for this pharmacy. Any signed-in user may read them.
+    /// </summary>
+    public Task<ApiResult<TenantSettings>> GetSettingsAsync(CancellationToken ct = default) =>
+        SendAsync<TenantSettings>(HttpMethod.Get, "api/settings", null, ct);
+
+    /// <summary>
+    /// Changes some or all of them. Admin only; a Pharmacist or Employee gets 403.
+    ///
+    /// <para>Null fields are omitted from the JSON by the serialiser's default, which is exactly
+    /// the "leave it alone" the API expects — so a caller changing one setting sends one field.</para>
+    /// </summary>
+    public Task<ApiResult<SettingsSaved>> UpdateSettingsAsync(
+        object payload, CancellationToken ct = default) =>
+        SendAsync<SettingsSaved>(HttpMethod.Put, "api/settings", payload, ct);
+
+    /// <summary>The whole home screen, in one call.</summary>
+    public Task<ApiResult<Dashboard>> GetDashboardAsync(CancellationToken ct = default) =>
+        SendAsync<Dashboard>(HttpMethod.Get, "api/dashboard", null, ct);
 }

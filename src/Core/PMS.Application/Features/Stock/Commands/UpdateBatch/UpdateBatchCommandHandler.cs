@@ -1,4 +1,5 @@
 using PMS.Application.Common.DTOs;
+using PMS.Application.Common.Settings;
 using PMS.Application.Common.Stock;
 using PMS.Application.Common.Units;
 using PMS.Application.Interfaces;
@@ -20,6 +21,7 @@ public sealed class UpdateBatchCommandHandler
     private readonly IStockQueries _stock;
     private readonly IUnitOfWork<IApplicationDbContext> _unitOfWork;
     private readonly IDateTime _clock;
+    private readonly ISettingsService _settings;
     private readonly ILogger<UpdateBatchCommandHandler> _logger;
 
     public UpdateBatchCommandHandler(
@@ -28,6 +30,7 @@ public sealed class UpdateBatchCommandHandler
         IStockQueries stock,
         IUnitOfWork<IApplicationDbContext> unitOfWork,
         IDateTime clock,
+        ISettingsService settings,
         ILogger<UpdateBatchCommandHandler> logger)
     {
         _batches = batches;
@@ -35,6 +38,7 @@ public sealed class UpdateBatchCommandHandler
         _stock = stock;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -166,7 +170,11 @@ public sealed class UpdateBatchCommandHandler
             batch.ExpiryDate?.ToString("yyyy-MM-dd") ?? "none",
             product.BaseUnitName, previousCost, batch.PurchasePricePerBaseUnit);
 
+        var window = await _settings.GetIntAsync(
+            SettingKeys.ExpiryAlertWindowDays, cancellationToken);
+
         return StockMapping.ToDto(
-            batch, product, includePurchasePrice: true, today: _clock.UtcDateToday());
+            batch, product, includePurchasePrice: true,
+            today: _clock.UtcDateToday(), expiringSoonWindowDays: window);
     }
 }

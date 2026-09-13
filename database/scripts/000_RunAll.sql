@@ -24,6 +24,12 @@ PRINT ''
 -- :r "008_CreateBatchesAndStockAdjustmentsTables.sql"
 -- :r "009_AddProductSetupComplete.sql"
 -- :r "010_ProductIdentityIncludesDosageForm.sql"
+-- :r "011_CreateSalesTables.sql"
+-- :r "012_AddAntibioticPrescriptionMode.sql"
+-- :r "013_CreateSupplierAndPurchaseTables.sql"
+-- :r "014_AddSupplierPaymentDirection.sql"
+-- :r "015_CreateSalaryTables.sql"
+-- :r "016_CreateAppSettingsTable.sql"
 
 -- Otherwise, execute each script in order:
 -- 1. 001_CreateDatabase.sql
@@ -41,6 +47,9 @@ PRINT ''
 -- 13. 013_CreateSupplierAndPurchaseTables.sql   (suppliers, purchases, payments, returns,
 --     purchase counter, and the Batches.SupplierId FK Module 3 left room for; needs 002, 003, 007, 008)
 -- 14. 014_AddSupplierPaymentDirection.sql   (supplier refunds and write-offs; needs 013)
+-- 15. 015_CreateSalaryTables.sql   (salary profiles, entries, advances; needs 002, 003)
+-- 16. 016_CreateAppSettingsTable.sql   (per-tenant settings; needs 002, and RETIRES the
+--     Tenants.AntibioticPrescriptionMode column that 012 added)
 
 PRINT ''
 PRINT '============================================'
@@ -60,6 +69,9 @@ PRINT '11. Run 011_CreateSalesTables.sql   (billing: sales, lines, returns)'
 PRINT '12. Run 012_AddAntibioticPrescriptionMode.sql   (antibiotic mode setting)'
 PRINT '13. Run 013_CreateSupplierAndPurchaseTables.sql   (suppliers, purchases, payments, returns)'
 PRINT '14. Run 014_AddSupplierPaymentDirection.sql   (supplier refunds and write-offs)'
+PRINT '15. Run 015_CreateSalaryTables.sql   (salary profiles, entries and advances)'
+PRINT '16. Run 016_CreateAppSettingsTable.sql   (per-tenant settings; retires the'
+PRINT '    antibiotic mode column 012 added)'
 PRINT ''
 PRINT 'Or enable SQLCMD mode in SSMS (Query > SQLCMD Mode)'
 PRINT 'and uncomment the :r commands above to run all at once.'

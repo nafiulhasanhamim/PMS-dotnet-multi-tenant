@@ -20,7 +20,21 @@ public class DeadStockModel : PmsPageModel
     public DeadStockModel(PmsApiClient api) => _api = api;
 
     /// <summary>Mirrors the server's <c>StockPolicy.SelectableDeadStockThresholds</c>.</summary>
-    public static readonly int[] Thresholds = [30, 60, 90, 180];
+    public static readonly int[] StandardThresholds = [30, 60, 90, 180];
+
+    /// <summary>
+    /// What the dropdown offers: the four standard thresholds plus this pharmacy's own, where
+    /// that is something else. Same rule as the expiring-soon page's windows, and for the same
+    /// reason - a configured value the screen cannot show is a settings page nothing honours.
+    /// </summary>
+    public IReadOnlyList<int> Thresholds =>
+        StandardThresholds.Contains(ConfiguredThresholdDays)
+            ? StandardThresholds
+            : StandardThresholds.Append(ConfiguredThresholdDays).Order().ToList();
+
+    /// <summary>The pharmacy's configured threshold, which is what naming none falls back to.</summary>
+    public int ConfiguredThresholdDays { get; private set; } =
+        TenantSettings.Fallback.DeadStockThresholdDays;
 
     [BindProperty(SupportsGet = true, Name = "days")]
     public int? ThresholdDays { get; set; }
@@ -48,7 +62,11 @@ public class DeadStockModel : PmsPageModel
         // Echo back what the server actually applied, not what was asked for. The two differ
         // whenever somebody edits the query string, and a filter control showing the rejected
         // value would describe the table wrongly.
+        // The API echoes back the threshold it actually used, which is the pharmacy's own
+        // when the caller named none. Both are taken from it so the heading and the dropdown
+        // agree with the rows beneath them.
         ThresholdDays = Report.ThresholdDays;
+        ConfiguredThresholdDays = Report.ThresholdDays;
 
         return Page();
     }

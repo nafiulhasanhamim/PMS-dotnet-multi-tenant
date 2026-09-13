@@ -1,3 +1,5 @@
+using PMS.Application.Common.Settings;
+using PMS.Domain.Enums;
 using System.Globalization;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
@@ -32,12 +34,12 @@ namespace PMS.WebApi.Controllers;
 public class AntibioticsController : ApiControllerBase
 {
     private readonly IAntibioticQueries _antibiotics;
-    private readonly ITenantSettings _settings;
+    private readonly ISettingsService _settings;
     private readonly IDateTime _clock;
 
     public AntibioticsController(
         IAntibioticQueries antibiotics,
-        ITenantSettings settings,
+        ISettingsService settings,
         IDateTime clock)
     {
         _antibiotics = antibiotics;
@@ -99,8 +101,9 @@ public class AntibioticsController : ApiControllerBase
         CancellationToken cancellationToken = default)
     {
         var (from, to) = RegisterRange.Resolve(dateFrom, dateTo, _clock.UtcDateToday());
-        var mode = await _settings.GetAntibioticModeAsync(cancellationToken);
-        var pharmacy = await _settings.GetPharmacyNameAsync(cancellationToken);
+        var mode = await _settings.GetEnumAsync<AntibioticPrescriptionMode>(
+            SettingKeys.AntibioticPrescriptionMode, cancellationToken);
+        var pharmacy = await _settings.GetStringAsync(SettingKeys.PharmacyName, cancellationToken);
 
         Response.ContentType = "text/csv; charset=utf-8";
         Response.Headers.ContentDisposition =

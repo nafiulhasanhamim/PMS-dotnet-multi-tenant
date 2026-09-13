@@ -2,6 +2,7 @@ using MediatR;
 using PMS.Application.Common.Billing;
 using PMS.Application.Common.DTOs;
 using PMS.Application.Common.Security;
+using PMS.Application.Common.Settings;
 using PMS.Application.Interfaces;
 using PMS.Domain.Enums;
 using PMS.SharedKernel.Interfaces;
@@ -14,10 +15,10 @@ public sealed class GetSellableProductsQueryHandler
 {
     private readonly ISaleQueries _sales;
     private readonly ICurrentUserService _currentUser;
-    private readonly ITenantSettings _settings;
+    private readonly ISettingsService _settings;
 
     public GetSellableProductsQueryHandler(
-        ISaleQueries sales, ICurrentUserService currentUser, ITenantSettings settings)
+        ISaleQueries sales, ICurrentUserService currentUser, ISettingsService settings)
     {
         _sales = sales;
         _currentUser = currentUser;
@@ -36,7 +37,8 @@ public sealed class GetSellableProductsQueryHandler
         // rule — Module 7. Under Off and Optional this is true for every role, so nothing is
         // greyed and nobody is fetched.
         var role = _currentUser.TenantRole();
-        var mode = await _settings.GetAntibioticModeAsync(cancellationToken);
+        var mode = await _settings.GetEnumAsync<AntibioticPrescriptionMode>(
+            SettingKeys.AntibioticPrescriptionMode, cancellationToken);
 
         var mayDispenseAntibiotics =
             role is not null && BillingPolicy.MaySellAntibiotics(role.Value, mode);

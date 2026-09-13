@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using PMS.Application.Common.Billing;
 using PMS.Application.Common.DTOs;
 using PMS.Application.Common.Security;
+using PMS.Application.Common.Settings;
 using PMS.Application.Common.Units;
 using PMS.Application.Features.Sales.Specifications;
 using PMS.Application.Interfaces;
@@ -38,7 +39,7 @@ public sealed class CompleteSaleCommandHandler
     private readonly IRepository<Product, IApplicationDbContext> _products;
     private readonly IRepository<Sale, IApplicationDbContext> _sales;
     private readonly IStockQueries _stock;
-    private readonly ITenantSettings _settings;
+    private readonly ISettingsService _settings;
     private readonly IInvoiceNumberGenerator _invoiceNumbers;
     private readonly IUnitOfWork<IApplicationDbContext> _unitOfWork;
     private readonly ICurrentUserService _currentUser;
@@ -49,7 +50,7 @@ public sealed class CompleteSaleCommandHandler
         IRepository<Product, IApplicationDbContext> products,
         IRepository<Sale, IApplicationDbContext> sales,
         IStockQueries stock,
-        ITenantSettings settings,
+        ISettingsService settings,
         IInvoiceNumberGenerator invoiceNumbers,
         IUnitOfWork<IApplicationDbContext> unitOfWork,
         ICurrentUserService currentUser,
@@ -101,9 +102,10 @@ public sealed class CompleteSaleCommandHandler
         // Read from the pharmacy, once, and never assumed. Module 7 made both antibiotic rules
         // below conditional on it, and a handler that defaulted to Required would block a
         // pharmacy that had deliberately chosen otherwise; one that defaulted to Off would
-        // quietly let an Employee dispense at a Model Pharmacy. ITenantSettings caches it for
+        // quietly let an Employee dispense at a Model Pharmacy. ISettingsService caches it for
         // the life of the request, so asking per cart item costs one query.
-        var mode = await _settings.GetAntibioticModeAsync(ct);
+        var mode = await _settings.GetEnumAsync<AntibioticPrescriptionMode>(
+            SettingKeys.AntibioticPrescriptionMode, ct);
 
         // ── 1. The products, and every reason one cannot be sold ────────────────────────
         var productIds = request.Items.Select(item => item.ProductId).Distinct().ToList();
@@ -271,7 +273,12 @@ public sealed class CompleteSaleCommandHandler
         {
             var amount = SaleMath.DiscountAmountFor(sale.Subtotal, discountType, discountValue);
 
-            if (!BillingPolicy.IsDiscountAllowed(role, sale.Subtotal, amount))
+            // The pharmacy's own caps since Module 10. Read here rather than trusted from the
+            // billing screen: the screen's helper text and its client-side check are a courtesy,
+            // and this is the control.
+            var caps = await DiscountCaps.FromSettingsAsync(_settings, ct);
+
+            if (!BillingPolicy.IsDiscountAllowed(role, sale.Subtotal, amount, caps))
             {
                 _logger.LogWarning(
                     "Sale refused: {Role} {UserId} attempted a discount of {Amount} on a "
@@ -280,7 +287,7 @@ public sealed class CompleteSaleCommandHandler
 
                 return Result.Failure<SaleCompletedDto>(Error.Validation(
                     nameof(CompleteSaleCommand.DiscountValue),
-                    BillingPolicy.DiscountRefusalMessage(role, sale.Subtotal)));
+                    BillingPolicy.DiscountRefusalMessage(role, sale.Subtotal, caps)));
             }
 
             sale.ApplyDiscount(discountType, discountValue);

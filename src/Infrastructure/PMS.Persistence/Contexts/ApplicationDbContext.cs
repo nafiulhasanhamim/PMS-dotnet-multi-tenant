@@ -154,6 +154,17 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     // would give it a tenant query filter that the generator would then have to bypass. See
     // that class for the reasoning.
 
+    // ── Settings (Module 10) ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// One configurable value per pharmacy, keyed by name. Tenant-scoped by convention, which is
+    /// what makes two pharmacies' discount caps independent without a call site passing an id.
+    ///
+    /// <para>Read through <c>ISettingsService</c>, never directly by a handler: values are stored
+    /// as text and the casting lives in exactly one place. See <c>AppSetting</c>.</para>
+    /// </summary>
+    public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+
     // ── Salary management (Module 9) ─────────────────────────────────────────────────────
 
     /// <summary>

@@ -1,3 +1,4 @@
+using PMS.Application.Common.Settings;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,11 +44,11 @@ namespace PMS.WebApi.Controllers;
 public class ReportsController : ApiControllerBase
 {
     private readonly IReportQueries _reports;
-    private readonly ITenantSettings _settings;
+    private readonly ISettingsService _settings;
     private readonly IDateTime _clock;
 
     public ReportsController(
-        IReportQueries reports, ITenantSettings settings, IDateTime clock)
+        IReportQueries reports, ISettingsService settings, IDateTime clock)
     {
         _reports = reports;
         _settings = settings;
@@ -338,7 +339,13 @@ public class ReportsController : ApiControllerBase
         [FromQuery] ProductType? productType = null,
         CancellationToken cancellationToken = default)
     {
-        var threshold = StockPolicy.CoerceDeadStockThreshold(thresholdDays);
+        // The pharmacy's own threshold since Module 10 - the same one the JSON endpoint
+        // coerces against, so the export and the screen cannot disagree about what "dead"
+        // means.
+        var threshold = StockPolicy.CoerceDeadStockThreshold(
+            thresholdDays,
+            await _settings.GetIntAsync(
+                SettingKeys.DeadStockThresholdDays, cancellationToken));
 
         await using var writer = await BeginCsvAsync(
             $"dead-stock-{threshold}-days",
@@ -589,7 +596,7 @@ public class ReportsController : ApiControllerBase
     private async Task<StreamWriter> BeginCsvAsync(
         string fileName, string title, string periodLine, CancellationToken cancellationToken)
     {
-        var pharmacy = await _settings.GetPharmacyNameAsync(cancellationToken);
+        var pharmacy = await _settings.GetStringAsync(SettingKeys.PharmacyName, cancellationToken);
 
         Response.ContentType = "text/csv; charset=utf-8";
         Response.Headers.ContentDisposition = $"attachment; filename=\"{fileName}.csv\"";

@@ -6,10 +6,12 @@
     var period = new DateOnly(slip.Year, slip.Month, 1).ToString("MMMM yyyy");
     ViewData["Title"] = $"Salary slip - {slip.EmployeeName}, {period}";
 
-    // Placeholder pharmacy details, exactly as the invoice carries them. Module 10's settings is
-    // where these become configurable; hard-coding them keeps the one place they move from
-    // obvious.
-    var pharmacyName = User.TenantName() ?? "Pharmacy";
+    // Configurable since Module 10, exactly as the invoice's are. The cookie's tenant name is
+    // the fallback for a settings call that failed.
+    var pharmacy = Model.Pharmacy;
+    var pharmacyName = string.IsNullOrWhiteSpace(pharmacy.PharmacyName)
+        ? User.TenantName() ?? "Pharmacy"
+        : pharmacy.PharmacyName;
 }
 
 <div class="pms-page-header pms-no-print">
@@ -49,8 +51,14 @@
         <div>
             <p class="pms-invoice__pharmacy">@pharmacyName</p>
             <p class="pms-help mb-0">
-                Address line one, Dhaka<br />
-                Phone 01700-000000
+                @if (pharmacy.HasAddress)
+                {
+                    @pharmacy.PharmacyAddress<br />
+                }
+                @if (pharmacy.HasPhone)
+                {
+                    <text>Phone @pharmacy.PharmacyPhone</text>
+                }
             </p>
         </div>
         <div class="pms-invoice__meta">

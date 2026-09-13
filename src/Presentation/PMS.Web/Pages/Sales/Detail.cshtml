@@ -5,10 +5,14 @@
     var sale = Model.Sale;
     ViewData["Title"] = $"Invoice {sale.InvoiceNumber}";
 
-    // Placeholder pharmacy details. A Settings module makes these configurable; hard-coding
-    // them here rather than inventing a half-settings table now keeps the one place they will
-    // move from obvious.
-    var pharmacyName = User.TenantName() ?? "Pharmacy";
+    // Module 10 made these configurable, and this is where the placeholders used to be. The
+    // page model loads them from settings; the cookie's tenant name is the fallback for a
+    // settings call that failed, because an invoice with no pharmacy name on it is not one
+    // anybody can hand to a customer.
+    var pharmacy = Model.Pharmacy;
+    var pharmacyName = string.IsNullOrWhiteSpace(pharmacy.PharmacyName)
+        ? User.TenantName() ?? "Pharmacy"
+        : pharmacy.PharmacyName;
 }
 
 <div class="pms-page-header pms-no-print">
@@ -48,9 +52,20 @@
     <header class="pms-invoice__head">
         <div>
             <p class="pms-invoice__pharmacy">@pharmacyName</p>
-            <p class="pms-form-help mb-0">
-                Address line one, Dhaka<br />
-                Phone 01700-000000
+            <p class="pms-help mb-0">
+                @if (pharmacy.HasAddress)
+                {
+                    @pharmacy.PharmacyAddress<br />
+                }
+                @if (pharmacy.HasPhone)
+                {
+                    <text>Phone @pharmacy.PharmacyPhone</text>
+                }
+                @if (pharmacy.HasLicense)
+                {
+                    <br />
+                    <text>Drug licence @pharmacy.PharmacyLicenseNumber</text>
+                }
             </p>
         </div>
         <div class="pms-invoice__meta">

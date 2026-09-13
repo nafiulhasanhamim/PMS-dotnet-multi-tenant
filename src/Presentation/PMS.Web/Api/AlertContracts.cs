@@ -105,8 +105,12 @@ public sealed record AlertSummary(
     /// An empty summary, used when the call fails. A dashboard that renders four zeroes and a
     /// banner is better than one that renders nothing: the rest of the page still works, and the
     /// alternative is a failed alert lookup taking down the screen everything else lives on.
+    ///
+    /// <para>The window is <c>TenantSettings.Fallback</c>'s, not the pharmacy's - fetching the
+    /// pharmacy's is exactly what failed. Every screen using this is already saying so.</para>
     /// </summary>
-    public static AlertSummary Empty { get; } = new(0, 0, 0, 0, 90, null);
+    public static AlertSummary Empty { get; } =
+        new(0, 0, 0, 0, TenantSettings.Fallback.ExpiryAlertWindowDays, null);
 
     /// <summary>What the sidebar badge counts: the two categories that need action today.</summary>
     public int UrgentCount => Expired + OutOfStock;

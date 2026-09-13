@@ -70,7 +70,12 @@ public sealed class ProductFormInput
 
     public decimal? PricePerLarge { get; set; }
 
-    public int ReorderLevel { get; set; } = 100;
+    /// <summary>
+    /// Where the low-stock alert fires. <b>No initialiser since Module 10</b> - a new product's
+    /// starting value comes from the pharmacy's <c>default_reorder_level</c> setting, applied by
+    /// the factories below, and an existing product's comes from the product.
+    /// </summary>
+    public int ReorderLevel { get; set; }
 
     public string? ShelfLocation { get; set; }
 
@@ -177,7 +182,17 @@ public sealed class ProductFormInput
     };
 
     /// <summary>Pre-fills from a catalogue entry, for the import review step.</summary>
-    public static ProductFormInput FromCatalog(CatalogMedicineSearchItem entry) => new()
+    /// <param name="defaultReorderLevel">From settings; see <see cref="NewFor"/>.</param>
+    public static ProductFormInput FromCatalog(
+        CatalogMedicineSearchItem entry, int defaultReorderLevel)
+    {
+        var input = FromCatalogShape(entry);
+        input.ReorderLevel = defaultReorderLevel;
+
+        return input;
+    }
+
+    private static ProductFormInput FromCatalogShape(CatalogMedicineSearchItem entry) => new()
     {
         ProductType = ProductType.Medicine,
         BrandName = entry.BrandName,
@@ -198,7 +213,20 @@ public sealed class ProductFormInput
     };
 
     /// <summary>A blank form for a new product of the given type, with a sensible preset.</summary>
-    public static ProductFormInput NewFor(ProductType type) => type switch
+    /// <param name="defaultReorderLevel">
+    /// From settings. Passed in rather than read here because this is a plain input record with
+    /// no services - and because that keeps "where does the default come from" a question with
+    /// one answer.
+    /// </param>
+    public static ProductFormInput NewFor(ProductType type, int defaultReorderLevel)
+    {
+        var input = NewForShape(type);
+        input.ReorderLevel = defaultReorderLevel;
+
+        return input;
+    }
+
+    private static ProductFormInput NewForShape(ProductType type) => type switch
     {
         ProductType.Medicine => new ProductFormInput
         {

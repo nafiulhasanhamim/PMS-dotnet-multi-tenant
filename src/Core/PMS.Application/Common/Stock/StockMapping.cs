@@ -24,7 +24,10 @@ public static class StockMapping
         Product product,
         bool includePurchasePrice,
         DateOnly today,
-        int expiringSoonWindowDays = StockPolicy.ExpiringSoonWindowDays)
+        // No default since Module 10. A default reaching for a constant is exactly how a
+        // caller forgets the window is configurable; required means the compiler asks every
+        // call site where its number came from.
+        int expiringSoonWindowDays)
     {
         var daysUntilExpiry = batch.DaysUntilExpiry(today);
 

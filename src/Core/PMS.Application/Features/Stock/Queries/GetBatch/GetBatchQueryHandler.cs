@@ -1,4 +1,5 @@
 using PMS.Application.Common.DTOs;
+using PMS.Application.Common.Settings;
 using PMS.Application.Common.Stock;
 using PMS.Application.Interfaces;
 using PMS.Domain.Entities;
@@ -11,11 +12,14 @@ namespace PMS.Application.Features.Stock.Queries.GetBatch;
 public sealed class GetBatchQueryHandler : IRequestHandler<GetBatchQuery, Result<BatchDto>>
 {
     private readonly IStockQueries _stock;
+    private readonly ISettingsService _settings;
     private readonly ILogger<GetBatchQueryHandler> _logger;
 
-    public GetBatchQueryHandler(IStockQueries stock, ILogger<GetBatchQueryHandler> logger)
+    public GetBatchQueryHandler(
+        IStockQueries stock, ISettingsService settings, ILogger<GetBatchQueryHandler> logger)
     {
         _stock = stock;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -25,7 +29,7 @@ public sealed class GetBatchQueryHandler : IRequestHandler<GetBatchQuery, Result
         var batch = await _stock.FindBatchAsync(
             request.BatchId,
             request.IncludePurchasePrices,
-            StockPolicy.ExpiringSoonWindowDays,
+            await _settings.GetIntAsync(SettingKeys.ExpiryAlertWindowDays, cancellationToken),
             cancellationToken);
 
         if (batch is null)

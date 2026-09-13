@@ -75,6 +75,9 @@ public class BulkSetupModel : PmsPageModel
             return redirect;
         }
 
+        var settings = await _api.GetSettingsAsync(ct);
+        var reorderLevel = (settings.Value ?? TenantSettings.Fallback).DefaultReorderLevel;
+
         Rows = Entries.Values
             .OrderBy(entry => entry.BrandName)
             .Select(entry => new BulkSetupRowInput
@@ -85,6 +88,12 @@ public class BulkSetupModel : PmsPageModel
                 // machine-derived; this is the screen where a pharmacist confirms it.
                 IsAntibiotic = entry.IsAntibiotic,
                 UsesSharedUnits = true,
+
+                // The pharmacy's own starting value since Module 10, on every row. Setting two
+                // hundred medicines up at once is exactly when a sensible default earns its
+                // keep - and exactly when nobody wants to type the same number two hundred
+                // times.
+                ReorderLevel = reorderLevel,
             })
             .ToList();
 
@@ -306,7 +315,12 @@ public sealed class BulkSetupRowInput
 
     public decimal? PricePerLarge { get; set; }
 
-    public int ReorderLevel { get; set; } = 100;
+    /// <summary>
+    /// Where the low-stock alert fires for this medicine. <b>No initialiser since Module 10</b> -
+    /// the grid fills every row from the pharmacy's <c>default_reorder_level</c> setting, and the
+    /// person editing the grid can change any of them.
+    /// </summary>
+    public int ReorderLevel { get; set; }
 
     /// <summary>Whether every level this row defines has a price.</summary>
     public bool HasAllPrices =>

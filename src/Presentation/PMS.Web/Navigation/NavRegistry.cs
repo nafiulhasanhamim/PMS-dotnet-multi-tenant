@@ -158,6 +158,14 @@ public static class NavRegistry
         new NavItem("Users", "/Users/Index", "people",
             Roles: new[] { UserRole.Admin }),
 
+        // Module 10. Admin only: reading settings is open to every role - a till needs the
+        // discount caps, an invoice needs the pharmacy's phone - but the values here decide what
+        // staff may sell and what they may discount, which is an owner's call. Near the bottom
+        // because it is configured once and then rarely opened.
+        new NavItem("Settings", "/Settings/Index", "sliders",
+            Roles: new[] { UserRole.Admin },
+            MatchPrefix: "/settings"),
+
         new NavItem("My profile", "/Account", "person"),
     };
 

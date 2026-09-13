@@ -33,9 +33,11 @@ public class CreateModel : ProductWritePageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
+        var reorderLevel = await DefaultReorderLevelAsync(_api, ct);
+
         if (CatalogId is null)
         {
-            Input = ProductFormInput.NewFor(ProductType.Medicine);
+            Input = ProductFormInput.NewFor(ProductType.Medicine, reorderLevel);
             return Page();
         }
 
@@ -53,12 +55,12 @@ public class CreateModel : ProductWritePageModel
             // the medicine still needs adding.
             ShowError("That catalog entry could not be loaded. You can still add the medicine "
                       + "manually below.");
-            Input = ProductFormInput.NewFor(ProductType.Medicine);
+            Input = ProductFormInput.NewFor(ProductType.Medicine, reorderLevel);
             return Page();
         }
 
         FromCatalog = entry.Value;
-        Input = ProductFormInput.FromCatalog(entry.Value);
+        Input = ProductFormInput.FromCatalog(entry.Value, reorderLevel);
 
         return Page();
     }

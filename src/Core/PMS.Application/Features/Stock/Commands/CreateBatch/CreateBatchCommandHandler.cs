@@ -1,4 +1,5 @@
 using PMS.Application.Common.DTOs;
+using PMS.Application.Common.Settings;
 using PMS.Application.Common.Stock;
 using PMS.Application.Common.Units;
 using PMS.Application.Interfaces;
@@ -20,6 +21,7 @@ public sealed class CreateBatchCommandHandler
     private readonly IStockQueries _stock;
     private readonly IUnitOfWork<IApplicationDbContext> _unitOfWork;
     private readonly IDateTime _clock;
+    private readonly ISettingsService _settings;
     private readonly ILogger<CreateBatchCommandHandler> _logger;
 
     public CreateBatchCommandHandler(
@@ -28,6 +30,7 @@ public sealed class CreateBatchCommandHandler
         IStockQueries stock,
         IUnitOfWork<IApplicationDbContext> unitOfWork,
         IDateTime clock,
+        ISettingsService settings,
         ILogger<CreateBatchCommandHandler> logger)
     {
         _products = products;
@@ -35,6 +38,7 @@ public sealed class CreateBatchCommandHandler
         _stock = stock;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -175,8 +179,12 @@ public sealed class CreateBatchCommandHandler
                 product.BaseUnitName, product.PricePerBase);
         }
 
+        var window = await _settings.GetIntAsync(
+            SettingKeys.ExpiryAlertWindowDays, cancellationToken);
+
         var dto = StockMapping.ToDto(
-            batch, product, includePurchasePrice: true, today: _clock.UtcDateToday());
+            batch, product, includePurchasePrice: true,
+            today: _clock.UtcDateToday(), expiringSoonWindowDays: window);
 
         return new BatchCreatedDto(
             dto,

@@ -2,6 +2,7 @@ using MediatR;
 using PMS.Application.Common.Billing;
 using PMS.Application.Common.DTOs;
 using PMS.Application.Common.Security;
+using PMS.Application.Common.Settings;
 using PMS.Application.Interfaces;
 using PMS.Domain.Enums;
 using PMS.SharedKernel.Interfaces;
@@ -13,10 +14,10 @@ public sealed class GetBillingLimitsQueryHandler
     : IRequestHandler<GetBillingLimitsQuery, Result<BillingLimitsDto>>
 {
     private readonly ICurrentUserService _currentUser;
-    private readonly ITenantSettings _settings;
+    private readonly ISettingsService _settings;
 
     public GetBillingLimitsQueryHandler(
-        ICurrentUserService currentUser, ITenantSettings settings)
+        ICurrentUserService currentUser, ISettingsService settings)
     {
         _currentUser = currentUser;
         _settings = settings;
@@ -32,14 +33,18 @@ public sealed class GetBillingLimitsQueryHandler
             return Result.Failure<BillingLimitsDto>(Error.Unauthorized("Not signed in."));
         }
 
-        var mode = await _settings.GetAntibioticModeAsync(cancellationToken);
+        var mode = await _settings.GetEnumAsync<AntibioticPrescriptionMode>(
+            SettingKeys.AntibioticPrescriptionMode, cancellationToken);
 
-        // Every figure comes from BillingPolicy or ITenantSettings, which are also what the
+        var caps = await DiscountCaps.FromSettingsAsync(_settings, cancellationToken);
+
+        // Every figure comes from BillingPolicy or ISettingsService, which are also what the
         // completion handler enforces. One source, two readers — the whole reason this endpoint
-        // exists rather than a constant in the web app.
+        // exists rather than a constant in the web app, and since Module 10 the reason the
+        // helper text moves the moment an Admin changes the cap.
         var limits = new BillingLimitsDto(
-            BillingPolicy.MaxDiscountPercentFor(role.Value),
-            BillingPolicy.DescribeCap(role.Value),
+            BillingPolicy.MaxDiscountPercentFor(role.Value, caps),
+            BillingPolicy.DescribeCap(role.Value, caps),
 
             // Role and mode together. Only Required keeps an Employee away from antibiotics;
             // this mirrors CompleteSaleCommandHandler.Blocked exactly, and the sale is refused

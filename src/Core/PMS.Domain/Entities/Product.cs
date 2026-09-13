@@ -173,8 +173,15 @@ public sealed class Product : BaseAuditableAggregateRoot<Guid>, ITenantEntity
 
     // ── Inventory settings ──────────────────────────────────────────────────────────────
 
-    /// <summary>Low-stock threshold, in base units.</summary>
-    public int ReorderLevel { get; private set; } = 100;
+    /// <summary>
+    /// Low-stock threshold, in base units.
+    ///
+    /// <para>No initialiser. Every path that creates a product supplies one - the constructor,
+    /// <c>SetInventory</c>, and EF materialising from the column - so a default here was never
+    /// observable, and since Module 10 the default for a NEW product belongs to the pharmacy's
+    /// <c>default_reorder_level</c> setting rather than to this class.</para>
+    /// </summary>
+    public int ReorderLevel { get; private set; }
 
     public string? ShelfLocation { get; private set; }
 

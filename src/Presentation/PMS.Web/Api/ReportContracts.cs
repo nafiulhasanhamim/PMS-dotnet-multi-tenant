@@ -145,8 +145,14 @@ public sealed record DeadStockSummary(
 public sealed record DeadStockPage(
     int ThresholdDays, ApiPage<DeadStockRow> Rows, DeadStockSummary Summary)
 {
+    /// <summary>
+    /// Used when the call fails. The threshold is <c>TenantSettings.Fallback</c>'s rather than
+    /// the pharmacy's, because fetching the pharmacy's is what failed.
+    /// </summary>
     public static DeadStockPage Empty { get; } = new(
-        90, ApiPage<DeadStockRow>.Empty, new DeadStockSummary(90, 0, 0, 0));
+        TenantSettings.Fallback.DeadStockThresholdDays,
+        ApiPage<DeadStockRow>.Empty,
+        new DeadStockSummary(TenantSettings.Fallback.DeadStockThresholdDays, 0, 0, 0));
 }
 
 // ── Sales per user ───────────────────────────────────────────────────────────────────────

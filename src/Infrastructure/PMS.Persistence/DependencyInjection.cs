@@ -77,7 +77,14 @@ public static class DependencyInjection
         // is scoped because its lifetime IS its cache - one read per request, so a change is in
         // force on the very next one. See that class.
         services.AddScoped<IAntibioticQueries, AntibioticQueries>();
-        services.AddScoped<ITenantSettings, TenantSettings>();
+        // Module 10. Scoped, and the scope IS the cache - see SettingsService for why
+        // nothing is held across requests. This replaced ITenantSettings, which read the
+        // antibiotic mode and the pharmacy name off the Tenant row; both are settings now.
+        services.AddScoped<ISettingsService, SettingsService>();
+
+        // Writes settings for a pharmacy that is NOT the caller's, on the platform
+        // tenant-creation path. See SettingsSeeder for why that needs its own seam.
+        services.AddScoped<ISettingsSeeder, SettingsSeeder>();
 
         // Module 4: suppliers and purchases. The balance service is registered before the two
         // query services because both depend on it — and it is the only place the outstanding

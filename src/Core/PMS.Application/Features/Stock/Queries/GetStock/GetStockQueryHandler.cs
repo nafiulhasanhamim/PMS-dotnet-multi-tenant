@@ -1,4 +1,5 @@
 using PMS.Application.Common.DTOs;
+using PMS.Application.Common.Settings;
 using PMS.Application.Common.Stock;
 using PMS.Application.Interfaces;
 using PMS.SharedKernel.Grid;
@@ -13,11 +14,16 @@ public sealed class GetStockQueryHandler
     private const int MaxPageSize = 200;
 
     private readonly IStockQueries _stock;
+    private readonly ISettingsService _settings;
     private readonly ILogger<GetStockQueryHandler> _logger;
 
-    public GetStockQueryHandler(IStockQueries stock, ILogger<GetStockQueryHandler> logger)
+    public GetStockQueryHandler(
+        IStockQueries stock,
+        ISettingsService settings,
+        ILogger<GetStockQueryHandler> logger)
     {
         _stock = stock;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -34,7 +40,7 @@ public sealed class GetStockQueryHandler
             request.StockStatus,
             request.ExpiryStatus,
             request.ProductType,
-            StockPolicy.ExpiringSoonWindowDays,
+            await _settings.GetIntAsync(SettingKeys.ExpiryAlertWindowDays, cancellationToken),
             page,
             pageSize,
             cancellationToken);

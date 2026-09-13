@@ -13,17 +13,20 @@ public sealed class CreateTenantCommandHandler
 {
     private readonly IIdentityQueries _identity;
     private readonly IRepository<Tenant, IApplicationDbContext> _tenants;
+    private readonly ISettingsSeeder _settingsSeeder;
     private readonly IUnitOfWork<IApplicationDbContext> _unitOfWork;
     private readonly ILogger<CreateTenantCommandHandler> _logger;
 
     public CreateTenantCommandHandler(
         IIdentityQueries identity,
         IRepository<Tenant, IApplicationDbContext> tenants,
+        ISettingsSeeder settingsSeeder,
         IUnitOfWork<IApplicationDbContext> unitOfWork,
         ILogger<CreateTenantCommandHandler> logger)
     {
         _identity = identity;
         _tenants = tenants;
+        _settingsSeeder = settingsSeeder;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -51,6 +54,15 @@ public sealed class CreateTenantCommandHandler
         var tenant = new Tenant(request.Name, request.DomainName, request.SubscriptionPlan);
         await _tenants.AddAsync(tenant, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Settings, immediately. A pharmacy whose settings were only created when somebody first
+        // opened the settings page would spend its first day on ISettingsService's fallbacks -
+        // working, but with the settings screen showing values that were not actually stored and
+        // a warning in the log for every read. Seeded here, its dashboard and its billing screen
+        // are correct before anyone signs in.
+        //
+        // After SaveChanges, because the seeder writes rows that reference this tenant id.
+        await _settingsSeeder.SeedAsync(tenant.Id, tenant.Name, cancellationToken);
 
         // A new pharmacy on the platform: rare, deliberate, and the root of every tenant id
         // that will appear in this file from now on. The stored domain is logged rather than

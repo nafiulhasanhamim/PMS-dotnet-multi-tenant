@@ -44,7 +44,7 @@
     <div class="report-filter">
         <label class="pms-form-label" for="days">Not sold in</label>
         <select class="form-select" id="days" name="days">
-            @foreach (var days in PMS.Web.Pages.Reports.DeadStockModel.Thresholds)
+            @foreach (var days in Model.Thresholds)
             {
                 <option value="@days" selected="@(days == summary.ThresholdDays)">
                     @days days

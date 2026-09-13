@@ -4,13 +4,18 @@ using PMS.Domain.Enums;
 namespace PMS.Application.Common.Billing;
 
 /// <summary>
-/// The numbers a pharmacy owner would want to change, in one place.
+/// What a role may discount, as a rule rather than as a number.
 ///
-/// <para><b>Hard-coded on purpose, and hard-coded in exactly one file.</b> A Settings module
-/// will eventually make these per-pharmacy, and the work of that module is then to replace this
-/// class rather than to hunt for the constants scattered through six handlers and four Razor
-/// pages. Every caller — the completion handler, the validator, the billing screen's helper
-/// text — reads them from here.</para>
+/// <para><b>Module 10 took the two numbers out of this class and left the rule behind.</b> The
+/// caps are per-pharmacy now and arrive as a <see cref="DiscountCaps"/> argument read from
+/// <c>ISettingsService</c>; the fallback defaults are declared once in <c>SettingKeys</c>.
+/// Gathering the constants here first is what made that a small change — every caller already
+/// came through these methods rather than comparing against a literal of its own.</para>
+///
+/// <para><b>Still pure functions, and that is the point.</b> The server-side check at sale
+/// completion, the refusal message the cashier reads and the helper text on the billing screen
+/// are the same rule evaluated three times. Passing the caps in rather than reading them here
+/// keeps that true and keeps the rule testable without a database.</para>
 ///
 /// <para><b>Why a cap at all.</b> A discount is the one control at the counter that moves money
 /// out of the business with no stock leaving the shelf, so it is where a counter clerk under
@@ -32,14 +37,15 @@ public static class BillingPolicy
     /// <summary>
     /// The most a role may discount, as a percentage of the subtotal. Null means no limit.
     ///
-    /// <para>An Admin is unlimited because an owner writing off a whole bill for a regular
-    /// customer is a legitimate thing an owner does, and a cap they can lift themselves is not
-    /// a control.</para>
+    /// <para><b>An Admin is unlimited, and that is not configurable.</b> An owner writing off a
+    /// whole bill for a regular customer is a legitimate thing an owner does, and a cap they can
+    /// lift themselves is not a control — so there is no <c>discount_cap_admin_percent</c>
+    /// setting and there should not be one.</para>
     /// </summary>
-    public static decimal? MaxDiscountPercentFor(UserRole role) => role switch
+    public static decimal? MaxDiscountPercentFor(UserRole role, DiscountCaps caps) => role switch
     {
-        UserRole.Employee => 5m,
-        UserRole.Pharmacist => 10m,
+        UserRole.Employee => caps.EmployeePercent,
+        UserRole.Pharmacist => caps.PharmacistPercent,
         UserRole.Admin => null,
 
         // A platform operator has no membership at a pharmacy and so cannot reach a till at
@@ -57,9 +63,10 @@ public static class BillingPolicy
     /// button. On a ৳500 bill an Employee may take off at most ৳25, however they express
     /// it.</para>
     /// </summary>
-    public static decimal? MaxDiscountAmountFor(UserRole role, decimal subtotal)
+    public static decimal? MaxDiscountAmountFor(
+        UserRole role, decimal subtotal, DiscountCaps caps)
     {
-        var percent = MaxDiscountPercentFor(role);
+        var percent = MaxDiscountPercentFor(role, caps);
 
         return percent is null ? null : SaleMath.Round(subtotal * percent.Value / 100m);
     }
@@ -68,9 +75,10 @@ public static class BillingPolicy
     /// Whether this role may take <paramref name="discountAmount"/> off
     /// <paramref name="subtotal"/>.
     /// </summary>
-    public static bool IsDiscountAllowed(UserRole role, decimal subtotal, decimal discountAmount)
+    public static bool IsDiscountAllowed(
+        UserRole role, decimal subtotal, decimal discountAmount, DiscountCaps caps)
     {
-        var cap = MaxDiscountAmountFor(role, subtotal);
+        var cap = MaxDiscountAmountFor(role, subtotal, caps);
 
         return cap is null || discountAmount <= cap.Value;
     }
@@ -82,10 +90,11 @@ public static class BillingPolicy
     /// a customer waiting means calling someone over. The taka figure is the one they can act
     /// on; the percentage is the one that explains why.</para>
     /// </summary>
-    public static string DiscountRefusalMessage(UserRole role, decimal subtotal)
+    public static string DiscountRefusalMessage(
+        UserRole role, decimal subtotal, DiscountCaps caps)
     {
-        var percent = MaxDiscountPercentFor(role);
-        var cap = MaxDiscountAmountFor(role, subtotal);
+        var percent = MaxDiscountPercentFor(role, caps);
+        var cap = MaxDiscountAmountFor(role, subtotal, caps);
 
         if (percent is null || cap is null)
         {
@@ -112,9 +121,9 @@ public static class BillingPolicy
         || role is UserRole.Admin or UserRole.Pharmacist;
 
     /// <summary>The cap as helper text for the billing screen — "Max discount: 10%".</summary>
-    public static string DescribeCap(UserRole role)
+    public static string DescribeCap(UserRole role, DiscountCaps caps)
     {
-        var percent = MaxDiscountPercentFor(role);
+        var percent = MaxDiscountPercentFor(role, caps);
 
         return percent is null
             ? "No discount limit"

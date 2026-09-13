@@ -1,3 +1,4 @@
+using PMS.Application.Common.Settings;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
 using PMS.Application.Common.DTOs;
@@ -27,9 +28,9 @@ namespace PMS.Persistence.Services;
 public sealed class AntibioticQueries : IAntibioticQueries
 {
     private readonly ApplicationDbContext _context;
-    private readonly ITenantSettings _settings;
+    private readonly ISettingsService _settings;
 
-    public AntibioticQueries(ApplicationDbContext context, ITenantSettings settings)
+    public AntibioticQueries(ApplicationDbContext context, ISettingsService settings)
     {
         _context = context;
         _settings = settings;
@@ -191,7 +192,8 @@ public sealed class AntibioticQueries : IAntibioticQueries
 
         var returned = await ReturnedTotalAsync(query, cancellationToken);
         var units = await DistinctBaseUnitsAsync(query, cancellationToken);
-        var mode = await _settings.GetAntibioticModeAsync(cancellationToken);
+        var mode = await _settings.GetEnumAsync<AntibioticPrescriptionMode>(
+            SettingKeys.AntibioticPrescriptionMode, cancellationToken);
 
         return new AntibioticRegisterSummaryDto(
             totals?.Rows ?? 0,

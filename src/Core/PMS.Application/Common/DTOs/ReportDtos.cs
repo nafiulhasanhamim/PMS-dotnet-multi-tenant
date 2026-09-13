@@ -251,4 +251,18 @@ public sealed record SupplierDuesReportDto(
     public int OwingCount => Rows.Count(r => r.Balance.IsOwing);
 
     public int OverpaidCount => Rows.Count(r => r.Balance.IsOverpaid);
+
+    /// <summary>
+    /// What suppliers are holding of the pharmacy's money, across the ones in credit.
+    ///
+    /// <para>Reported beside <see cref="TotalOutstanding"/> rather than folded into it, because
+    /// the net alone hides a real fact: "you owe 4,000" reads differently when 1,500 of it is
+    /// already sitting with a distributor who owes it back. Module 10's dashboard card shows both.
+    /// </para>
+    ///
+    /// <para>Positive by construction - <c>CreditAvailable</c> is the magnitude of a negative
+    /// outstanding, never a sign.</para>
+    /// </summary>
+    public decimal TotalCreditHeld =>
+        Rows.Where(r => r.Balance.IsOverpaid).Sum(r => r.Balance.CreditAvailable);
 }

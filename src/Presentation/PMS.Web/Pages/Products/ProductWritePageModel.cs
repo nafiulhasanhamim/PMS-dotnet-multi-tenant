@@ -43,6 +43,21 @@ public abstract class ProductWritePageModel : PmsPageModel
     protected override string? ConflictField => nameof(ProductFormInput.BrandName);
 
     /// <summary>
+    /// The pharmacy's starting reorder level for a new product, from settings.
+    ///
+    /// <para>Falls back to <c>TenantSettings.Fallback</c> if the call fails: a create form that
+    /// refused to open because a setting could not be read would be a poor trade for a number the
+    /// person can type over anyway.</para>
+    /// </summary>
+    protected static async Task<int> DefaultReorderLevelAsync(
+        PmsApiClient api, CancellationToken ct)
+    {
+        var settings = await api.GetSettingsAsync(ct);
+
+        return (settings.Value ?? TenantSettings.Fallback).DefaultReorderLevel;
+    }
+
+    /// <summary>
     /// Client-side checks that mirror the server's, so an obvious mistake does not need a
     /// round trip. The API remains authoritative — anything it rejects lands on the same
     /// inputs through <see cref="PmsPageModel.ApplyProblem"/>.

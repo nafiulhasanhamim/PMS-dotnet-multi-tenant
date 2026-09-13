@@ -1,4 +1,5 @@
 using PMS.Application.Common.DTOs;
+using PMS.Application.Common.Settings;
 using PMS.Application.Common.Stock;
 using PMS.Application.Interfaces;
 using PMS.Domain.Entities;
@@ -12,12 +13,16 @@ public sealed class GetProductStockQueryHandler
     : IRequestHandler<GetProductStockQuery, Result<ProductStockDto>>
 {
     private readonly IStockQueries _stock;
+    private readonly ISettingsService _settings;
     private readonly ILogger<GetProductStockQueryHandler> _logger;
 
     public GetProductStockQueryHandler(
-        IStockQueries stock, ILogger<GetProductStockQueryHandler> logger)
+        IStockQueries stock,
+        ISettingsService settings,
+        ILogger<GetProductStockQueryHandler> logger)
     {
         _stock = stock;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -30,7 +35,7 @@ public sealed class GetProductStockQueryHandler
         var stock = await _stock.GetProductStockAsync(
             request.ProductId,
             request.IncludePurchasePrices,
-            StockPolicy.ExpiringSoonWindowDays,
+            await _settings.GetIntAsync(SettingKeys.ExpiryAlertWindowDays, cancellationToken),
             page,
             pageSize,
             cancellationToken);
