@@ -1,0 +1,42 @@
+# What never belongs in the build context.
+#
+# bin/ and obj/ are the ones that matter. Copying a host build into the image poisons the
+# restore: NuGet finds project.assets.json from a Windows SDK and the Linux publish either
+# reuses the wrong graph or fails outright. They are also, by a distance, the largest thing
+# in this repository.
+
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/*.user
+**/*.suo
+
+# Local build outputs from the scratch harnesses — bo-api, bo-web and friends.
+bo-*/
+
+# Not built here, and 60 MB of Python besides.
+PMS_Python/
+
+# The Dockerfile copies only src/. These are listed anyway so `docker build` does not ship them
+# to the daemon in the first place.
+tests/
+tools/
+docs/
+database/
+
+# Secrets and local overrides. appsettings.Development.json is excluded deliberately: the
+# container is configured by environment variable, and baking a developer's connection string
+# into an image is how a production container ends up pointed at a laptop.
+**/appsettings.Development.json
+**/appsettings.Local.json
+.env
+*.pfx
+*.key
+
+.git/
+.gitignore
+.gitattributes
+**/README.md
+**/*.log

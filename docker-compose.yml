@@ -1,13 +1,221 @@
-version: '3.8'
+# =============================================================================================
+# The whole stack: database, schema, API, frontend, telemetry.
+#
+#   docker compose up --build          then http://popular-pharmacy.localhost:8080
+#
+# Both app services build from the SAME Dockerfile, selecting a different `target`. See the
+# comment at the top of that file for why one file rather than two.
+#
+# WHY THIS RUNS AS Development, AND WHAT THAT COSTS
+# -------------------------------------------------
+# Nothing in this stack terminates TLS. Outside Development the frontend turns on
+# UseHttpsRedirection, HSTS, and CookieSecurePolicy.Always — so over plain HTTP every request
+# would 307 and the sign-in cookie would never be sent back. The result is a stack that starts
+# cleanly and cannot be logged into.
+#
+# It is not an arbitrary choice either: a pharmacy is reached at its own subdomain, and the
+# ASP.NET development certificate covers "localhost" only, not "popular-pharmacy.localhost".
+# Running this over HTTPS needs a wildcard certificate, which is a deployment concern rather
+# than a docker-compose one.
+#
+# So this file is a LOCAL stack, equivalent to pressing F5 on the Aspire host — not a
+# production topology. A real deployment puts a reverse proxy with a wildcard certificate in
+# front, sets ASPNETCORE_ENVIRONMENT=Production, and adds UseForwardedHeaders to both apps so
+# they can see the original scheme. That last part is a code change and is not done here.
+#
+# The API is the exception: its UseHttpsRedirection is unconditional, but it becomes a no-op
+# when no HTTPS port is configured, which is the case here. It runs Development only so Swagger
+# is available.
+#
+# THE DATABASE IS NOT THE ONE THE HARNESSES USE
+# ---------------------------------------------
+# The scratch harnesses talk to a local SQL Express instance. This stack brings up its own
+# SQL Server in a container with its own volume; the two never meet.
+# =============================================================================================
+
+# Not "pms": the Django stack next door uses that, and a shared project name makes Compose
+# treat the other stack's containers as orphans of this one.
+name: pms-dotnet
 
 services:
-  # Aspire Dashboard for OpenTelemetry visualization
-  aspire-dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
-    container_name: aspire-dashboard
-    ports:
-      - "18888:18888"  # Dashboard UI
-      - "4317:18889"   # OTLP gRPC endpoint (mapped to internal 18889)
+
+  # ── SQL Server ────────────────────────────────────────────────────────────────────────────
+  sql:
+    # Developer edition: free for development and test, NOT licensed for production use.
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pms-sql
     environment:
-      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Dev_Passw0rd!23}
+    ports:
+      # Exposed so SSMS or Azure Data Studio on the host can look at what the stack is doing.
+      #
+      # 14330 rather than 1433: a developer machine very often already has SQL Express or
+      # another stack on the default port, and a container that refuses to start because of
+      # it is a bad first impression. Override with SQL_PORT if 1433 is what you want.
+      - "${SQL_PORT:-14330}:1433"
+    volumes:
+      - pms-mssql:/var/opt/mssql
+    healthcheck:
+      # -C trusts the self-signed certificate the container generates; -b makes a failed query
+      # a non-zero exit rather than a printed error the healthcheck would treat as success.
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa
+          -P "$$MSSQL_SA_PASSWORD" -C -b -Q "SELECT 1" -o /dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     restart: unless-stopped
+
+  # ── Schema ────────────────────────────────────────────────────────────────────────────────
+  #
+  # Runs 001 through 016 in order, then exits. Everything downstream waits for it to exit
+  # successfully, so the API never starts against a database that has no tables.
+  #
+  # A service rather than something baked into the API's entrypoint, because schema is not the
+  # API's job: two API replicas starting at once would race each other through the same
+  # scripts. This runs exactly once per `up`.
+  #
+  # The scripts are bind-mounted rather than copied into an image — they are idempotent, so
+  # editing one and re-running `docker compose up` applies it without a rebuild. That is also
+  # why .dockerignore excludes database/ from the app build context.
+  migrations:
+    # The server image, not a tools image. There is no published mssql-tools18, and the server
+    # image already carries /opt/mssql-tools18/bin/sqlcmd — the same binary the healthcheck
+    # above uses. Reusing it costs no extra pull and cannot drift from the server's version.
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pms-migrations
+    depends_on:
+      sql:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Dev_Passw0rd!23}
+    volumes:
+      - ./database/scripts:/scripts:ro
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -euo pipefail
+        for script in /scripts/*.sql; do
+          name=$$(basename "$$script")
+          # 000 is a printed index of the others; 099 drops every table.
+          case "$$name" in 000_*|099_*) echo "skipping $$name"; continue;; esac
+          echo ">> $$name"
+          # -I is SET QUOTED_IDENTIFIER ON, which sqlcmd leaves OFF and which a filtered
+          # index needs in order to be created at all. Every script carrying one also
+          # declares it; this is the belt. -b turns a SQL error into a non-zero exit.
+          /opt/mssql-tools18/bin/sqlcmd \
+            -S sql -U sa -P "$$MSSQL_SA_PASSWORD" -C -I -b -i "$$script"
+        done
+        echo "schema up to date"
+    restart: "no"
+
+  # ── The API ───────────────────────────────────────────────────────────────────────────────
+  webapi:
+    build:
+      context: .
+      target: webapi
+    image: pms-webapi:latest
+    container_name: pms-webapi
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      sql:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+
+      # SQL authentication, not Trusted_Connection: appsettings.json uses Windows auth against
+      # a named instance, which means nothing inside a Linux container.
+      # One line on purpose. A folded scalar would fold the newlines to spaces, and a connection
+      # string with stray spaces around its separators parses today and is a puzzle later.
+      ConnectionStrings__DefaultConnection: "Server=sql,1433;Database=PMSDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Dev_Passw0rd!23};TrustServerCertificate=True;MultipleActiveResultSets=true"
+
+      # The API refuses to start without this, deliberately: a built-in default would mean
+      # anyone could mint a token for any pharmacy. Issuer, audience and lifetime all have
+      # working defaults, so this is the only one that has to be supplied.
+      #
+      # The fallback below is a DEVELOPMENT key and is committed in plain sight. Set
+      # JWT_SIGNING_KEY in .env for anything anyone else can reach.
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-dev-only-signing-key-change-me-at-least-32-bytes-long}
+
+      # Without a platform administrator nobody can create a pharmacy, so nobody can sign in at
+      # all — a fresh container database would come up unusable. Seeding is idempotent and
+      # never creates a second one.
+      PlatformAdmin__Enabled: "true"
+      PlatformAdmin__Email: ${PLATFORM_ADMIN_EMAIL:-platform@pms.local}
+      PlatformAdmin__FullName: Platform Administrator
+      PlatformAdmin__Password: ${PLATFORM_ADMIN_PASSWORD:-Platform@123}
+
+      # A pharmacy is reached at <domain>.localhost in this stack.
+      Tenancy__BaseDomain: ${TENANCY_BASE_DOMAIN:-localhost}
+
+      # Empty by default. ServiceDefaults adds the OTLP exporter only when this is set, so an
+      # empty value means no exporter and no connection errors in the log — rather than an app
+      # retrying against a dashboard nobody started. See .env.example for the two ways to fill
+      # it in: this stack's own dashboard, or one already running on the host.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: pms-webapi
+    ports:
+      - "${API_PORT:-8081}:8080"
+    restart: unless-stopped
+
+  # ── The Razor frontend ────────────────────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      target: web
+    image: pms-web:latest
+    container_name: pms-web
+    depends_on:
+      webapi:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+
+      # Service name, not localhost: the frontend holds no project reference to the API and
+      # reads its address from configuration — the same seam the Aspire host uses to inject it.
+      Api__BaseUrl: http://webapi:8080/
+
+      Tenancy__BaseDomain: ${TENANCY_BASE_DOMAIN:-localhost}
+      Display__TimeZone: ${DISPLAY_TIMEZONE:-Asia/Dhaka}
+
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: pms-web
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  # ── Telemetry (opt-in) ────────────────────────────────────────────────────────────────────
+  #
+  # NOT started by `docker compose up`. Two reasons, and the second is the important one:
+  #
+  #   1. Anyone who used the previous version of this file already has a standalone
+  #      aspire-dashboard container holding 18888 and 4317. Starting a second one fails with
+  #      "port is already allocated" — a collision between this stack and its own history.
+  #
+  #   2. A dashboard is not part of the application. The stack should come up without it.
+  #
+  # Turn it on with:   docker compose --profile telemetry up -d
+  # and set OTLP_ENDPOINT (see .env.example) so the apps actually export to it.
+  aspire-dashboard:
+    profiles: ["telemetry"]
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.0
+    container_name: pms-aspire-dashboard
+    ports:
+      - "${DASHBOARD_PORT:-18888}:18888"   # Dashboard UI
+      - "${OTLP_PORT:-4317}:18889"         # OTLP gRPC, for anything running on the host
+    environment:
+      # Local only. This dashboard shows request payloads and connection strings in traces.
+      DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    restart: unless-stopped
+
+volumes:
+  pms-mssql:

@@ -364,3 +364,6 @@ FodyWeavers.xsd
 # Data importer run artifacts. Timestamped per run, regenerated on demand, and the
 # findings that matter are written into docs/data/medicine-reference-catalog.md instead.
 import-reports/
+
+# Docker local overrides. .env.example is committed; this is not.
+.env

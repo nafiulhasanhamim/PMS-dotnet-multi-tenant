@@ -40,6 +40,15 @@
 USE [PMSDb];
 GO
 
+-- Filtered unique index below (one ACTIVE profile per user). sqlcmd defaults
+-- QUOTED_IDENTIFIER to OFF, which makes CREATE INDEX on a filtered index fail outright -
+-- so without these two lines this script creates the tables and then dies on the index.
+-- Every other script here that carries a filtered index says the same thing; 015 did not,
+-- and only ever ran under Invoke-Sqlcmd, which defaults it ON.
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+GO
+
 /* -- EmployeeSalaryProfiles ------------------------------------------------------------- */
 
 IF OBJECT_ID(N'[dbo].[EmployeeSalaryProfiles]', N'U') IS NULL

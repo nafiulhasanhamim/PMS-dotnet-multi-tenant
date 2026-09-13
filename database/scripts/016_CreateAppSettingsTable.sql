@@ -35,6 +35,13 @@
 USE [PMSDb];
 GO
 
+-- No filtered index in this script, but stated anyway so the whole folder behaves
+-- identically however it is run - and so a filtered index added here later cannot fail
+-- for a reason nobody would look for.
+SET ANSI_NULLS ON
+SET QUOTED_IDENTIFIER ON
+GO
+
 /* -- The table ---------------------------------------------------------------------------- */
 
 IF OBJECT_ID(N'[dbo].[AppSettings]', N'U') IS NULL
